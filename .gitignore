@@ -1,0 +1,9 @@
+seed/market_hub.db
+seed/export.sql
+seed/__pycache__/
+seed/*.pyc
+**/__pycache__/
+**/*.pyc
+.env
+.env.*
+node_modules/
