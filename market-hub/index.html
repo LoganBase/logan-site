@@ -563,7 +563,8 @@ async function loadRegimeChart(range) {
   try {
     await loadChartJS();
 
-    const res  = await fetch(`/api/history?symbol=SPY&range=${range}`);
+    const today = new Date().toISOString().slice(0, 10);
+    const res  = await fetch(`/api/history?symbol=SPY&range=${range}&d=${today}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const hist = await res.json();
     if (hist.error) throw new Error(hist.error);
