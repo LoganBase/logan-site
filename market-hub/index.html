@@ -265,6 +265,7 @@ body {
 .range-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .chart-wrap { position: relative; height: 260px; }
+.rsi-wrap   { position: relative; height: 90px; margin-top: 6px; }
 .chart-loading {
   position: absolute; inset: 0; display: flex; align-items: center;
   justify-content: center; color: var(--muted); font-size: 12px; gap: 10px;
@@ -353,6 +354,7 @@ body {
 <script>
 let lastData    = null;
 let regimeChart = null;
+let rsiChart    = null;
 let chartJsReady = false;
 
 // ── STATUS HELPERS ────────────────────────────────────────────────────────────
@@ -474,6 +476,9 @@ function openModal(card) {
       <div class="chart-wrap">
         <div class="chart-loading" id="chartLoading"><div class="spinner"></div> Loading chart…</div>
         <canvas id="regimeChart" style="display:none"></canvas>
+      </div>
+      <div class="rsi-wrap">
+        <canvas id="rsiChart" style="display:none"></canvas>
       </div>`;
   }
 
@@ -520,6 +525,7 @@ function openModal(card) {
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modal')) return;
   if (regimeChart) { regimeChart.destroy(); regimeChart = null; }
+  if (rsiChart)    { rsiChart.destroy();    rsiChart    = null; }
   document.getElementById('modal').classList.remove('open');
   document.body.style.overflow = '';
 }
@@ -562,7 +568,7 @@ async function loadRegimeChart(range) {
     const hist = await res.json();
     if (hist.error) throw new Error(hist.error);
 
-    const { dates, closes, sma200, vs200, summary } = hist;
+    const { dates, closes, sma200, vs200, rsi14, summary } = hist;
 
     // Update stat boxes
     const pctEl = document.getElementById('rPercentile');
@@ -667,6 +673,71 @@ async function loadRegimeChart(range) {
         },
       },
     });
+
+    // ── RSI BAR CHART ──────────────────────────────────────────────────────────
+    const rsiCanvasEl = document.getElementById('rsiChart');
+    if (rsiChart) { rsiChart.destroy(); rsiChart = null; }
+
+    function rsiColor(v) {
+      if (v == null) return 'rgba(100,116,139,.3)';
+      if (v > 70)   return '#ef4444'; // Overbought
+      if (v > 50)   return '#22c55e'; // Bullish Momentum
+      if (v > 40)   return '#64748b'; // Neutral
+      if (v > 30)   return '#f97316'; // Bearish Momentum
+      return '#a855f7';               // Oversold
+    }
+
+    if (rsiCanvasEl && rsi14) {
+      rsiCanvasEl.style.display = 'block';
+      rsiChart = new Chart(rsiCanvasEl.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: labelDates,
+          datasets: [{
+            data: rsi14,
+            backgroundColor: rsi14.map(rsiColor),
+            borderWidth: 0,
+            barPercentage: 1.0,
+            categoryPercentage: 1.0,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0d1520',
+              borderColor: '#1e2d3d',
+              borderWidth: 1,
+              titleColor: '#64748b',
+              bodyColor: '#e8edf5',
+              padding: 8,
+              callbacks: {
+                title: ctx => dates[ctx[0].dataIndex],
+                label: ctx => {
+                  const v = ctx.parsed.y;
+                  if (v == null) return null;
+                  const zone = v > 70 ? 'Overbought' : v > 50 ? 'Bullish Momentum'
+                    : v > 40 ? 'Neutral' : v > 30 ? 'Bearish Momentum' : 'Oversold';
+                  return ` RSI: ${v.toFixed(1)} — ${zone}`;
+                },
+              },
+            },
+          },
+          scales: {
+            x: { display: false },
+            y: {
+              min: 0, max: 100,
+              ticks: { color: '#64748b', font: { size: 9 }, stepSize: 30 },
+              grid:  { color: 'rgba(30,45,61,.4)' },
+            },
+          },
+        },
+      });
+    }
+
   } catch (err) {
     if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
   }

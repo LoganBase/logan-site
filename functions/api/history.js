@@ -49,7 +49,7 @@ function startDateFor(days) {
 async function fromD1(db, symbol, days) {
   const startDate = startDateFor(days);
   const { results } = await db.prepare(
-    `SELECT p.date, p.close, i.sma200, i.vs200_pct, i.roc10, i.percentile
+    `SELECT p.date, p.close, i.sma200, i.vs200_pct, i.roc10, i.rsi14, i.percentile
      FROM daily_prices p
      LEFT JOIN indicators i ON p.symbol = i.symbol AND p.date = i.date
      WHERE p.symbol = ? AND p.date >= ?
@@ -62,9 +62,10 @@ function buildFromD1Rows(symbol, range, rows) {
   const n      = rows.length;
   const dates  = rows.map(r => r.date);
   const closes = rows.map(r => r.close);
-  const sma200 = rows.map(r => r.sma200  ?? null);
+  const sma200 = rows.map(r => r.sma200    ?? null);
   const vs200  = rows.map(r => r.vs200_pct ?? null);
-  const roc10  = rows.map(r => r.roc10   ?? null);
+  const roc10  = rows.map(r => r.roc10     ?? null);
+  const rsi14  = rows.map(r => r.rsi14     ?? null);
 
   const currentVs200 = vs200[n - 1];
   const currentRoc10 = roc10[n - 1];
@@ -80,7 +81,7 @@ function buildFromD1Rows(symbol, range, rows) {
   }
 
   return {
-    symbol, range, dates, closes, sma200, vs200, roc10,
+    symbol, range, dates, closes, sma200, vs200, roc10, rsi14,
     summary: {
       currentClose:  closes[n - 1],
       currentSma200: sma200[n - 1],
@@ -91,6 +92,27 @@ function buildFromD1Rows(symbol, range, rows) {
       zone: zoneOf(currentVs200),
     },
   };
+}
+
+// ── MATH ──────────────────────────────────────────────────────────────────────
+function calcRsi(closes, period = 14) {
+  const n = closes.length;
+  const out = new Array(n).fill(null);
+  if (n < period + 1) return out;
+  let ag = 0, al = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) ag += d; else al -= d;
+  }
+  ag /= period; al /= period;
+  out[period] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  for (let i = period + 1; i < n; i++) {
+    const d = closes[i] - closes[i - 1];
+    ag = (ag * (period - 1) + Math.max(d, 0))  / period;
+    al = (al * (period - 1) + Math.max(-d, 0)) / period;
+    out[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+  }
+  return out;
 }
 
 // ── YAHOO FINANCE FALLBACK ────────────────────────────────────────────────────
@@ -151,8 +173,10 @@ async function fromYahoo(symbol, range, cfg) {
     }
   }
 
+  const rsi14 = calcRsi(closes);
+
   return {
-    symbol, range, dates, closes, sma200, vs200, roc10,
+    symbol, range, dates, closes, sma200, vs200, roc10, rsi14,
     summary: {
       currentClose:  closes[n - 1],
       currentSma200: sma200[n - 1],
