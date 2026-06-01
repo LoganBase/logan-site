@@ -295,7 +295,7 @@ body {
   </div>
   <div class="header-meta">
     <span class="ts" id="ts">—</span>
-    <button class="refresh-btn" id="refreshBtn" onclick="loadData()">&#8635; Refresh</button>
+    <button class="refresh-btn" id="refreshBtn" onclick="refreshAndLoad()">&#8635; Refresh</button>
   </div>
 </header>
 
@@ -669,8 +669,9 @@ function showError(msg) {
 }
 
 async function loadData() {
-  document.getElementById('refreshBtn').textContent = '…';
-  document.getElementById('refreshBtn').disabled = true;
+  const btn = document.getElementById('refreshBtn');
+  btn.textContent = '…';
+  btn.disabled = true;
   try {
     const res = await fetch('/api/scores');
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -682,9 +683,29 @@ async function loadData() {
   } catch (err) {
     showError(`Could not reach /api/scores — ${err.message}`);
   } finally {
-    document.getElementById('refreshBtn').textContent = '⟳ Refresh';
-    document.getElementById('refreshBtn').disabled = false;
+    btn.textContent = '⟳ Refresh';
+    btn.disabled = false;
   }
+}
+
+async function refreshAndLoad() {
+  const btn = document.getElementById('refreshBtn');
+  btn.disabled = true;
+  try {
+    btn.textContent = '⟳ Updating D1…';
+    const rr = await fetch('/api/refresh');
+    if (!rr.ok) throw new Error(`Refresh failed: HTTP ${rr.status}`);
+    const rd = await rr.json();
+    const added = rd.totalAdded ?? 0;
+    btn.textContent = added > 0 ? `✓ +${added} rows` : '✓ Up to date';
+    await new Promise(r => setTimeout(r, 800));
+  } catch (err) {
+    btn.textContent = '⚠ Refresh error';
+    await new Promise(r => setTimeout(r, 1200));
+  } finally {
+    btn.textContent = '…';
+  }
+  await loadData();
 }
 
 loadData();
