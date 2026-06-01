@@ -65,6 +65,56 @@ function pct(n, dec = 2) {
 function usd(n) { return n != null ? `US$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'; }
 function num(n, d = 1) { return n != null ? n.toFixed(d) : '—'; }
 
+// ── D1 SOURCE ─────────────────────────────────────────────────────────────────
+async function loadFromD1(db) {
+  try {
+    // Last 15 calendar days covers ~10 trading days — enough for 2 closes per symbol
+    const { results: priceRows } = await db.prepare(
+      `SELECT symbol, date, close FROM daily_prices
+       WHERE date >= DATE('now', '-15 days')
+       ORDER BY symbol, date DESC`
+    ).all();
+
+    // Latest indicator row per symbol
+    const { results: indRows } = await db.prepare(
+      `SELECT i.symbol, i.sma50, i.sma200, i.rsi14, i.vs200_pct
+       FROM indicators i
+       INNER JOIN (
+         SELECT symbol, MAX(date) as max_date FROM indicators GROUP BY symbol
+       ) latest ON i.symbol = latest.symbol AND i.date = latest.max_date`
+    ).all();
+
+    // Group closes by symbol (already DESC), keep top 2
+    const bySymbol = {};
+    for (const row of priceRows) {
+      if (!bySymbol[row.symbol]) bySymbol[row.symbol] = [];
+      if (bySymbol[row.symbol].length < 2) bySymbol[row.symbol].push(row.close);
+    }
+
+    const indMap = {};
+    for (const row of indRows) indMap[row.symbol] = row;
+
+    const q = {};
+    for (const [sym, closes] of Object.entries(bySymbol)) {
+      const ind = indMap[sym];
+      if (!ind || closes.length === 0) continue;
+      const price = closes[0];
+      const prev  = closes[1] ?? price;
+      q[sym] = {
+        symbol: sym,
+        price,
+        changePct: ((price - prev) / prev) * 100,
+        sma50:  ind.sma50,
+        sma200: ind.sma200,
+        rsi14:  ind.rsi14,
+        vs50:   ind.sma50  ? ((price - ind.sma50)  / ind.sma50)  * 100 : null,
+        vs200:  ind.vs200_pct,
+      };
+    }
+    return q;
+  } catch { return {}; }
+}
+
 // ── YAHOO FINANCE FETCH ───────────────────────────────────────────────────────
 async function fetchSymbol(symbol) {
   try {
@@ -482,15 +532,20 @@ export async function onRequest(context) {
     return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' } });
   }
 
-  // Batch-fetch all symbols (3 batches of ~20)
-  const batches = [];
-  for (let i = 0; i < ALL_SYMBOLS.length; i += 20)
-    batches.push(ALL_SYMBOLS.slice(i, i + 20));
+  // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1
+  const db  = context.env.DB;
+  const d1  = db ? await loadFromD1(db) : {};
+  const missing = ALL_SYMBOLS.filter(s => !d1[s]);
 
-  const q = {};
-  for (const batch of batches) {
-    const batchData = await fetchAll(batch);
-    Object.assign(q, batchData);
+  const q = { ...d1 };
+  if (missing.length > 0) {
+    const batches = [];
+    for (let i = 0; i < missing.length; i += 20)
+      batches.push(missing.slice(i, i + 20));
+    for (const batch of batches) {
+      const batchData = await fetchAll(batch);
+      Object.assign(q, batchData);
+    }
   }
 
   const cards = [

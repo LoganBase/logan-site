@@ -27,7 +27,7 @@ load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 SEED_YEARS = 20
 START      = (datetime.now() - timedelta(days=365 * SEED_YEARS)).strftime('%Y-%m-%d')
 END        = datetime.now().strftime('%Y-%m-%d')
-BATCH_SIZE = 200   # rows per D1 API call
+D1_MAX_VARS = 95   # D1 hard limit is 100 bound parameters per query
 
 CF_ACCOUNT_ID = os.environ.get('CF_ACCOUNT_ID', '').strip()
 CF_API_TOKEN  = os.environ.get('CF_API_TOKEN',  '').strip()
@@ -68,23 +68,34 @@ def d1_headers():
         'Content-Type':  'application/json',
     }
 
-def d1_exec(sql, params=None):
+def d1_exec(sql, params=None, retries=4):
     body = {'sql': sql}
     if params:
         body['params'] = params
-    res  = requests.post(d1_url(), headers=d1_headers(), json=body, timeout=30)
-    data = res.json()
-    if not data.get('success'):
-        raise RuntimeError(f"D1 error: {data.get('errors', data)}")
-    return data
+    for attempt in range(retries):
+        try:
+            res  = requests.post(d1_url(), headers=d1_headers(), json=body, timeout=30)
+            data = res.json()
+            if not data.get('success'):
+                raise RuntimeError(f"D1 error: {data.get('errors', data)}")
+            return data
+        except (requests.ConnectionError, requests.Timeout) as e:
+            if attempt == retries - 1:
+                raise
+            wait = 2 ** attempt   # 1s, 2s, 4s, 8s
+            print(f'\n      connection error, retrying in {wait}s... ({e})')
+            time.sleep(wait)
 
-def d1_batch(queries):
-    """Send a list of {sql, params} dicts as a single D1 transaction."""
-    res  = requests.post(d1_url(), headers=d1_headers(), json=queries, timeout=60)
-    data = res.json()
-    if not data.get('success'):
-        raise RuntimeError(f"D1 batch error: {data.get('errors', data)}")
-    return data
+def d1_insert_many(table, columns, rows):
+    """
+    Insert many rows in one API call using a multi-value INSERT.
+    Builds: INSERT OR REPLACE INTO table (cols) VALUES (?,?,...),(?,?,...)
+    """
+    ncols        = len(columns)
+    placeholders = ','.join(['(' + ','.join(['?'] * ncols) + ')'] * len(rows))
+    sql          = f'INSERT OR REPLACE INTO {table} ({",".join(columns)}) VALUES {placeholders}'
+    params       = [v for row in rows for v in row]
+    return d1_exec(sql, params)
 
 # ── SCHEMA ────────────────────────────────────────────────────────────────────
 def init_schema():
@@ -152,31 +163,20 @@ def compute_indicators(symbol, dates, closes):
     return rows
 
 # ── UPLOAD HELPERS ────────────────────────────────────────────────────────────
-def upload_in_batches(query_fn, all_rows, label):
-    total    = len(all_rows)
-    uploaded = 0
-    for i in range(0, total, BATCH_SIZE):
-        chunk = all_rows[i:i + BATCH_SIZE]
-        d1_batch([query_fn(r) for r in chunk])
+PRICE_COLS = ['symbol','date','open','high','low','close','volume']
+IND_COLS   = ['symbol','date','sma50','sma200','rsi14','roc10','vs200_pct','percentile']
+
+def upload_in_batches(table, columns, all_rows, label):
+    batch_size = max(1, D1_MAX_VARS // len(columns))  # auto-size to stay under variable limit
+    total      = len(all_rows)
+    uploaded   = 0
+    for i in range(0, total, batch_size):
+        chunk = all_rows[i:i + batch_size]
+        d1_insert_many(table, columns, chunk)
         uploaded += len(chunk)
         print(f'      {label}: {uploaded:,}/{total:,}', end='\r', flush=True)
         time.sleep(0.15)
     print()
-
-def price_query(row):
-    return {
-        'sql':    'INSERT OR REPLACE INTO daily_prices '
-                  '(symbol,date,open,high,low,close,volume) VALUES (?,?,?,?,?,?,?)',
-        'params': list(row),
-    }
-
-def indicator_query(row):
-    return {
-        'sql':    'INSERT OR REPLACE INTO indicators '
-                  '(symbol,date,sma50,sma200,rsi14,roc10,vs200_pct,percentile) '
-                  'VALUES (?,?,?,?,?,?,?,?)',
-        'params': list(row),
-    }
 
 # ── PER-SYMBOL SEED ───────────────────────────────────────────────────────────
 def seed_symbol(symbol):
@@ -187,24 +187,28 @@ def seed_symbol(symbol):
             print('no data')
             return 0
 
+        # Flatten MultiIndex columns (newer yfinance returns ticker as second level)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+
         dates  = [d.strftime('%Y-%m-%d') for d in df.index]
-        opens  = [float(df['Open'].iloc[i])  if pd.notna(df['Open'].iloc[i])  else None for i in range(len(df))]
-        highs  = [float(df['High'].iloc[i])  if pd.notna(df['High'].iloc[i])  else None for i in range(len(df))]
-        lows   = [float(df['Low'].iloc[i])   if pd.notna(df['Low'].iloc[i])   else None for i in range(len(df))]
-        closes = [float(df['Close'].iloc[i]) if pd.notna(df['Close'].iloc[i]) else None for i in range(len(df))]
-        vols   = [int(df['Volume'].iloc[i])  if pd.notna(df['Volume'].iloc[i]) else None for i in range(len(df))]
+        opens  = [float(v) if pd.notna(v) else None for v in df['Open']]
+        highs  = [float(v) if pd.notna(v) else None for v in df['High']]
+        lows   = [float(v) if pd.notna(v) else None for v in df['Low']]
+        closes = [float(v) if pd.notna(v) else None for v in df['Close']]
+        vols   = [int(v)   if pd.notna(v) else None for v in df['Volume']]
 
         price_rows = list(zip([symbol]*len(dates), dates, opens, highs, lows, closes, vols))
         print(f'{len(price_rows):,} rows')
 
-        upload_in_batches(price_query, price_rows, 'prices')
+        upload_in_batches('daily_prices', PRICE_COLS, price_rows, 'prices')
 
         clean_pairs = [(d, c) for d, c in zip(dates, closes) if c is not None]
         if len(clean_pairs) >= 15:
             c_dates  = [p[0] for p in clean_pairs]
             c_closes = [p[1] for p in clean_pairs]
             ind_rows = compute_indicators(symbol, c_dates, c_closes)
-            upload_in_batches(indicator_query, ind_rows, 'indicators')
+            upload_in_batches('indicators', IND_COLS, ind_rows, 'indicators')
 
         return len(price_rows)
 
@@ -228,7 +232,7 @@ def main():
     print(f'  Market Hub Seeder — Direct D1 Upload')
     print(f'  Period : {START}  →  {END}')
     print(f'  Symbols: {len(SYMBOLS)}')
-    print(f'  Batch  : {BATCH_SIZE} rows/call')
+    print(f'  Batch  : auto (~{D1_MAX_VARS} vars/call)')
     print('─' * 60 + '\n')
 
     init_schema()
