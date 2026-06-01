@@ -603,6 +603,9 @@ async function loadRegimeChart(range) {
             pointRadius: 0,
             fill: false,
             tension: 0,
+            segment: {
+              borderColor: ctx => (vs200?.[ctx.p1DataIndex] > 12) ? '#ef4444' : '#3b82f6',
+            },
           },
           {
             label: '200d SMA',
