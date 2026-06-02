@@ -42,6 +42,8 @@ SYMBOLS = [
     'RSPD',
     # Yields
     '^TYX', '^TNX', 'TLT', 'UUP',
+    # Credit
+    'HYG', 'LQD', 'JNK',
     # Global Flows
     '^GSPTSE', 'SPDW', 'EWT', 'EWY', 'AIA', 'EZU', 'VEU', 'EEM',
     '^N225', 'EWW', 'EWZ', 'ILF',
