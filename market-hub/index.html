@@ -175,11 +175,13 @@ body {
 .card-table { width: 100%; border-collapse: collapse; }
 .card-table td { padding: 5px 12px; vertical-align: middle; border-bottom: 1px solid rgba(30,45,61,.6); }
 .card-table tr:last-child td { border-bottom: none; }
-.card-table .col-label { color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; width: 90px; white-space: nowrap; }
+.card-table .col-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; width: 90px; white-space: nowrap; }
+.card-table .col-label.status-bullish { color: var(--green); }
+.card-table .col-label.status-neutral  { color: var(--yellow); }
+.card-table .col-label.status-bearish  { color: var(--red); }
 .card-table .col-indicator { color: var(--dim); font-size: 10px; }
 .card-table .col-value { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--text); text-align: right; white-space: nowrap; }
 .card-table .col-condition { font-size: 10px; color: var(--dim); }
-.card-table .col-status { text-align: center; width: 24px; }
 .jewel { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
 .jewel.bullish { background: var(--green); box-shadow: 0 0 6px var(--green); }
 .jewel.neutral  { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
@@ -542,11 +544,10 @@ function renderGrid(cards) {
 function renderCard(card) {
   const rows = (card.rows || []).slice(0, 4).map(row =>
     `<tr>
-      <td class="col-label">${row.label}</td>
+      <td class="col-label status-${row.status}">${row.label}</td>
       <td class="col-indicator">${row.indicator}</td>
       <td class="col-value">${row.value}</td>
       <td class="col-condition">${row.condition}</td>
-      <td class="col-status">${jewel(row.status)}</td>
     </tr>`
   ).join('');
 
