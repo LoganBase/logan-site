@@ -447,8 +447,9 @@ function renderGrid(cards) {
 
   const groups = [
     { label: 'Market Structure',  ids: ['regime', 'leadership', 'breadth'] },
-    { label: 'Macro Environment', ids: ['valuations', 'yield', 'credit', 'globalflows'] },
-    { label: 'Execution',         ids: ['sectors', 'commodities', 'equities'] },
+    { label: 'Macro Pricing',     ids: ['valuations', 'yield', 'credit'] },
+    { label: 'Flow & Rotation',   ids: ['globalflows', 'sectors'] },
+    { label: 'Real Assets',       ids: ['commodities', 'equities'] },
   ];
 
   document.getElementById('grid').innerHTML = groups.flatMap(group => [
