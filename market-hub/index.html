@@ -1627,7 +1627,7 @@ async function generateSummary(cardId) {
   try {
     const res = await fetch('/api/summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Hub-Token': 'mh-2f9k7x4p' },
       body: JSON.stringify({ card, deepDive: currentDeepDive }),
     });
     const data = await res.json();

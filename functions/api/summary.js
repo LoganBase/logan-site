@@ -1,0 +1,97 @@
+/**
+ * Market Hub — AI Summary API
+ * POST /api/summary
+ *
+ * Accepts a card object (from /api/scores) and deep dive context,
+ * returns a 2-3 sentence analyst summary from Claude Haiku.
+ *
+ * Requires environment variable: ANTHROPIC_API_KEY
+ * Set in Cloudflare Pages → Settings → Environment variables.
+ */
+
+const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const MODEL         = 'claude-haiku-4-5-20251001';
+
+export async function onRequest(context) {
+  if (context.request.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST' },
+    });
+  }
+
+  const token = context.request.headers.get('X-Hub-Token');
+  if (!token || token !== context.env.HUB_TOKEN) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
+
+  const apiKey = context.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return new Response(JSON.stringify({
+      error: 'ANTHROPIC_API_KEY not set. Add it in Cloudflare Pages → Settings → Environment variables.',
+    }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
+
+  try {
+    const { card, deepDive } = await context.request.json();
+
+    const indicatorLines = (card.rows || [])
+      .map(r => `  - ${r.label}: ${r.value} — ${r.condition} (${r.status})`)
+      .join('\n');
+
+    const deepDiveLines = deepDive && Object.keys(deepDive).length
+      ? '\nDeep Dive Metrics:\n' + Object.entries(deepDive)
+          .map(([k, v]) => `  - ${k}: ${v}`)
+          .join('\n')
+      : '';
+
+    const prompt =
+      `You are a concise institutional market analyst. Write a 2-3 sentence plain-English summary ` +
+      `of the following dashboard card. Be specific about the numbers. Explain what the combination ` +
+      `of signals means for investors. No bullet points. No headers.\n\n` +
+      `Card: ${card.title} — ${card.subtitle}\n` +
+      `Overall Status: ${card.status.toUpperCase()}\n\n` +
+      `Indicators:\n${indicatorLines}` +
+      `${deepDiveLines}\n\n` +
+      `Start with "${card.title} is ${card.status}" and explain why based on the data.`;
+
+    const response = await fetch(ANTHROPIC_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type':    'application/json',
+        'x-api-key':       apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      MODEL,
+        max_tokens: 250,
+        messages:   [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`Anthropic API ${response.status}: ${text.slice(0, 200)}`);
+    }
+
+    const result  = await response.json();
+    const summary = result.content?.[0]?.text ?? '';
+
+    return new Response(JSON.stringify({ summary }), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
+  } catch (err) {
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
+}
