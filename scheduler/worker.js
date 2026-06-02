@@ -9,11 +9,14 @@
  * Cron:   Worker Settings → Triggers → Cron Triggers → Add: 0 22 * * 1-5
  */
 
-const REFRESH_URL = 'https://loganbase.com/api/refresh';
+const BASE        = 'https://loganbase.com';
+const REFRESH_URL = `${BASE}/api/refresh`;
+const SIGNALS_URL = `${BASE}/api/signals`;
 
 export default {
   // Cron trigger — fires on schedule
   async scheduled(event, env, ctx) {
+    // Step 1: refresh D1 with today's prices
     try {
       const res  = await fetch(REFRESH_URL);
       const data = await res.json();
@@ -23,13 +26,24 @@ export default {
     } catch (err) {
       console.error(`[market-hub-scheduler] refresh failed: ${err.message}`);
     }
+
+    // Step 2: write today's card signals + score any pending outcomes
+    try {
+      const res  = await fetch(SIGNALS_URL);
+      const data = await res.json();
+      console.log(
+        `[market-hub-scheduler] signals — wrote: ${data.signalsWritten}, scored: ${data.outcomesScored}`
+      );
+    } catch (err) {
+      console.error(`[market-hub-scheduler] signals failed: ${err.message}`);
+    }
   },
 
   // HTTP handler — lets you trigger a manual run via the Worker URL
   async fetch(request) {
-    const res  = await fetch(REFRESH_URL);
-    const data = await res.json();
-    return new Response(JSON.stringify(data, null, 2), {
+    const refresh = await (await fetch(REFRESH_URL)).json();
+    const signals = await (await fetch(SIGNALS_URL)).json();
+    return new Response(JSON.stringify({ refresh, signals }, null, 2), {
       headers: { 'Content-Type': 'application/json' },
     });
   },
