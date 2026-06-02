@@ -5,8 +5,13 @@
  * Accepts a card object (from /api/scores) and deep dive context,
  * returns a 2-3 sentence analyst summary from Claude Haiku.
  *
- * Requires environment variable: ANTHROPIC_API_KEY
- * Set in Cloudflare Pages → Settings → Environment variables.
+ * Summaries are cached in KV (binding: SUMMARIES) keyed by
+ * summary:{cardId}:{range}:{YYYY-MM-DD} — same card+range on the same
+ * day returns instantly; each day's entry is kept indefinitely for
+ * future monthly history views.
+ *
+ * Requires env vars: ANTHROPIC_API_KEY, HUB_TOKEN
+ * Requires KV binding: SUMMARIES
  */
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -40,6 +45,21 @@ export async function onRequest(context) {
   try {
     const { card, deepDive } = await context.request.json();
 
+    const today   = new Date().toISOString().slice(0, 10);
+    const range   = deepDive?.['Range shown'] || 'unknown';
+    const cacheKey = `summary:${card.id}:${range}:${today}`;
+    const kv       = context.env.SUMMARIES;
+
+    // Return cached summary if available
+    if (kv) {
+      const cached = await kv.get(cacheKey);
+      if (cached) {
+        return new Response(JSON.stringify({ summary: cached, cached: true }), {
+          headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+        });
+      }
+    }
+
     const indicatorLines = (card.rows || [])
       .map(r => `  - ${r.label}: ${r.value} — ${r.condition} (${r.status})`)
       .join('\n');
@@ -63,8 +83,8 @@ export async function onRequest(context) {
     const response = await fetch(ANTHROPIC_URL, {
       method: 'POST',
       headers: {
-        'Content-Type':    'application/json',
-        'x-api-key':       apiKey,
+        'Content-Type':      'application/json',
+        'x-api-key':         apiKey,
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
@@ -82,11 +102,13 @@ export async function onRequest(context) {
     const result  = await response.json();
     const summary = result.content?.[0]?.text ?? '';
 
-    return new Response(JSON.stringify({ summary }), {
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+    // Persist to KV (no TTL — kept indefinitely for historical reference)
+    if (kv && summary) {
+      await kv.put(cacheKey, summary);
+    }
+
+    return new Response(JSON.stringify({ summary, cached: false }), {
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), {

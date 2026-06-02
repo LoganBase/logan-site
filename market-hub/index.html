@@ -1632,7 +1632,9 @@ async function generateSummary(cardId) {
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    box.textContent  = data.summary;
+    box.innerHTML  = data.summary + (data.cached
+      ? `<span style="display:block;margin-top:8px;font-size:10px;color:var(--muted);letter-spacing:.05em">CACHED — ${new Date().toISOString().slice(0,10)}</span>`
+      : '');
     box.style.display = 'block';
     btn.style.display = 'none';
   } catch (err) {
