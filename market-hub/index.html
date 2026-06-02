@@ -119,9 +119,10 @@ body {
 /* ── 9-CARD GRID ── */
 .grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
 }
+@media (max-width: 900px) { .grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
 
 /* ── SCORE CARD ── */
@@ -307,7 +308,7 @@ body {
   <div class="header-brand">
     <div>
       <h1>Market Hub</h1>
-      <div class="subtitle">Systematic Macro Framework — 9-Card Scoring Engine</div>
+      <div class="subtitle">Systematic Macro Framework — 10-Card Scoring Engine</div>
     </div>
   </div>
   <div class="header-meta">
