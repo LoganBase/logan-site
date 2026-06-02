@@ -337,6 +337,8 @@ body {
         </div>
       </div>
       <div class="exec-chips" id="execChips"></div>
+      <button class="summary-btn" id="execSummaryBtn" style="margin-top:16px" onclick="generateAllSummary()">✦ Generate AI Summary — All 9 Cards</button>
+      <div class="summary-box" id="execSummaryBox"></div>
     </div>
   </div>
 
@@ -1736,6 +1738,39 @@ async function loadCommoditiesChart(range) {
     });
   } catch (err) {
     if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── AI SUMMARY (ALL 9 CARDS) ──────────────────────────────────────────────────
+async function generateAllSummary() {
+  if (!lastData) return;
+  const btn = document.getElementById('execSummaryBtn');
+  const box = document.getElementById('execSummaryBox');
+  if (!btn || !box) return;
+  btn.disabled = true;
+  btn.textContent = '⟳ Analyzing all 9 cards…';
+  try {
+    const res = await fetch('/api/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Hub-Token': 'mh-2f9k7x4p' },
+      body: JSON.stringify({
+        card: { id: 'aggregate', title: 'Market Summary', subtitle: 'All 9 Cards', status: lastData.aggregate.glow, rows: [] },
+        allCards: lastData.cards,
+        aggregate: lastData.aggregate,
+      }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    box.innerHTML = data.summary + (data.cached
+      ? `<span style="display:block;margin-top:8px;font-size:10px;color:var(--muted);letter-spacing:.05em">CACHED — ${new Date().toISOString().slice(0,10)}</span>`
+      : '');
+    box.style.display = 'block';
+    btn.style.display = 'none';
+  } catch (err) {
+    box.textContent   = `Summary unavailable: ${err.message}`;
+    box.style.display = 'block';
+    btn.disabled      = false;
+    btn.textContent   = '✦ Generate AI Summary — All 9 Cards';
   }
 }
 

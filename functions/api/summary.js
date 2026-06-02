@@ -43,11 +43,14 @@ export async function onRequest(context) {
   }
 
   try {
-    const { card, deepDive } = await context.request.json();
+    const { card, deepDive, allCards, aggregate } = await context.request.json();
 
-    const today   = new Date().toISOString().slice(0, 10);
-    const range   = deepDive?.['Range shown'] || 'unknown';
-    const cacheKey = `summary:${card.id}:${range}:${today}`;
+    const today    = new Date().toISOString().slice(0, 10);
+    const isAggregate = card.id === 'aggregate';
+    const range    = deepDive?.['Range shown'] || 'unknown';
+    const cacheKey = isAggregate
+      ? `summary:aggregate:all:${today}`
+      : `summary:${card.id}:${range}:${today}`;
     const kv       = context.env.SUMMARIES;
 
     // Return cached summary if available
@@ -60,25 +63,47 @@ export async function onRequest(context) {
       }
     }
 
-    const indicatorLines = (card.rows || [])
-      .map(r => `  - ${r.label}: ${r.value} — ${r.condition} (${r.status})`)
-      .join('\n');
+    let prompt;
 
-    const deepDiveLines = deepDive && Object.keys(deepDive).length
-      ? '\nDeep Dive Metrics:\n' + Object.entries(deepDive)
-          .map(([k, v]) => `  - ${k}: ${v}`)
-          .join('\n')
-      : '';
+    if (isAggregate && allCards && aggregate) {
+      const cardLines = allCards.map(c => {
+        const topRows = (c.rows || []).slice(0, 2)
+          .map(r => `${r.label}: ${r.value} (${r.status})`)
+          .join(', ');
+        return `  ${c.number}. ${c.title} [${c.status.toUpperCase()}] — ${topRows}`;
+      }).join('\n');
 
-    const prompt =
-      `You are a concise institutional market analyst. Write a 2-3 sentence plain-English summary ` +
-      `of the following dashboard card. Be specific about the numbers. Explain what the combination ` +
-      `of signals means for investors. No bullet points. No headers.\n\n` +
-      `Card: ${card.title} — ${card.subtitle}\n` +
-      `Overall Status: ${card.status.toUpperCase()}\n\n` +
-      `Indicators:\n${indicatorLines}` +
-      `${deepDiveLines}\n\n` +
-      `Start with "${card.title} is ${card.status}" and explain why based on the data.`;
+      prompt =
+        `You are a concise institutional macro analyst. Write a 3-4 sentence plain-English executive ` +
+        `summary of this market dashboard. Cover the overall posture, which areas are most constructive ` +
+        `or concerning, and what the combination of signals means for portfolio positioning. ` +
+        `Be specific about the numbers. No bullet points. No headers.\n\n` +
+        `Overall Score: ${aggregate.score} — ${aggregate.label}\n` +
+        `Posture: ${aggregate.posture}\n` +
+        `Breakdown: ${aggregate.bullish} Bullish | ${aggregate.neutral} Neutral | ${aggregate.bearish} Bearish\n\n` +
+        `Card Signals:\n${cardLines}\n\n` +
+        `Start with "The market dashboard is currently showing" and give your assessment.`;
+    } else {
+      const indicatorLines = (card.rows || [])
+        .map(r => `  - ${r.label}: ${r.value} — ${r.condition} (${r.status})`)
+        .join('\n');
+
+      const deepDiveLines = deepDive && Object.keys(deepDive).length
+        ? '\nDeep Dive Metrics:\n' + Object.entries(deepDive)
+            .map(([k, v]) => `  - ${k}: ${v}`)
+            .join('\n')
+        : '';
+
+      prompt =
+        `You are a concise institutional market analyst. Write a 2-3 sentence plain-English summary ` +
+        `of the following dashboard card. Be specific about the numbers. Explain what the combination ` +
+        `of signals means for investors. No bullet points. No headers.\n\n` +
+        `Card: ${card.title} — ${card.subtitle}\n` +
+        `Overall Status: ${card.status.toUpperCase()}\n\n` +
+        `Indicators:\n${indicatorLines}` +
+        `${deepDiveLines}\n\n` +
+        `Start with "${card.title} is ${card.status}" and explain why based on the data.`;
+    }
 
     const response = await fetch(ANTHROPIC_URL, {
       method: 'POST',
@@ -89,7 +114,7 @@ export async function onRequest(context) {
       },
       body: JSON.stringify({
         model:      MODEL,
-        max_tokens: 250,
+        max_tokens: isAggregate ? 350 : 250,
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
