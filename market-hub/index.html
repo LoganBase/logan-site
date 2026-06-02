@@ -288,6 +288,15 @@ body {
   justify-content: center; color: var(--muted); font-size: 12px; gap: 10px;
 }
 
+/* ── CARD GROUP LABELS ── */
+.card-group-label {
+  grid-column: 1 / -1;
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  margin-top: 8px;
+}
+.card-group-label:first-child { margin-top: 0; }
+
 /* ── DELTA INDICATORS ── */
 .delta-up   { font-size: 9px; margin-left: 3px; color: var(--green); }
 .delta-down { font-size: 9px; margin-left: 3px; color: var(--red); }
@@ -433,7 +442,19 @@ function renderExec(agg) {
 
 // ── RENDER CARD GRID ──────────────────────────────────────────────────────────
 function renderGrid(cards) {
-  document.getElementById('grid').innerHTML = cards.map(card => renderCard(card)).join('');
+  const byId = {};
+  cards.forEach(c => { byId[c.id] = c; });
+
+  const groups = [
+    { label: 'Market Structure',  ids: ['regime', 'leadership', 'breadth'] },
+    { label: 'Macro Environment', ids: ['valuations', 'yield', 'credit', 'globalflows'] },
+    { label: 'Execution',         ids: ['sectors', 'commodities', 'equities'] },
+  ];
+
+  document.getElementById('grid').innerHTML = groups.flatMap(group => [
+    `<div class="card-group-label">${group.label}</div>`,
+    ...group.ids.map(id => byId[id]).filter(Boolean).map(renderCard),
+  ]).join('');
 }
 
 function renderCard(card) {
