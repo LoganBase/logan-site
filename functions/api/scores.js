@@ -564,6 +564,19 @@ function placeholderCard(num, title, subtitle) {
     rows: [{ label: '—', indicator: 'Data unavailable', value: '—', condition: '—', status: 'neutral' }] };
 }
 
+// ── DELTA ─────────────────────────────────────────────────────────────────────
+function computeDeltas(current, previous) {
+  const rank = { bullish: 2, neutral: 1, bearish: 0 };
+  const out = {};
+  for (const [id, status] of Object.entries(current)) {
+    const prev = previous?.[id];
+    if (!prev) { out[id] = 'same'; continue; }
+    const diff = rank[status] - rank[prev];
+    out[id] = diff > 0 ? 'up' : diff < 0 ? 'down' : 'same';
+  }
+  return out;
+}
+
 // ── AGGREGATE SCORE ───────────────────────────────────────────────────────────
 function buildAggregate(cards) {
   const counts = { bullish: 0, neutral: 0, bearish: 0 };
@@ -613,6 +626,32 @@ export async function onRequest(context) {
     buildEquities(q),
     buildCredit(q),
   ];
+
+  // ── DELTA: compare today vs previous trading day ───────────────────────────
+  const kv = context.env.SUMMARIES;
+  if (kv) {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      const [current, previous] = await Promise.all([
+        kv.get('card-statuses:current', 'json'),
+        kv.get('card-statuses:previous', 'json'),
+      ]);
+
+      const todayStatuses = {};
+      cards.forEach(c => { todayStatuses[c.id] = c.status; });
+
+      let deltas = {};
+      if (!current || current.date < today) {
+        if (current) await kv.put('card-statuses:previous', JSON.stringify(current));
+        await kv.put('card-statuses:current', JSON.stringify({ date: today, statuses: todayStatuses }));
+        if (current) deltas = computeDeltas(todayStatuses, current.statuses);
+      } else {
+        if (previous) deltas = computeDeltas(todayStatuses, previous.statuses);
+      }
+
+      cards.forEach(c => { c.delta = deltas[c.id] || 'same'; });
+    } catch { /* non-fatal */ }
+  }
 
   const body = JSON.stringify({
     timestamp: new Date().toISOString(),
