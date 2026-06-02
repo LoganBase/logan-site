@@ -326,9 +326,73 @@ body {
   </div>
   <div class="header-meta">
     <span class="ts" id="ts">—</span>
+    <button class="refresh-btn" onclick="openHelp()">? Help</button>
     <button class="refresh-btn" id="refreshBtn" onclick="refreshAndLoad()">&#8635; Refresh</button>
   </div>
 </header>
+
+<!-- HELP MODAL -->
+<div class="modal-backdrop" id="helpModal" onclick="closeHelp(event)">
+  <div class="modal" id="helpBox" style="max-width:680px">
+    <div class="modal-head">
+      <div class="modal-title-block">
+        <div class="modal-num">MARKET HUB</div>
+        <div class="modal-title">How to use this dashboard</div>
+      </div>
+      <button class="modal-close" onclick="closeHelp()">&#x2715;</button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px 28px">
+
+      <div class="modal-section-title">What is this?</div>
+      <p style="font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:18px">
+        Market Hub is a systematic macro framework that scores market conditions across 10 dimensions.
+        Each card scores <span style="color:var(--green)">Bullish</span>, <span style="color:var(--yellow)">Neutral</span>, or <span style="color:var(--red)">Bearish</span>.
+        The executive score at the top aggregates all 10 cards into a single market posture.
+      </p>
+
+      <div class="modal-section-title">Reading the score</div>
+      <table class="modal-table" style="margin-bottom:18px">
+        <thead><tr><th>Score</th><th>Posture</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td class="mt-value" style="color:var(--green)">8–10</td><td class="mt-label">Risk-On</td><td class="mt-condition">Broad-based bullish conditions across most dimensions</td></tr>
+          <tr><td class="mt-value" style="color:var(--yellow)">5–7</td><td class="mt-label">Cautious</td><td class="mt-condition">Mixed signals — some tailwinds, some headwinds</td></tr>
+          <tr><td class="mt-value" style="color:var(--red)">0–4</td><td class="mt-label">Risk-Off</td><td class="mt-condition">Majority of indicators showing deterioration</td></tr>
+        </tbody>
+      </table>
+
+      <div class="modal-section-title">The 10 cards</div>
+      <table class="modal-table" style="margin-bottom:18px">
+        <thead><tr><th>#</th><th>Card</th><th>What it measures</th></tr></thead>
+        <tbody>
+          <tr><td class="mt-value">01</td><td class="mt-label">Regime</td><td class="mt-condition">SPY vs 200d SMA — is the market in a secular bull or bear?</td></tr>
+          <tr><td class="mt-value">02</td><td class="mt-label">Leadership</td><td class="mt-condition">RSP vs SPY breadth quality — are gains broad or narrow?</td></tr>
+          <tr><td class="mt-value">03</td><td class="mt-label">Breadth</td><td class="mt-condition">Equal-weight participation — how many stocks are healthy?</td></tr>
+          <tr><td class="mt-value">04</td><td class="mt-label">Valuations</td><td class="mt-condition">P/E, CAPE, Buffett Indicator — how stretched are prices?</td></tr>
+          <tr><td class="mt-value">05</td><td class="mt-label">Yield</td><td class="mt-condition">30yr yield, TLT, UUP — is the cost of capital a headwind?</td></tr>
+          <tr><td class="mt-value">06</td><td class="mt-label">Global Flows</td><td class="mt-condition">13 global markets vs 200d SMA — is expansion synchronized?</td></tr>
+          <tr><td class="mt-value">07</td><td class="mt-label">Sectors</td><td class="mt-condition">Cyclicals vs defensives — is the market in risk-on rotation?</td></tr>
+          <tr><td class="mt-value">08</td><td class="mt-label">Commodities</td><td class="mt-condition">USCI, copper, gold, energy — are real assets confirming growth?</td></tr>
+          <tr><td class="mt-value">09</td><td class="mt-label">Equities</td><td class="mt-condition">Thematic watchlist — how many names are above key MAs?</td></tr>
+          <tr><td class="mt-value">10</td><td class="mt-label">Credit</td><td class="mt-condition">HYG, LQD, JNK — is the credit market signalling stress?</td></tr>
+        </tbody>
+      </table>
+
+      <div class="modal-section-title">Deep dives</div>
+      <p style="font-size:12px;color:var(--dim);line-height:1.7;margin-bottom:18px">
+        Click any card to open its deep dive — historical charts, stat boxes, and a range selector (1WK to 10Y).
+        Use <strong style="color:var(--dim)">&#x2756; Generate AI Summary</strong> to get a 2-3 sentence analyst interpretation of the current data.
+        Summaries are cached daily so repeat clicks are instant.
+      </p>
+
+      <div class="modal-section-title">Refresh button</div>
+      <p style="font-size:12px;color:var(--dim);line-height:1.7">
+        Pulls today's closing prices from Yahoo Finance into the database and reloads the dashboard.
+        Best used after 4pm ET when markets close. The dashboard also auto-refreshes nightly at 10pm UTC.
+      </p>
+
+    </div>
+  </div>
+</div>
 
 <div class="container">
 
@@ -865,7 +929,6 @@ function closeModal(e) {
   document.body.style.overflow = '';
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 // ── REGIME CHART ──────────────────────────────────────────────────────────────
 function loadChartJS() {
@@ -2015,6 +2078,18 @@ async function generateSummary(cardId) {
     btn.textContent   = '✦ Generate AI Summary';
   }
 }
+
+// ── HELP MODAL ────────────────────────────────────────────────────────────────
+function openHelp() {
+  document.getElementById('helpModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeHelp(e) {
+  if (e && e.target !== document.getElementById('helpModal')) return;
+  document.getElementById('helpModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeHelp(); closeModal(); } });
 
 // ── DATA LOAD ─────────────────────────────────────────────────────────────────
 function showError(msg) {
