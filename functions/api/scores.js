@@ -21,6 +21,7 @@ const ALL_SYMBOLS = [
   'SPY','QQQ','RSP','QQEW','IVW','IVE',          // Regime + Leadership
   'RSPD',                                          // Breadth proxy
   '^TYX','^TNX','TLT','UUP',                      // Yield
+  'HYG','LQD','JNK',                              // Credit
   '^GSPTSE','SPDW','EWT','EWY','AIA','EZU',       // Global Flows
   'VEU','EEM','^N225','EWW','EWZ','ILF',
   'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors
@@ -509,6 +510,55 @@ function buildEquities(q) {
     summary: `${bull}/${total} above both 50d & 200d SMA` };
 }
 
+function buildCredit(q) {
+  const hyg = q['HYG'];
+  const lqd = q['LQD'];
+  const jnk = q['JNK'];
+
+  const hygBull = hyg && hyg.price && hyg.sma200 ? hyg.price > hyg.sma200 : null;
+  const lqdBull = lqd && lqd.price && lqd.sma200 ? lqd.price > lqd.sma200 : null;
+  const jnkBull = jnk && jnk.price && jnk.sma200 ? jnk.price > jnk.sma200 : null;
+  const spreadTightening = hyg && lqd ? hyg.changePct > lqd.changePct : null;
+
+  const rows = [
+    {
+      label: 'Risk Appetite',
+      indicator: 'HYG — High Yield Corp Bond ETF',
+      value: hyg ? usd(hyg.price) : '—',
+      condition: hygBull == null ? '—' : hygBull ? `${pct(hyg.vs200)} above 200d — Healthy` : `${pct(hyg.vs200)} below 200d — Watch`,
+      status: hygBull == null ? 'neutral' : hygBull ? 'bullish' : 'bearish',
+    },
+    {
+      label: 'Spread Signal',
+      indicator: 'HYG vs LQD (HY vs IG spread proxy)',
+      value: hyg && lqd ? `HYG ${pct(hyg.changePct, 2)} | LQD ${pct(lqd.changePct, 2)}` : '—',
+      condition: spreadTightening == null ? '—' : spreadTightening ? 'Spreads Tightening — Risk-On' : 'Spreads Widening — Caution',
+      status: spreadTightening == null ? 'neutral' : spreadTightening ? 'bullish' : 'bearish',
+    },
+    {
+      label: 'IG Demand',
+      indicator: 'LQD — Investment Grade Bond ETF',
+      value: lqd ? usd(lqd.price) : '—',
+      condition: lqdBull == null ? '—' : lqdBull ? `${pct(lqd.vs200)} above 200d` : `${pct(lqd.vs200)} below 200d`,
+      status: lqdBull == null ? 'neutral' : lqdBull ? 'bullish' : 'bearish',
+    },
+    {
+      label: 'Distress Signal',
+      indicator: 'JNK — SPDR High Yield Bond ETF',
+      value: jnk ? usd(jnk.price) : '—',
+      condition: jnkBull == null ? '—' : jnkBull ? `${pct(jnk.vs200)} above 200d — No Stress` : `${pct(jnk.vs200)} below 200d — Stress`,
+      status: jnkBull == null ? 'neutral' : jnkBull ? 'bullish' : 'bearish',
+    },
+  ];
+
+  const bull = rows.filter(r => r.status === 'bullish').length;
+  const status = bull >= 3 ? 'bullish' : bull >= 2 ? 'neutral' : 'bearish';
+  return {
+    id: 'credit', number: 10, title: 'Credit', subtitle: 'The Risk Canary', status, rows,
+    note: 'Credit spreads lead equity markets. HYG below its 200d SMA has preceded major equity drawdowns by 4–6 weeks historically.',
+  };
+}
+
 function placeholderCard(num, title, subtitle) {
   return { id: title.toLowerCase(), number: num, title, subtitle, status: 'neutral',
     rows: [{ label: '—', indicator: 'Data unavailable', value: '—', condition: '—', status: 'neutral' }] };
@@ -519,11 +569,14 @@ function buildAggregate(cards) {
   const counts = { bullish: 0, neutral: 0, bearish: 0 };
   cards.forEach(c => counts[c.status]++);
   const score = counts.bullish;
-  const glow  = score >= 7 ? 'green' : score >= 5 ? 'yellow' : 'red';
-  const label = score >= 7 ? 'Secular Bull Intact' : score >= 5 ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
-  const posture = score >= 7 ? 'Risk-On, Not Complacent' : score >= 5 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
+  const total = cards.length;
+  const greenThresh  = Math.round(total * 0.75); // 7/9, 8/10
+  const yellowThresh = Math.round(total * 0.55); // 5/9, 6/10
+  const glow  = score >= greenThresh  ? 'green' : score >= yellowThresh ? 'yellow' : 'red';
+  const label = score >= greenThresh  ? 'Secular Bull Intact' : score >= yellowThresh ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
+  const posture = score >= greenThresh ? 'Risk-On, Not Complacent' : score >= yellowThresh ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
   return { bullish: counts.bullish, neutral: counts.neutral, bearish: counts.bearish,
-    score: `${score}/9`, label, posture, glow };
+    score: `${score}/${total}`, label, posture, glow };
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
@@ -558,6 +611,7 @@ export async function onRequest(context) {
     buildSectors(q),
     buildCommodities(q),
     buildEquities(q),
+    buildCredit(q),
   ];
 
   const body = JSON.stringify({

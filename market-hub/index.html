@@ -732,6 +732,34 @@ function openModal(card) {
       </div>`;
   }
 
+  if (card.id === 'credit') {
+    const cRows = card.rows || [];
+    const cBull = cRows.filter(r => r.status === 'bullish').length;
+    const cNeutral = cRows.filter(r => r.status === 'neutral').length;
+    const cBear = cRows.filter(r => r.status === 'bearish').length;
+    extra = `
+      <div class="modal-section-title" style="margin-top:20px">Credit Market Health</div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">Risk-On Signals</div>
+          <div class="rstat-value positive">${cBull}</div>
+          <div class="rstat-sub">of ${cRows.length} indicators</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Neutral</div>
+          <div class="rstat-value" style="color:var(--yellow)">${cNeutral}</div>
+          <div class="rstat-sub">of ${cRows.length} indicators</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Stress Signals</div>
+          <div class="rstat-value negative">${cBear}</div>
+          <div class="rstat-sub">of ${cRows.length} indicators</div>
+        </div>
+      </div>
+      <button class="summary-btn" id="summaryBtn" onclick="generateSummary('credit')">✦ Generate AI Summary</button>
+      <div class="summary-box" id="summaryBox"></div>`;
+  }
+
   if (card.id === 'globalflows' && card.details) {
     const detRows = card.details.map(d =>
       `<tr>
