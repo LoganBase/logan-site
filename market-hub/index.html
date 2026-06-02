@@ -266,6 +266,22 @@ body {
 
 .chart-wrap { position: relative; height: 210px; }
 .rsi-wrap   { position: relative; height: 90px; margin-top: 6px; }
+
+.summary-btn {
+  display: block; width: 100%; margin-top: 16px; padding: 10px;
+  background: linear-gradient(135deg,rgba(59,130,246,.1),rgba(168,85,247,.1));
+  border: 1px solid rgba(59,130,246,.25); border-radius: 8px;
+  color: var(--accent); font-size: 12px; cursor: pointer;
+  font-family: inherit; transition: all .2s; letter-spacing: .02em;
+}
+.summary-btn:hover { background: linear-gradient(135deg,rgba(59,130,246,.2),rgba(168,85,247,.2)); border-color: rgba(59,130,246,.5); }
+.summary-btn:disabled { opacity: .5; cursor: default; }
+.summary-box {
+  display: none; margin-top: 14px; padding: 14px 16px;
+  background: linear-gradient(135deg,rgba(59,130,246,.07),rgba(168,85,247,.07));
+  border: 1px solid rgba(59,130,246,.18); border-radius: 8px;
+  font-size: 13px; color: var(--dim); line-height: 1.75;
+}
 .chart-loading {
   position: absolute; inset: 0; display: flex; align-items: center;
   justify-content: center; color: var(--muted); font-size: 12px; gap: 10px;
@@ -355,8 +371,13 @@ body {
 let lastData        = null;
 let regimeChart     = null;
 let rsiChart        = null;
-let leadershipChart = null;
-let chartJsReady    = false;
+let leadershipChart  = null;
+let breadthChart     = null;
+let yieldChart       = null;
+let sectorsChart     = null;
+let commoditiesChart = null;
+let chartJsReady     = false;
+let currentDeepDive = {};
 
 // ── STATUS HELPERS ────────────────────────────────────────────────────────────
 function jewel(status) {
@@ -480,7 +501,9 @@ function openModal(card) {
       </div>
       <div class="rsi-wrap">
         <canvas id="rsiChart" style="display:none"></canvas>
-      </div>`;
+      </div>
+      <button class="summary-btn" id="summaryBtn" onclick="generateSummary('regime')">✦ Generate AI Summary</button>
+      <div class="summary-box" id="summaryBox"></div>`;
   }
 
   if (card.id === 'leadership') {
@@ -512,6 +535,185 @@ function openModal(card) {
       <div class="chart-wrap">
         <div class="chart-loading" id="leadershipLoading"><div class="spinner"></div> Loading chart…</div>
         <canvas id="leadershipChart" style="display:none"></canvas>
+      </div>
+      <button class="summary-btn" id="summaryBtn" onclick="generateSummary('leadership')">✦ Generate AI Summary</button>
+      <div class="summary-box" id="summaryBox"></div>`;
+  }
+
+  if (card.id === 'breadth') {
+    const ranges = ['10y','5y','1y','6mo','3mo','1mo','1wk'];
+    extra = `
+      <div class="modal-section-title" style="margin-top:20px">Historical Context — RSPD vs 200d SMA</div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">Percentile Rank</div>
+          <div class="rstat-value" id="bPercentile">—</div>
+          <div class="rstat-sub">of all historical days</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Days in Zone</div>
+          <div class="rstat-value" id="bDays">—</div>
+          <div class="rstat-sub">consecutive days here</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Extension Velocity</div>
+          <div class="rstat-value" id="bRoc">—</div>
+          <div class="rstat-sub">10d ROC of stretch</div>
+        </div>
+      </div>
+      <div class="range-selector">
+        ${ranges.map(r =>
+          `<button class="range-btn${r==='5y'?' active':''}" onclick="loadBreadthChart('${r}')">${r.toUpperCase()}</button>`
+        ).join('')}
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-loading" id="breadthLoading"><div class="spinner"></div> Loading chart…</div>
+        <canvas id="breadthChartCanvas" style="display:none"></canvas>
+      </div>
+      <button class="summary-btn" id="summaryBtn" onclick="generateSummary('breadth')">✦ Generate AI Summary</button>
+      <div class="summary-box" id="summaryBox"></div>`;
+  }
+
+  if (card.id === 'valuations') {
+    extra = `
+      <div class="modal-section-title" style="margin-top:20px">Historical Context — Valuation Ranges</div>
+      <table class="modal-table">
+        <thead><tr><th>Metric</th><th>Indicator</th><th>Current</th><th>Historical Context</th><th>Signal</th></tr></thead>
+        <tbody>
+          <tr><td class="mt-label">Trailing P/E</td><td class="mt-indicator">S&P 500 Trailing EPS</td><td class="mt-value">~28×</td><td class="mt-condition">Avg ~16× / Peak ~31× (2021)</td><td>${jewel('neutral')}</td></tr>
+          <tr><td class="mt-label">Forward P/E</td><td class="mt-indicator">S&P 500 NTM EPS</td><td class="mt-value">~22×</td><td class="mt-condition">Avg ~15× / Peak ~25× (2021)</td><td>${jewel('neutral')}</td></tr>
+          <tr><td class="mt-label">Shiller CAPE</td><td class="mt-indicator">10-Year Real Earnings</td><td class="mt-value">~37×</td><td class="mt-condition">Avg ~17× / Peak ~44× (2021)</td><td>${jewel('bearish')}</td></tr>
+          <tr><td class="mt-label">Buffett Indicator</td><td class="mt-indicator">Total Mkt Cap / GDP</td><td class="mt-value">~195%</td><td class="mt-condition">Avg ~85% / Peak ~211% (2021)</td><td>${jewel('bearish')}</td></tr>
+          <tr><td class="mt-label">Japan P/E</td><td class="mt-indicator">Nikkei TTM vs US</td><td class="mt-value">~15×</td><td class="mt-condition">Compressed vs US at ~28×</td><td>${jewel('bullish')}</td></tr>
+        </tbody>
+      </table>`;
+  }
+
+  if (card.id === 'yield') {
+    const ranges = ['10y','5y','1y','6mo','3mo','1mo','1wk'];
+    extra = `
+      <div class="modal-section-title" style="margin-top:20px">Historical Context — US 30-Year Treasury Yield</div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">Current Yield</div>
+          <div class="rstat-value" id="yYield">—</div>
+          <div class="rstat-sub">US 30-Year (^TYX)</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Days in Zone</div>
+          <div class="rstat-value" id="yDays">—</div>
+          <div class="rstat-sub">above/below 4.5%</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">10d Change</div>
+          <div class="rstat-value" id="yRoc">—</div>
+          <div class="rstat-sub">percentage point move</div>
+        </div>
+      </div>
+      <div class="range-selector">
+        ${ranges.map(r =>
+          `<button class="range-btn${r==='5y'?' active':''}" onclick="loadYieldChart('${r}')">${r.toUpperCase()}</button>`
+        ).join('')}
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-loading" id="yieldLoading"><div class="spinner"></div> Loading chart…</div>
+        <canvas id="yieldChartCanvas" style="display:none"></canvas>
+      </div>
+      <button class="summary-btn" id="summaryBtn" onclick="generateSummary('yield')">✦ Generate AI Summary</button>
+      <div class="summary-box" id="summaryBox"></div>`;
+  }
+
+  if (card.id === 'sectors') {
+    const ranges = ['10y','5y','1y','6mo','3mo','1mo','1wk'];
+    extra = `
+      <div class="modal-section-title" style="margin-top:20px">Historical Context — Cyclical vs Defensive Performance</div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">Cyc vs Def</div>
+          <div class="rstat-value" id="sCurrent">—</div>
+          <div class="rstat-sub">period spread</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Streak</div>
+          <div class="rstat-value" id="sStreak">—</div>
+          <div class="rstat-sub" id="sStreakLabel">consecutive days</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Best Cyclical</div>
+          <div class="rstat-value" id="sBestCyc" style="font-size:18px">—</div>
+          <div class="rstat-sub" id="sBestCycReturn">period return</div>
+        </div>
+      </div>
+      <div class="range-selector">
+        ${ranges.map(r =>
+          `<button class="range-btn${r==='5y'?' active':''}" onclick="loadSectorsChart('${r}')">${r.toUpperCase()}</button>`
+        ).join('')}
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-loading" id="sectorsLoading"><div class="spinner"></div> Loading chart…</div>
+        <canvas id="sectorsChartCanvas" style="display:none"></canvas>
+      </div>
+      <button class="summary-btn" id="summaryBtn" onclick="generateSummary('sectors')">✦ Generate AI Summary</button>
+      <div class="summary-box" id="summaryBox"></div>`;
+  }
+
+  if (card.id === 'commodities') {
+    const ranges = ['10y','5y','1y','6mo','3mo','1mo','1wk'];
+    extra = `
+      <div class="modal-section-title" style="margin-top:20px">Historical Context — USCI vs 200d SMA</div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">Percentile Rank</div>
+          <div class="rstat-value" id="cPercentile">—</div>
+          <div class="rstat-sub">of all historical days</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Days in Zone</div>
+          <div class="rstat-value" id="cDays">—</div>
+          <div class="rstat-sub">consecutive days here</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Extension Velocity</div>
+          <div class="rstat-value" id="cRoc">—</div>
+          <div class="rstat-sub">10d ROC of stretch</div>
+        </div>
+      </div>
+      <div class="range-selector">
+        ${ranges.map(r =>
+          `<button class="range-btn${r==='5y'?' active':''}" onclick="loadCommoditiesChart('${r}')">${r.toUpperCase()}</button>`
+        ).join('')}
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-loading" id="commoditiesLoading"><div class="spinner"></div> Loading chart…</div>
+        <canvas id="commoditiesChartCanvas" style="display:none"></canvas>
+      </div>
+      <button class="summary-btn" id="summaryBtn" onclick="generateSummary('commodities')">✦ Generate AI Summary</button>
+      <div class="summary-box" id="summaryBox"></div>`;
+  }
+
+  if (card.id === 'equities') {
+    const eRows = card.rows || [];
+    const eBull    = eRows.filter(r => r.status === 'bullish').length;
+    const eNeutral = eRows.filter(r => r.status === 'neutral').length;
+    const eBear    = eRows.filter(r => r.status === 'bearish').length;
+    extra = `
+      <div class="modal-section-title" style="margin-top:20px">Watchlist Summary — MA Position</div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">Above Both MAs</div>
+          <div class="rstat-value positive">${eBull}</div>
+          <div class="rstat-sub">50d &amp; 200d SMA</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Above 200d Only</div>
+          <div class="rstat-value" style="color:var(--yellow)">${eNeutral}</div>
+          <div class="rstat-sub">Lagging 50d SMA</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Below 200d</div>
+          <div class="rstat-value negative">${eBear}</div>
+          <div class="rstat-sub">In bear territory</div>
+        </div>
       </div>`;
   }
 
@@ -533,10 +735,6 @@ function openModal(card) {
       </table>`;
   }
 
-  if ((card.id === 'commodities' || card.id === 'equities') && card.summary) {
-    extra = `<div class="modal-note"><strong>Summary:</strong> ${card.summary}</div>`;
-  }
-
   if (card.note) {
     extra += `<div class="modal-note" style="margin-top:12px">${card.note}</div>`;
   }
@@ -554,13 +752,21 @@ function openModal(card) {
 
   if (card.id === 'regime')      loadRegimeChart('5y');
   if (card.id === 'leadership')  loadLeadershipChart('5y');
+  if (card.id === 'breadth')     loadBreadthChart('5y');
+  if (card.id === 'yield')       loadYieldChart('5y');
+  if (card.id === 'sectors')     loadSectorsChart('5y');
+  if (card.id === 'commodities') loadCommoditiesChart('5y');
 }
 
 function closeModal(e) {
   if (e && e.target !== document.getElementById('modal')) return;
   if (regimeChart)     { regimeChart.destroy();     regimeChart     = null; }
   if (rsiChart)        { rsiChart.destroy();        rsiChart        = null; }
-  if (leadershipChart) { leadershipChart.destroy(); leadershipChart = null; }
+  if (leadershipChart)  { leadershipChart.destroy();  leadershipChart  = null; }
+  if (breadthChart)     { breadthChart.destroy();     breadthChart     = null; }
+  if (yieldChart)       { yieldChart.destroy();       yieldChart       = null; }
+  if (sectorsChart)     { sectorsChart.destroy();     sectorsChart     = null; }
+  if (commoditiesChart) { commoditiesChart.destroy(); commoditiesChart = null; }
   document.getElementById('modal').classList.remove('open');
   document.body.style.overflow = '';
 }
@@ -622,6 +828,20 @@ async function loadRegimeChart(range) {
       rocEl.textContent = roc != null ? (roc >= 0 ? '+' : '') + roc.toFixed(1) + '%' : '—';
       rocEl.className   = 'rstat-value' + (roc > 0 ? ' positive' : roc < 0 ? ' negative' : '');
     }
+
+    // Store deep dive context for AI summary
+    currentDeepDive = {
+      'SPY vs 200d SMA': summary.currentVs200 != null ? (summary.currentVs200 >= 0 ? '+' : '') + summary.currentVs200.toFixed(1) + '%' : '—',
+      'Percentile rank': summary.percentile != null ? Math.round(summary.percentile) + 'th percentile of all historical days' : '—',
+      'Days in current zone': summary.daysInZone ?? '—',
+      'Extension velocity (10d ROC)': summary.currentRoc10 != null ? (summary.currentRoc10 >= 0 ? '+' : '') + summary.currentRoc10.toFixed(1) + '%' : '—',
+      'Range shown': range,
+    };
+    // Reset summary button
+    const sBtn = document.getElementById('summaryBtn');
+    const sBox = document.getElementById('summaryBox');
+    if (sBtn) { sBtn.style.display = 'block'; sBtn.disabled = false; sBtn.textContent = '✦ Generate AI Summary'; }
+    if (sBox) sBox.style.display = 'none';
 
     // Destroy existing chart before redrawing
     if (regimeChart) { regimeChart.destroy(); regimeChart = null; }
@@ -829,6 +1049,19 @@ async function loadLeadershipChart(range) {
       tEl.className   = 'rstat-value' + (v > 0 ? ' positive' : v < 0 ? ' negative' : '');
     }
 
+    // Store deep dive context for AI summary
+    currentDeepDive = {
+      'RSP vs SPY cumulative (period)': summary.currentRspVsSpy != null ? (summary.currentRspVsSpy >= 0 ? '+' : '') + summary.currentRspVsSpy.toFixed(1) + '%' : '—',
+      'Streak': summary.streak > 0 ? `RSP leading SPY for ${summary.streak} consecutive days` : `RSP lagging SPY for ${Math.abs(summary.streak)} consecutive days`,
+      'QQEW vs QQQ cumulative (period)': summary.currentQqewVsQqq != null ? (summary.currentQqewVsQqq >= 0 ? '+' : '') + summary.currentQqewVsQqq.toFixed(1) + '%' : '—',
+      'Range shown': range,
+    };
+    // Reset summary button
+    const sBtn = document.getElementById('summaryBtn');
+    const sBox = document.getElementById('summaryBox');
+    if (sBtn) { sBtn.style.display = 'block'; sBtn.disabled = false; sBtn.textContent = '✦ Generate AI Summary'; }
+    if (sBox) sBox.style.display = 'none';
+
     if (leadershipChart) { leadershipChart.destroy(); leadershipChart = null; }
     if (loadingEl) loadingEl.style.display = 'none';
     if (canvasEl)  canvasEl.style.display  = 'block';
@@ -913,6 +1146,500 @@ async function loadLeadershipChart(range) {
 
   } catch (err) {
     if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── BREADTH CHART ─────────────────────────────────────────────────────────────
+async function loadBreadthChart(range) {
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === range);
+  });
+  ['bPercentile','bDays','bRoc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '…';
+  });
+  const loadingEl = document.getElementById('breadthLoading');
+  const canvasEl  = document.getElementById('breadthChartCanvas');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (canvasEl)  canvasEl.style.display  = 'none';
+  try {
+    await loadChartJS();
+    const today = new Date().toISOString().slice(0, 10);
+    const res  = await fetch(`/api/history?symbol=RSPD&range=${range}&d=${today}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const hist = await res.json();
+    if (hist.error) throw new Error(hist.error);
+    const { dates, closes, sma200, vs200, summary } = hist;
+    const pctEl = document.getElementById('bPercentile');
+    const dayEl = document.getElementById('bDays');
+    const rocEl = document.getElementById('bRoc');
+    if (pctEl) {
+      const p = summary.percentile;
+      pctEl.textContent = p != null ? Math.round(p) + 'th' : '—';
+      pctEl.className   = 'rstat-value' + (p >= 80 ? ' negative' : p <= 20 ? ' positive' : '');
+    }
+    if (dayEl) dayEl.textContent = summary.daysInZone ?? '—';
+    if (rocEl) {
+      const roc = summary.currentRoc10;
+      rocEl.textContent = roc != null ? (roc >= 0 ? '+' : '') + roc.toFixed(1) + '%' : '—';
+      rocEl.className   = 'rstat-value' + (roc > 0 ? ' positive' : roc < 0 ? ' negative' : '');
+    }
+    currentDeepDive = {
+      'RSPD vs 200d SMA': summary.currentVs200 != null ? (summary.currentVs200 >= 0 ? '+' : '') + summary.currentVs200.toFixed(1) + '%' : '—',
+      'Percentile rank': summary.percentile != null ? Math.round(summary.percentile) + 'th percentile' : '—',
+      'Days in current zone': summary.daysInZone ?? '—',
+      'Extension velocity (10d ROC)': summary.currentRoc10 != null ? (summary.currentRoc10 >= 0 ? '+' : '') + summary.currentRoc10.toFixed(1) + '%' : '—',
+      'Range shown': range,
+    };
+    const sBtn = document.getElementById('summaryBtn');
+    const sBox = document.getElementById('summaryBox');
+    if (sBtn) { sBtn.style.display = 'block'; sBtn.disabled = false; sBtn.textContent = '✦ Generate AI Summary'; }
+    if (sBox) sBox.style.display = 'none';
+    if (breadthChart) { breadthChart.destroy(); breadthChart = null; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (canvasEl)  canvasEl.style.display  = 'block';
+    const step = Math.max(1, Math.floor(dates.length / 8));
+    const labelDates = dates.map((d, i) => i % step === 0 ? d.slice(0, 7) : '');
+    breadthChart = new Chart(canvasEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labelDates,
+        datasets: [
+          {
+            label: 'RSPD',
+            data: closes,
+            borderColor: '#3b82f6',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+            segment: {
+              borderColor: ctx => {
+                const v = vs200?.[ctx.p1DataIndex];
+                if (v == null) return '#3b82f6';
+                if (v > 12)    return '#ef4444';
+                if (v < 0)     return '#f97316';
+                return '#3b82f6';
+              },
+            },
+          },
+          {
+            label: '200d SMA',
+            data: sma200,
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            borderDash: [5, 3],
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 250 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 24, padding: 12 } },
+          tooltip: {
+            backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
+            titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
+            callbacks: {
+              title: ctx => dates[ctx[0].dataIndex],
+              label: ctx => { const v = ctx.parsed.y; return v != null ? ` ${ctx.dataset.label}: $${v.toFixed(2)}` : null; },
+              afterBody: ctx => {
+                const stretch = vs200?.[ctx[0]?.dataIndex];
+                if (stretch == null) return [];
+                return [` vs 200d SMA: ${(stretch >= 0 ? '+' : '') + stretch.toFixed(1)}%`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => '$' + v.toFixed(0) }, grid: { color: 'rgba(30,45,61,.4)' } },
+        },
+      },
+    });
+  } catch (err) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── YIELD CHART ───────────────────────────────────────────────────────────────
+async function loadYieldChart(range) {
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === range);
+  });
+  ['yYield','yDays','yRoc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '…';
+  });
+  const loadingEl = document.getElementById('yieldLoading');
+  const canvasEl  = document.getElementById('yieldChartCanvas');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (canvasEl)  canvasEl.style.display  = 'none';
+  try {
+    await loadChartJS();
+    const today = new Date().toISOString().slice(0, 10);
+    const res  = await fetch(`/api/history?symbol=%5ETYX&range=${range}&d=${today}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const hist = await res.json();
+    if (hist.error) throw new Error(hist.error);
+    const { dates, closes, summary } = hist;
+    const n = closes.length;
+    const currentYield = summary.currentClose;
+    const yEl = document.getElementById('yYield');
+    const dEl = document.getElementById('yDays');
+    const rEl = document.getElementById('yRoc');
+    if (yEl) {
+      yEl.textContent = currentYield != null ? currentYield.toFixed(2) + '%' : '—';
+      yEl.className   = 'rstat-value' + (currentYield > 5 ? ' negative' : currentYield < 4.5 ? ' positive' : '');
+    }
+    let daysInZone = 0;
+    if (currentYield != null) {
+      const above = currentYield > 4.5;
+      for (let i = n - 1; i >= 0; i--) {
+        if (closes[i] == null || (closes[i] > 4.5) !== above) break;
+        daysInZone++;
+      }
+    }
+    if (dEl) {
+      dEl.textContent = daysInZone;
+      dEl.className   = 'rstat-value' + (currentYield > 4.5 ? ' negative' : ' positive');
+    }
+    const roc10y = n >= 11 && closes[n-1] != null && closes[n-11] != null ? closes[n-1] - closes[n-11] : null;
+    if (rEl) {
+      rEl.textContent = roc10y != null ? (roc10y >= 0 ? '+' : '') + roc10y.toFixed(2) + 'pp' : '—';
+      rEl.className   = 'rstat-value' + (roc10y > 0 ? ' negative' : roc10y < 0 ? ' positive' : '');
+    }
+    currentDeepDive = {
+      'Current 30yr yield': currentYield != null ? currentYield.toFixed(2) + '%' : '—',
+      'Days above/below 4.5% threshold': daysInZone,
+      '10-day yield change': roc10y != null ? (roc10y >= 0 ? '+' : '') + roc10y.toFixed(2) + ' pp' : '—',
+      'Range shown': range,
+    };
+    const sBtn = document.getElementById('summaryBtn');
+    const sBox = document.getElementById('summaryBox');
+    if (sBtn) { sBtn.style.display = 'block'; sBtn.disabled = false; sBtn.textContent = '✦ Generate AI Summary'; }
+    if (sBox) sBox.style.display = 'none';
+    if (yieldChart) { yieldChart.destroy(); yieldChart = null; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (canvasEl)  canvasEl.style.display  = 'block';
+    const step = Math.max(1, Math.floor(dates.length / 8));
+    const labelDates = dates.map((d, i) => i % step === 0 ? d.slice(0, 7) : '');
+    yieldChart = new Chart(canvasEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labelDates,
+        datasets: [{
+          label: '30yr Yield',
+          data: closes,
+          borderColor: '#22c55e',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          segment: {
+            borderColor: ctx => {
+              const v = closes[ctx.p1DataIndex];
+              if (v == null) return '#22c55e';
+              if (v > 5)    return '#ef4444';
+              if (v > 4.5)  return '#f59e0b';
+              return '#22c55e';
+            },
+          },
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 250 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 24, padding: 12 } },
+          tooltip: {
+            backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
+            titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
+            callbacks: {
+              title: ctx => dates[ctx[0].dataIndex],
+              label: ctx => {
+                const v = ctx.parsed.y;
+                if (v == null) return null;
+                const zone = v > 5 ? 'Risk-On Compression' : v > 4.5 ? 'Watch Zone' : 'Below Threshold';
+                return ` 30yr Yield: ${v.toFixed(2)}% — ${zone}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => v.toFixed(1) + '%' }, grid: { color: 'rgba(30,45,61,.4)' } },
+        },
+      },
+    });
+  } catch (err) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── SECTORS CHART ─────────────────────────────────────────────────────────────
+async function loadSectorsChart(range) {
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === range);
+  });
+  ['sCurrent','sStreak','sBestCyc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '…';
+  });
+  const loadingEl = document.getElementById('sectorsLoading');
+  const canvasEl  = document.getElementById('sectorsChartCanvas');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (canvasEl)  canvasEl.style.display  = 'none';
+  try {
+    await loadChartJS();
+    const today = new Date().toISOString().slice(0, 10);
+    const res   = await fetch(`/api/sectors?range=${range}&d=${today}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const { dates, cycVsDef, summary } = data;
+    const cEl  = document.getElementById('sCurrent');
+    const sEl  = document.getElementById('sStreak');
+    const sLbl = document.getElementById('sStreakLabel');
+    const bEl  = document.getElementById('sBestCyc');
+    const bRet = document.getElementById('sBestCycReturn');
+    if (cEl) {
+      const v = summary.current;
+      cEl.textContent = v != null ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : '—';
+      cEl.className   = 'rstat-value' + (v > 0 ? ' positive' : v < 0 ? ' negative' : '');
+    }
+    if (sEl) {
+      const s = summary.streak;
+      sEl.textContent = Math.abs(s);
+      sEl.className   = 'rstat-value' + (s > 0 ? ' positive' : s < 0 ? ' negative' : '');
+      if (sLbl) sLbl.textContent = s > 0 ? 'days cyclicals leading' : 'days defensives leading';
+    }
+    if (bEl) bEl.textContent = summary.bestCyc || '—';
+    if (bRet) {
+      const r = summary.bestCycReturn;
+      bRet.textContent = r != null ? (r >= 0 ? '+' : '') + r.toFixed(1) + '% period return' : 'period return';
+    }
+    currentDeepDive = {
+      'Cyclicals vs Defensives spread': summary.current != null ? (summary.current >= 0 ? '+' : '') + summary.current.toFixed(1) + '%' : '—',
+      'Streak': summary.streak > 0 ? `Cyclicals leading for ${summary.streak} days` : `Defensives leading for ${Math.abs(summary.streak)} days`,
+      'Best cyclical sector': summary.bestCyc + (summary.bestCycReturn != null ? ` (${(summary.bestCycReturn >= 0 ? '+' : '') + summary.bestCycReturn.toFixed(1)}%)` : ''),
+      'Best defensive sector': summary.bestDef + (summary.bestDefReturn != null ? ` (${(summary.bestDefReturn >= 0 ? '+' : '') + summary.bestDefReturn.toFixed(1)}%)` : ''),
+      'Range shown': range,
+    };
+    const sBtn = document.getElementById('summaryBtn');
+    const sBox = document.getElementById('summaryBox');
+    if (sBtn) { sBtn.style.display = 'block'; sBtn.disabled = false; sBtn.textContent = '✦ Generate AI Summary'; }
+    if (sBox) sBox.style.display = 'none';
+    if (sectorsChart) { sectorsChart.destroy(); sectorsChart = null; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (canvasEl)  canvasEl.style.display  = 'block';
+    const step = Math.max(1, Math.floor(dates.length / 8));
+    const labelDates = dates.map((d, i) => i % step === 0 ? d.slice(0, 7) : '');
+    sectorsChart = new Chart(canvasEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labelDates,
+        datasets: [{
+          label: 'Cyclicals vs Defensives',
+          data: cycVsDef,
+          borderColor: '#22c55e',
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          segment: {
+            borderColor: ctx => (cycVsDef[ctx.p1DataIndex] > 0) ? '#22c55e' : '#ef4444',
+          },
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 250 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 24, padding: 12 } },
+          tooltip: {
+            backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
+            titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
+            callbacks: {
+              title: ctx => dates[ctx[0].dataIndex],
+              label: ctx => {
+                const v = ctx.parsed.y;
+                if (v == null) return null;
+                const mode = v > 0 ? 'Risk-On' : 'Risk-Off';
+                return ` Cyc vs Def: ${(v >= 0 ? '+' : '') + v.toFixed(2)}% — ${mode}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
+          y: {
+            ticks: { color: '#64748b', font: { size: 10 }, callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%' },
+            grid: { color: ctx => ctx.tick.value === 0 ? 'rgba(148,163,184,0.35)' : 'rgba(30,45,61,.4)' },
+          },
+        },
+      },
+    });
+  } catch (err) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── COMMODITIES CHART ─────────────────────────────────────────────────────────
+async function loadCommoditiesChart(range) {
+  document.querySelectorAll('.range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === range);
+  });
+  ['cPercentile','cDays','cRoc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '…';
+  });
+  const loadingEl = document.getElementById('commoditiesLoading');
+  const canvasEl  = document.getElementById('commoditiesChartCanvas');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (canvasEl)  canvasEl.style.display  = 'none';
+  try {
+    await loadChartJS();
+    const today = new Date().toISOString().slice(0, 10);
+    const res  = await fetch(`/api/history?symbol=USCI&range=${range}&d=${today}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const hist = await res.json();
+    if (hist.error) throw new Error(hist.error);
+    const { dates, closes, sma200, vs200, summary } = hist;
+    const pctEl = document.getElementById('cPercentile');
+    const dayEl = document.getElementById('cDays');
+    const rocEl = document.getElementById('cRoc');
+    if (pctEl) {
+      const p = summary.percentile;
+      pctEl.textContent = p != null ? Math.round(p) + 'th' : '—';
+      pctEl.className   = 'rstat-value' + (p >= 80 ? ' negative' : p <= 20 ? ' positive' : '');
+    }
+    if (dayEl) dayEl.textContent = summary.daysInZone ?? '—';
+    if (rocEl) {
+      const roc = summary.currentRoc10;
+      rocEl.textContent = roc != null ? (roc >= 0 ? '+' : '') + roc.toFixed(1) + '%' : '—';
+      rocEl.className   = 'rstat-value' + (roc > 0 ? ' positive' : roc < 0 ? ' negative' : '');
+    }
+    currentDeepDive = {
+      'USCI vs 200d SMA': summary.currentVs200 != null ? (summary.currentVs200 >= 0 ? '+' : '') + summary.currentVs200.toFixed(1) + '%' : '—',
+      'Percentile rank': summary.percentile != null ? Math.round(summary.percentile) + 'th percentile' : '—',
+      'Days in current zone': summary.daysInZone ?? '—',
+      'Extension velocity (10d ROC)': summary.currentRoc10 != null ? (summary.currentRoc10 >= 0 ? '+' : '') + summary.currentRoc10.toFixed(1) + '%' : '—',
+      'Range shown': range,
+    };
+    const sBtn = document.getElementById('summaryBtn');
+    const sBox = document.getElementById('summaryBox');
+    if (sBtn) { sBtn.style.display = 'block'; sBtn.disabled = false; sBtn.textContent = '✦ Generate AI Summary'; }
+    if (sBox) sBox.style.display = 'none';
+    if (commoditiesChart) { commoditiesChart.destroy(); commoditiesChart = null; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (canvasEl)  canvasEl.style.display  = 'block';
+    const step = Math.max(1, Math.floor(dates.length / 8));
+    const labelDates = dates.map((d, i) => i % step === 0 ? d.slice(0, 7) : '');
+    commoditiesChart = new Chart(canvasEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labelDates,
+        datasets: [
+          {
+            label: 'USCI',
+            data: closes,
+            borderColor: '#3b82f6',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+            segment: {
+              borderColor: ctx => {
+                const v = vs200?.[ctx.p1DataIndex];
+                if (v == null) return '#3b82f6';
+                if (v > 12)    return '#ef4444';
+                if (v < 0)     return '#f97316';
+                return '#3b82f6';
+              },
+            },
+          },
+          {
+            label: '200d SMA',
+            data: sma200,
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            borderDash: [5, 3],
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 250 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 24, padding: 12 } },
+          tooltip: {
+            backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
+            titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
+            callbacks: {
+              title: ctx => dates[ctx[0].dataIndex],
+              label: ctx => { const v = ctx.parsed.y; return v != null ? ` ${ctx.dataset.label}: $${v.toFixed(2)}` : null; },
+              afterBody: ctx => {
+                const stretch = vs200?.[ctx[0]?.dataIndex];
+                if (stretch == null) return [];
+                return [` vs 200d SMA: ${(stretch >= 0 ? '+' : '') + stretch.toFixed(1)}%`];
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => '$' + v.toFixed(0) }, grid: { color: 'rgba(30,45,61,.4)' } },
+        },
+      },
+    });
+  } catch (err) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── AI SUMMARY ────────────────────────────────────────────────────────────────
+async function generateSummary(cardId) {
+  const card = lastData?.cards?.find(c => c.id === cardId);
+  if (!card) return;
+
+  const btn = document.getElementById('summaryBtn');
+  const box = document.getElementById('summaryBox');
+  if (!btn || !box) return;
+
+  btn.disabled = true;
+  btn.textContent = '⟳ Analyzing…';
+
+  try {
+    const res = await fetch('/api/summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ card, deepDive: currentDeepDive }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    box.textContent  = data.summary;
+    box.style.display = 'block';
+    btn.style.display = 'none';
+  } catch (err) {
+    box.textContent   = `Summary unavailable: ${err.message}`;
+    box.style.display = 'block';
+    btn.disabled      = false;
+    btn.textContent   = '✦ Generate AI Summary';
   }
 }
 
