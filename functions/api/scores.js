@@ -209,7 +209,7 @@ function buildRegime(q) {
   const r3 = {
     label: 'Trend Confirmation',
     indicator: '50d SMA vs 200d SMA',
-    value: s50 != null && s200 != null ? `50d: ${usd(s50)}<br>200d: ${usd(s200)}` : '—',
+    value: s50 != null ? `50d: ${usd(s50)}` : '—',
     condition: isGolden == null ? '—' : isGolden ? `Golden Cross — Confirmed Bull${spreadStr}` : `Death Cross — Confirmed Bear${spreadStr}`,
     status: isGolden == null ? 'neutral' : isGolden ? 'bullish' : 'bearish',
   };
