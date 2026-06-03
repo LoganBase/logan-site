@@ -985,7 +985,7 @@ async function loadRegimeChart(range) {
     const hist = await res.json();
     if (hist.error) throw new Error(hist.error);
 
-    const { dates, closes, sma200, vs200, rsi14, summary } = hist;
+    const { dates, closes, sma50, sma200, vs200, rsi14, summary } = hist;
 
     // Update stat boxes
     const pctEl = document.getElementById('rPercentile');
@@ -1009,6 +1009,8 @@ async function loadRegimeChart(range) {
     // Store deep dive context for AI summary
     currentDeepDive = {
       'SPY vs 200d SMA': summary.currentVs200 != null ? (summary.currentVs200 >= 0 ? '+' : '') + summary.currentVs200.toFixed(1) + '%' : '—',
+      '50d SMA': summary.currentSma50 != null ? '$' + summary.currentSma50.toFixed(2) : '—',
+      '200d SMA': summary.currentSma200 != null ? '$' + summary.currentSma200.toFixed(2) : '—',
       'Percentile rank': summary.percentile != null ? Math.round(summary.percentile) + 'th percentile of all historical days' : '—',
       'Days in current zone': summary.daysInZone ?? '—',
       'Extension velocity (10d ROC)': summary.currentRoc10 != null ? (summary.currentRoc10 >= 0 ? '+' : '') + summary.currentRoc10.toFixed(1) + '%' : '—',
@@ -1051,6 +1053,15 @@ async function loadRegimeChart(range) {
                 return '#3b82f6';                 // normal bull
               },
             },
+          },
+          {
+            label: '50d SMA',
+            data: sma50,
+            borderColor: '#06b6d4',
+            borderWidth: 1,
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
           },
           {
             label: '200d SMA',

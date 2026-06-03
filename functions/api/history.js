@@ -50,7 +50,7 @@ function startDateFor(days) {
 async function fromD1(db, symbol, days) {
   const startDate = startDateFor(days);
   const { results } = await db.prepare(
-    `SELECT p.date, p.close, i.sma200, i.vs200_pct, i.roc10, i.rsi14, i.percentile
+    `SELECT p.date, p.close, i.sma50, i.sma200, i.vs200_pct, i.roc10, i.rsi14, i.percentile
      FROM daily_prices p
      LEFT JOIN indicators i ON p.symbol = i.symbol AND p.date = i.date
      WHERE p.symbol = ? AND p.date >= ?
@@ -79,6 +79,7 @@ function buildFromD1Rows(symbol, range, rows, regimeDays = null) {
   const n      = rows.length;
   const dates  = rows.map(r => r.date);
   const closes = rows.map(r => r.close);
+  const sma50  = rows.map(r => r.sma50     ?? null);
   const sma200 = rows.map(r => r.sma200    ?? null);
   const vs200  = rows.map(r => r.vs200_pct ?? null);
   const roc10  = rows.map(r => r.roc10     ?? null);
@@ -100,9 +101,10 @@ function buildFromD1Rows(symbol, range, rows, regimeDays = null) {
   }
 
   return {
-    symbol, range, dates, closes, sma200, vs200, roc10, rsi14,
+    symbol, range, dates, closes, sma50, sma200, vs200, roc10, rsi14,
     summary: {
       currentClose:  closes[n - 1],
+      currentSma50:  sma50[n - 1],
       currentSma200: sma200[n - 1],
       currentVs200,
       currentRoc10,
@@ -166,6 +168,10 @@ async function fromYahoo(symbol, range, cfg) {
   const allCloses  = allPoints.map(p => p.close);
   const allDates   = allPoints.map(p => p.date);
 
+  const allSma50 = allCloses.map((_, i) => {
+    if (i < 49) return null;
+    return allCloses.slice(i - 49, i + 1).reduce((a, b) => a + b, 0) / 50;
+  });
   const allSma200 = allCloses.map((_, i) => {
     if (i < 199) return null;
     return allCloses.slice(i - 199, i + 1).reduce((a, b) => a + b, 0) / 200;
@@ -205,12 +211,14 @@ async function fromYahoo(symbol, range, cfg) {
     symbol, range,
     dates:  allDates.slice(trimStart),
     closes: allCloses.slice(trimStart),
+    sma50:  allSma50.slice(trimStart),
     sma200: allSma200.slice(trimStart),
     vs200:  allVs200.slice(trimStart),
     roc10:  allRoc10.slice(trimStart),
     rsi14:  allRsi14.slice(trimStart),
     summary: {
       currentClose:  allCloses[N - 1],
+      currentSma50:  allSma50[N - 1],
       currentSma200: allSma200[N - 1],
       currentVs200,
       currentRoc10,
