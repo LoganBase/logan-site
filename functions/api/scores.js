@@ -179,7 +179,7 @@ function buildRegime(q) {
   const r1 = {
     label: 'Market Status',
     indicator: 'SPY vs 200d SMA',
-    value: spy.sma200 != null ? `${usd(spy.price)} / 200d: ${usd(spy.sma200)}` : usd(spy.price),
+    value: spy.sma200 != null ? `$${spy.price.toFixed(2)} / $${spy.sma200.toFixed(2)}` : usd(spy.price),
     condition: isBull ? 'Secular Bull' : 'Secular Bear',
     status: isBull ? 'bullish' : 'bearish',
   };
