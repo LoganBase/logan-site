@@ -176,50 +176,50 @@ function buildRegime(q) {
   const spy = q['SPY'];
   if (!spy) return placeholderCard(1, 'Regime', 'The Anchor');
 
-  // Row 1: Market Status — structural anchor
+  // Row 1: SPY Regime — structural anchor
   const isBull = spy.price > spy.sma200;
   const r1 = {
-    label: 'Market Status',
+    label: 'SPY Regime',
     indicator: 'SPY vs 200d SMA',
     value: spy.sma200 != null ? `$${spy.price.toFixed(2)} / $${spy.sma200.toFixed(2)}` : usd(spy.price),
-    condition: isBull ? 'Secular Bull' : 'Secular Bear',
+    condition: isBull ? 'Secular Bull — Stay Long' : 'Secular Bear — Reduce Exposure',
     status: isBull ? 'bullish' : 'bearish',
   };
 
-  // Row 2: Market Stretch — 4-band aligned with history.js zones
+  // Row 2: Stretch Risk — 4-band aligned with history.js zones
   const v200 = spy.vs200;
   let stretchStatus, stretchCondition;
   if (v200 == null)     { stretchStatus = 'neutral'; stretchCondition = '—'; }
-  else if (v200 > 14)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended — Pull Back Risk'; }
+  else if (v200 > 14)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended — Protect Gains'; }
   else if (v200 > 10)   { stretchStatus = 'neutral'; stretchCondition = 'Extended — Reduce New Adds'; }
-  else if (v200 >= 0)   { stretchStatus = 'bullish'; stretchCondition = 'Normal Bull Market'; }
-  else if (v200 >= -10) { stretchStatus = 'neutral'; stretchCondition = 'Bearish Retest'; }
-  else                  { stretchStatus = 'bearish'; stretchCondition = 'Deeply Oversold'; }
+  else if (v200 >= 0)   { stretchStatus = 'bullish'; stretchCondition = 'Normal Bull — Full Risk-On'; }
+  else if (v200 >= -10) { stretchStatus = 'neutral'; stretchCondition = 'Bearish Retest — Hold'; }
+  else                  { stretchStatus = 'bearish'; stretchCondition = 'Deeply Oversold — Raise Cash'; }
   const r2 = {
-    label: 'Market Stretch',
+    label: 'Stretch Risk',
     indicator: 'Distance from 200d SMA',
     value: pct(v200),
     condition: stretchCondition,
     status: stretchStatus,
   };
 
-  // Row 3: Trend Confirmation — Golden Cross / Death Cross
+  // Row 3: Trend Cross — Golden Cross / Death Cross
   const s50 = spy.sma50, s200 = spy.sma200;
   const isGolden = s50 != null && s200 != null ? s50 > s200 : null;
   const crossSpread = s50 != null && s200 != null ? ((s50 - s200) / s200) * 100 : null;
   const spreadStr = crossSpread != null ? ` (${crossSpread >= 0 ? '+' : ''}${crossSpread.toFixed(1)}%)` : '';
   const r3 = {
-    label: 'Trend Confirmation',
+    label: 'Trend Cross',
     indicator: '50d SMA vs 200d SMA',
-    value: s50 != null ? `50d: ${usd(s50)}` : '—',
-    condition: isGolden == null ? '—' : isGolden ? `Golden Cross — Confirmed Bull${spreadStr}` : `Death Cross — Confirmed Bear${spreadStr}`,
+    value: s50 != null ? `50d: $${s50.toFixed(2)}` : '—',
+    condition: isGolden == null ? '—' : isGolden ? `Golden Cross — Confirmed${spreadStr}` : `Death Cross — De-Risk${spreadStr}`,
     status: isGolden == null ? 'neutral' : isGolden ? 'bullish' : 'bearish',
   };
 
   const rows = [r1, r2, r3];
   // Card is bearish only when SPY is in a secular bear (below 200d SMA)
   const status = isBull ? cardStatus(rows) : 'bearish';
-  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows };
+  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, hideIndicator: true };
 }
 
 function buildLeadership(q) {
