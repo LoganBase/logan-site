@@ -69,10 +69,10 @@ function num(n, d = 1) { return n != null ? n.toFixed(d) : '—'; }
 // ── D1 SOURCE ─────────────────────────────────────────────────────────────────
 async function loadFromD1(db) {
   try {
-    // Last 15 calendar days covers ~10 trading days — enough for 2 closes per symbol
+    // Last 35 calendar days covers ~25 trading days — enough for 20-day return + changePct
     const { results: priceRows } = await db.prepare(
       `SELECT symbol, date, close FROM daily_prices
-       WHERE date >= DATE('now', '-15 days')
+       WHERE date >= DATE('now', '-35 days')
        ORDER BY symbol, date DESC`
     ).all();
 
@@ -85,11 +85,11 @@ async function loadFromD1(db) {
        ) latest ON i.symbol = latest.symbol AND i.date = latest.max_date`
     ).all();
 
-    // Group closes by symbol (already DESC), keep top 2
+    // Group closes by symbol (already DESC), keep up to 22 for 20-day return
     const bySymbol = {};
     for (const row of priceRows) {
       if (!bySymbol[row.symbol]) bySymbol[row.symbol] = [];
-      if (bySymbol[row.symbol].length < 2) bySymbol[row.symbol].push(row.close);
+      if (bySymbol[row.symbol].length < 22) bySymbol[row.symbol].push(row.close);
     }
 
     const indMap = {};
@@ -105,6 +105,7 @@ async function loadFromD1(db) {
         symbol: sym,
         price,
         changePct: ((price - prev) / prev) * 100,
+        price20d:  closes[20] ?? null,
         sma50:  ind.sma50,
         sma200: ind.sma200,
         rsi14:  ind.rsi14,
@@ -137,6 +138,7 @@ async function fetchSymbol(symbol) {
       symbol,
       price,
       changePct: prev ? ((price - prev) / prev) * 100 : 0,
+      price20d:  closes.length >= 21 ? closes[closes.length - 21] : null,
       sma50:  s50,
       sma200: s200,
       rsi14:  r14,
@@ -223,32 +225,50 @@ function buildRegime(q) {
 function buildLeadership(q) {
   const spy  = q['SPY'],  rsp  = q['RSP'];
   const qqq  = q['QQQ'],  qqew = q['QQEW'];
+  const ivw  = q['IVW'],  ive  = q['IVE'];
   if (!spy || !rsp) return placeholderCard(2, 'Leadership', 'The Quality Check');
 
-  const rspLead  = rsp.changePct > spy.changePct;
-  const qqewLead = qqew && qqq ? qqew.changePct > qqq.changePct : null;
-  const growthLead = q['IVW'] && q['IVE'] ? q['IVW'].changePct > q['IVE'].changePct : null;
+  // 20-day return — falls back to daily changePct when price20d unavailable
+  function ret20(s) {
+    return s?.price20d ? (s.price / s.price20d - 1) * 100 : s?.changePct ?? null;
+  }
+
+  const rsp20 = ret20(rsp), spy20  = ret20(spy);
+  const qqew20 = ret20(qqew), qqq20 = ret20(qqq);
+  const ivw20  = ret20(ivw),  ive20 = ret20(ive);
+
+  const rspLead    = rsp20 != null && spy20  != null ? rsp20  > spy20  : rsp.changePct > spy.changePct;
+  const qqewLead   = qqew20 != null && qqq20 != null ? qqew20 > qqq20  : (qqew && qqq ? qqew.changePct > qqq.changePct : null);
+  const growthLead = ivw20  != null && ive20  != null ? ivw20  > ive20  : (ivw && ive ? ivw.changePct > ive.changePct : null);
+
+  const rspSpread   = rsp20  != null && spy20  != null ? rsp20  - spy20  : null;
+  const qqewSpread  = qqew20 != null && qqq20  != null ? qqew20 - qqq20  : null;
+  const styleSpread = ivw20  != null && ive20  != null ? ivw20  - ive20  : null;
+
+  const rspSpreadStr   = rspSpread   != null ? ` (${pct(rspSpread, 1)})` : '';
+  const qqewSpreadStr  = qqewSpread  != null ? ` (${pct(qqewSpread, 1)})` : '';
+  const styleSpreadStr = styleSpread != null ? ` (${pct(styleSpread, 1)})` : '';
 
   const rows = [
     {
       label: 'Market Breadth Quality',
-      indicator: 'RSP vs SPY (Equal vs Cap-Weight)',
-      value: `RSP ${pct(rsp.changePct, 2)} | SPY ${pct(spy.changePct, 2)}`,
-      condition: rspLead ? 'Breadth Expanding' : 'Rally Narrowing',
+      indicator: 'RSP vs SPY — 20d Return',
+      value: rsp20 != null && spy20 != null ? `RSP ${pct(rsp20, 1)} | SPY ${pct(spy20, 1)}` : '—',
+      condition: rspLead ? `Breadth Expanding${rspSpreadStr}` : `Rally Narrowing${rspSpreadStr}`,
       status: rspLead ? 'bullish' : 'bearish',
     },
     {
       label: 'Tech Breadth Quality',
-      indicator: 'QQEW vs QQQ',
-      value: qqew && qqq ? `QQEW ${pct(qqew.changePct, 2)} | QQQ ${pct(qqq.changePct, 2)}` : '—',
-      condition: qqewLead == null ? '—' : (qqewLead ? 'Tech Broadening' : 'Mega-Cap Driven'),
+      indicator: 'QQEW vs QQQ — 20d Return',
+      value: qqew20 != null && qqq20 != null ? `QQEW ${pct(qqew20, 1)} | QQQ ${pct(qqq20, 1)}` : '—',
+      condition: qqewLead == null ? '—' : (qqewLead ? `Tech Broadening${qqewSpreadStr}` : `Mega-Cap Driven${qqewSpreadStr}`),
       status: qqewLead == null ? 'neutral' : (qqewLead ? 'bullish' : 'bearish'),
     },
     {
       label: 'Style Bias',
-      indicator: 'Growth (IVW) vs Value (IVE)',
-      value: q['IVW'] && q['IVE'] ? `IVW ${pct(q['IVW'].changePct, 2)}` : '—',
-      condition: growthLead == null ? '—' : (growthLead ? 'Risk-On Growth' : 'Value Rotation'),
+      indicator: 'IVW vs IVE — 20d Return',
+      value: ivw20 != null && ive20 != null ? `IVW ${pct(ivw20, 1)} | IVE ${pct(ive20, 1)}` : '—',
+      condition: growthLead == null ? '—' : (growthLead ? `Growth Leading${styleSpreadStr}` : `Value Rotating${styleSpreadStr}`),
       status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'neutral'),
     },
   ];
