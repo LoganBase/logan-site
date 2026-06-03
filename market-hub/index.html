@@ -599,9 +599,9 @@ function openModal(card) {
           <div class="rstat-sub">of all historical days</div>
         </div>
         <div class="rstat-box">
-          <div class="rstat-label">Days in Zone</div>
+          <div class="rstat-label">Regime Duration</div>
           <div class="rstat-value" id="rDays">—</div>
-          <div class="rstat-sub">consecutive days here</div>
+          <div class="rstat-sub" id="rDaysSub">—</div>
         </div>
         <div class="rstat-box">
           <div class="rstat-label">Extension Velocity</div>
@@ -998,6 +998,8 @@ async function loadRegimeChart(range) {
       pctEl.className   = 'rstat-value' + (p >= 80 ? ' negative' : p <= 20 ? ' positive' : '');
     }
     if (dayEl) dayEl.textContent = summary.daysInZone ?? '—';
+    const rDaysSubEl = document.getElementById('rDaysSub');
+    if (rDaysSubEl) rDaysSubEl.textContent = (summary.currentVs200 ?? 0) >= 0 ? 'days above 200d SMA' : 'days below 200d SMA';
     if (rocEl) {
       const roc = summary.currentRoc10;
       rocEl.textContent = roc != null ? (roc >= 0 ? '+' : '') + roc.toFixed(1) + '%' : '—';
@@ -1161,8 +1163,13 @@ async function loadRegimeChart(range) {
             x: { display: false },
             y: {
               min: 0, max: 100,
-              ticks: { color: '#64748b', font: { size: 9 }, stepSize: 30 },
-              grid:  { color: 'rgba(30,45,61,.4)' },
+              afterBuildTicks: axis => { axis.ticks = [0, 30, 50, 70, 100].map(v => ({ value: v })); },
+              ticks: { color: '#64748b', font: { size: 9 } },
+              grid: {
+                color: ctx => (ctx.tick.value === 30 || ctx.tick.value === 70)
+                  ? 'rgba(245,158,11,0.45)'
+                  : 'rgba(30,45,61,.4)',
+              },
             },
           },
         },

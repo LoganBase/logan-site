@@ -58,7 +58,23 @@ async function fromD1(db, symbol, days) {
   return results || [];
 }
 
-function buildFromD1Rows(symbol, range, rows) {
+// Counts consecutive days on the same side of the 200d SMA using full D1 history,
+// independent of the chart range window.
+async function computeRegimeDuration(db, symbol) {
+  const { results } = await db.prepare(
+    `SELECT vs200_pct FROM indicators WHERE symbol = ? AND vs200_pct IS NOT NULL ORDER BY date DESC LIMIT 500`
+  ).bind(symbol).all();
+  if (!results?.length) return 0;
+  const aboveMa = results[0].vs200_pct >= 0;
+  let count = 0;
+  for (const row of results) {
+    if ((row.vs200_pct >= 0) !== aboveMa) break;
+    count++;
+  }
+  return count;
+}
+
+function buildFromD1Rows(symbol, range, rows, regimeDays = null) {
   const n      = rows.length;
   const dates  = rows.map(r => r.date);
   const closes = rows.map(r => r.close);
@@ -71,11 +87,13 @@ function buildFromD1Rows(symbol, range, rows) {
   const currentRoc10 = roc10[n - 1];
   const percentile   = rows[n - 1]?.percentile ?? null;
 
-  let daysInZone = 0;
-  if (currentVs200 != null) {
-    const zone = zoneOf(currentVs200);
+  // Use full-history regime duration from dedicated query if available;
+  // fall back to counting within the range window.
+  let daysInZone = regimeDays ?? 0;
+  if (regimeDays == null && currentVs200 != null) {
+    const aboveMa = currentVs200 >= 0;
     for (let i = n - 1; i >= 0; i--) {
-      if (vs200[i] == null || zoneOf(vs200[i]) !== zone) break;
+      if (vs200[i] == null || (vs200[i] >= 0) !== aboveMa) break;
       daysInZone++;
     }
   }
@@ -117,8 +135,11 @@ function calcRsi(closes, period = 14) {
 
 // ── YAHOO FINANCE FALLBACK ────────────────────────────────────────────────────
 async function fromYahoo(symbol, range, cfg) {
+  // Always fetch at least 5y so percentile is computed against meaningful history.
+  // Short-range chart requests (1mo, 1wk, etc.) will be trimmed after stats are computed.
+  const fetchRange = cfg.days >= 1825 ? cfg.range : '5y';
   const res = await fetch(
-    `${YF}/${encodeURIComponent(symbol)}?interval=${cfg.interval}&range=${cfg.range}`,
+    `${YF}/${encodeURIComponent(symbol)}?interval=1d&range=${fetchRange}`,
     { headers: HEADERS }
   );
   if (!res.ok) throw new Error(`Yahoo Finance returned ${res.status}`);
@@ -130,56 +151,66 @@ async function fromYahoo(symbol, range, cfg) {
   const timestamps = result.timestamp || [];
   const rawCloses  = result.indicators?.quote?.[0]?.close || [];
 
-  const points = [];
+  const allPoints = [];
   for (let i = 0; i < timestamps.length; i++) {
     if (rawCloses[i] != null) {
-      points.push({
+      allPoints.push({
         date:  new Date(timestamps[i] * 1000).toISOString().slice(0, 10),
         close: rawCloses[i],
       });
     }
   }
 
-  const n      = points.length;
-  const closes = points.map(p => p.close);
-  const dates  = points.map(p => p.date);
+  const N          = allPoints.length;
+  const allCloses  = allPoints.map(p => p.close);
+  const allDates   = allPoints.map(p => p.date);
 
-  const sma200 = closes.map((_, i) => {
+  const allSma200 = allCloses.map((_, i) => {
     if (i < 199) return null;
-    return closes.slice(i - 199, i + 1).reduce((a, b) => a + b, 0) / 200;
+    return allCloses.slice(i - 199, i + 1).reduce((a, b) => a + b, 0) / 200;
   });
-  const vs200 = closes.map((c, i) => {
-    if (sma200[i] == null) return null;
-    return ((c - sma200[i]) / sma200[i]) * 100;
+  const allVs200 = allCloses.map((c, i) => {
+    if (allSma200[i] == null) return null;
+    return ((c - allSma200[i]) / allSma200[i]) * 100;
   });
-  const roc10 = vs200.map((v, i) => {
-    if (v == null || i < 10 || vs200[i - 10] == null) return null;
-    return v - vs200[i - 10];
+  const allRoc10 = allVs200.map((v, i) => {
+    if (v == null || i < 10 || allVs200[i - 10] == null) return null;
+    return v - allVs200[i - 10];
   });
 
-  const currentVs200 = vs200[n - 1];
-  const currentRoc10 = roc10[n - 1];
-  const validVs200   = vs200.filter(v => v != null);
+  // Stats computed from full fetched history (always >= 5y)
+  const currentVs200 = allVs200[N - 1];
+  const currentRoc10 = allRoc10[N - 1];
+  const validVs200   = allVs200.filter(v => v != null);
   const percentile   = currentVs200 != null && validVs200.length > 0
     ? (validVs200.filter(v => v <= currentVs200).length / validVs200.length) * 100
     : null;
 
+  // Regime duration: consecutive days on same side of 200d SMA (binary)
   let daysInZone = 0;
   if (currentVs200 != null) {
-    const zone = zoneOf(currentVs200);
-    for (let i = n - 1; i >= 0; i--) {
-      if (vs200[i] == null || zoneOf(vs200[i]) !== zone) break;
+    const aboveMa = currentVs200 >= 0;
+    for (let i = N - 1; i >= 0; i--) {
+      if (allVs200[i] == null || (allVs200[i] >= 0) !== aboveMa) break;
       daysInZone++;
     }
   }
 
-  const rsi14 = calcRsi(closes);
+  // Trim chart arrays to requested range
+  const trimStart  = Math.max(0, N - cfg.days);
+  const allRsi14   = calcRsi(allCloses);
 
   return {
-    symbol, range, dates, closes, sma200, vs200, roc10, rsi14,
+    symbol, range,
+    dates:  allDates.slice(trimStart),
+    closes: allCloses.slice(trimStart),
+    sma200: allSma200.slice(trimStart),
+    vs200:  allVs200.slice(trimStart),
+    roc10:  allRoc10.slice(trimStart),
+    rsi14:  allRsi14.slice(trimStart),
     summary: {
-      currentClose:  closes[n - 1],
-      currentSma200: sma200[n - 1],
+      currentClose:  allCloses[N - 1],
+      currentSma200: allSma200[N - 1],
       currentVs200,
       currentRoc10,
       percentile,
@@ -205,9 +236,12 @@ export async function onRequest(context) {
 
   try {
     if (db) {
-      const rows = await fromD1(db, symbol, cfg.days);
+      const [rows, regimeDays] = await Promise.all([
+        fromD1(db, symbol, cfg.days),
+        computeRegimeDuration(db, symbol),
+      ]);
       if (rows.length >= 5) {
-        return new Response(JSON.stringify(buildFromD1Rows(symbol, range, rows)), {
+        return new Response(JSON.stringify(buildFromD1Rows(symbol, range, rows, regimeDays)), {
           headers: {
             'Content-Type': 'application/json',
             'Access-Control-Allow-Origin': '*',
