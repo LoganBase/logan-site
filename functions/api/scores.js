@@ -251,28 +251,28 @@ function buildLeadership(q) {
 
   const rows = [
     {
-      label: 'Market Breadth Quality',
+      label: 'Market Breadth',
       indicator: 'RSP vs SPY — 20d Return',
       value: rsp20 != null && spy20 != null ? `RSP ${pct(rsp20, 1)}<br>SPY ${pct(spy20, 1)}` : '—',
-      condition: rspLead ? `Breadth Expanding${rspSpreadStr}` : `Rally Narrowing${rspSpreadStr}`,
+      condition: rspLead ? `Breadth Expanding${rspSpreadStr} — Add Broadly` : `Rally Narrowing${rspSpreadStr} — Stay with Leaders`,
       status: rspLead ? 'bullish' : 'bearish',
     },
     {
-      label: 'Tech Breadth Quality',
+      label: 'Tech Breadth',
       indicator: 'QQEW vs QQQ — 20d Return',
       value: qqew20 != null && qqq20 != null ? `QQEW ${pct(qqew20, 1)}<br>QQQ ${pct(qqq20, 1)}` : '—',
-      condition: qqewLead == null ? '—' : (qqewLead ? `Tech Broadening${qqewSpreadStr}` : `Mega-Cap Driven${qqewSpreadStr}`),
+      condition: qqewLead == null ? '—' : (qqewLead ? `Tech Broadening${qqewSpreadStr} — Tech Healthy` : `Mega-Cap Driven${qqewSpreadStr} — Favour Large Cap`),
       status: qqewLead == null ? 'neutral' : (qqewLead ? 'bullish' : 'bearish'),
     },
     {
       label: 'Style Bias',
       indicator: 'IVW vs IVE — 20d Return',
       value: ivw20 != null && ive20 != null ? `IVW ${pct(ivw20, 1)}<br>IVE ${pct(ive20, 1)}` : '—',
-      condition: growthLead == null ? '—' : (growthLead ? `Growth Leading${styleSpreadStr}` : `Value Rotating${styleSpreadStr}`),
+      condition: growthLead == null ? '—' : (growthLead ? `Growth Leading${styleSpreadStr} — Risk-On` : `Value Rotating${styleSpreadStr} — Reduce Growth`),
       status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'neutral'),
     },
   ];
-  return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows };
+  return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, hideIndicator: true };
 }
 
 function buildBreadth(q) {
