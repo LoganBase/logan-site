@@ -20,6 +20,7 @@ const ALL_SYMBOLS = [
   'SPY', 'QQQ', 'RSP', 'QQEW', 'IVW', 'IVE',
   'RSPD',
   '^TYX', '^TNX', 'TLT', 'UUP',
+  'HYG', 'LQD', 'JNK',
   '^GSPTSE', 'SPDW', 'EWT', 'EWY', 'AIA', 'EZU', 'VEU', 'EEM',
   '^N225', 'EWW', 'EWZ', 'ILF',
   'XLI', 'XLK', 'XLF', 'XLE', 'XLU', 'XLRE', 'XLP',

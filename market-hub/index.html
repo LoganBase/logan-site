@@ -122,7 +122,7 @@ body {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── 9-CARD GRID ── */
+/* ── 10-CARD GRID ── */
 .grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -374,8 +374,8 @@ body {
         <thead><tr><th>Score</th><th>Posture</th><th>Meaning</th></tr></thead>
         <tbody>
           <tr><td class="mt-value" style="color:var(--green)">8–10</td><td class="mt-label">Risk-On</td><td class="mt-condition">Broad-based bullish conditions across most dimensions</td></tr>
-          <tr><td class="mt-value" style="color:var(--yellow)">5–7</td><td class="mt-label">Cautious</td><td class="mt-condition">Mixed signals — some tailwinds, some headwinds</td></tr>
-          <tr><td class="mt-value" style="color:var(--red)">0–4</td><td class="mt-label">Risk-Off</td><td class="mt-condition">Majority of indicators showing deterioration</td></tr>
+          <tr><td class="mt-value" style="color:var(--yellow)">6–7</td><td class="mt-label">Cautious</td><td class="mt-condition">Mixed signals — some tailwinds, some headwinds</td></tr>
+          <tr><td class="mt-value" style="color:var(--red)">0–5</td><td class="mt-label">Risk-Off</td><td class="mt-condition">Majority of indicators showing deterioration</td></tr>
         </tbody>
       </table>
 
@@ -434,7 +434,7 @@ body {
         </div>
       </div>
       <div class="exec-chips" id="execChips"></div>
-      <button class="summary-btn" id="execSummaryBtn" style="margin-top:16px" onclick="generateAllSummary()">✦ Generate AI Summary — All 9 Cards</button>
+      <button class="summary-btn" id="execSummaryBtn" style="margin-top:16px" onclick="generateAllSummary()">✦ Generate AI Summary — All 10 Cards</button>
       <div class="summary-box" id="execSummaryBox"></div>
     </div>
   </div>
@@ -571,7 +571,7 @@ function openModal(card) {
   // Destroy any existing chart
   if (regimeChart) { regimeChart.destroy(); regimeChart = null; }
 
-  document.getElementById('mNum').textContent      = `Card ${String(card.number).padStart(2, '0')} of 09`;
+  document.getElementById('mNum').textContent      = `Card ${String(card.number).padStart(2, '0')} of 10`;
   document.getElementById('mTitle').textContent    = card.title;
   document.getElementById('mSubtitle').textContent = card.subtitle;
   document.getElementById('mBadge').innerHTML      = badge(card.status, card.delta);
@@ -2031,20 +2031,20 @@ async function loadCreditChart(range, symbol) {
   }
 }
 
-// ── AI SUMMARY (ALL 9 CARDS) ──────────────────────────────────────────────────
+// ── AI SUMMARY (ALL 10 CARDS) ─────────────────────────────────────────────────
 async function generateAllSummary() {
   if (!lastData) return;
   const btn = document.getElementById('execSummaryBtn');
   const box = document.getElementById('execSummaryBox');
   if (!btn || !box) return;
   btn.disabled = true;
-  btn.textContent = '⟳ Analyzing all 9 cards…';
+  btn.textContent = '⟳ Analyzing all 10 cards…';
   try {
     const res = await fetch('/api/summary', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Hub-Token': 'mh-2f9k7x4p' },
       body: JSON.stringify({
-        card: { id: 'aggregate', title: 'Market Summary', subtitle: 'All 9 Cards', status: lastData.aggregate.glow, rows: [] },
+        card: { id: 'aggregate', title: 'Market Summary', subtitle: 'All 10 Cards', status: lastData.aggregate.glow, rows: [] },
         allCards: lastData.cards,
         aggregate: lastData.aggregate,
       }),
@@ -2060,7 +2060,7 @@ async function generateAllSummary() {
     box.textContent   = `Summary unavailable: ${err.message}`;
     box.style.display = 'block';
     btn.disabled      = false;
-    btn.textContent   = '✦ Generate AI Summary — All 9 Cards';
+    btn.textContent   = '✦ Generate AI Summary — All 10 Cards';
   }
 }
 
