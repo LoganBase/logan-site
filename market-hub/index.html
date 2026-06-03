@@ -631,19 +631,19 @@ function openModal(card) {
       <div class="modal-section-title" style="margin-top:20px">Historical Context — Breadth Quality</div>
       <div class="regime-stats">
         <div class="rstat-box">
-          <div class="rstat-label">Breadth Signal</div>
+          <div class="rstat-label" id="lBreadthLabel">Spread</div>
           <div class="rstat-value" id="lBreadth">—</div>
-          <div class="rstat-sub">RSP vs SPY (period)</div>
+          <div class="rstat-sub" id="lBreadthSub">RSP vs SPY cumulative</div>
         </div>
         <div class="rstat-box">
-          <div class="rstat-label">Streak</div>
+          <div class="rstat-label">Daily Streak</div>
           <div class="rstat-value" id="lStreak">—</div>
           <div class="rstat-sub" id="lStreakLabel">consecutive days</div>
         </div>
         <div class="rstat-box">
-          <div class="rstat-label">Tech Breadth</div>
+          <div class="rstat-label" id="lTechLabel">Tech Spread</div>
           <div class="rstat-value" id="lTech">—</div>
-          <div class="rstat-sub">QQEW vs QQQ (period)</div>
+          <div class="rstat-sub" id="lTechSub">QQEW vs QQQ cumulative</div>
         </div>
       </div>
       <div class="range-selector">
@@ -1209,10 +1209,20 @@ async function loadLeadershipChart(range) {
     const { dates, rspVsSpy, qqewVsQqq, summary } = data;
 
     // Stat boxes
-    const bEl = document.getElementById('lBreadth');
-    const sEl = document.getElementById('lStreak');
-    const sLbl = document.getElementById('lStreakLabel');
-    const tEl = document.getElementById('lTech');
+    const bEl    = document.getElementById('lBreadth');
+    const bLbl   = document.getElementById('lBreadthLabel');
+    const bSub   = document.getElementById('lBreadthSub');
+    const sEl    = document.getElementById('lStreak');
+    const sLbl   = document.getElementById('lStreakLabel');
+    const tEl    = document.getElementById('lTech');
+    const tLbl   = document.getElementById('lTechLabel');
+    const tSub   = document.getElementById('lTechSub');
+
+    const rangeLabel = range.toUpperCase();
+    if (bLbl) bLbl.textContent = `${rangeLabel} Spread`;
+    if (bSub) bSub.textContent = 'RSP vs SPY cumulative';
+    if (tLbl) tLbl.textContent = `${rangeLabel} Tech Spread`;
+    if (tSub) tSub.textContent = 'QQEW vs QQQ cumulative';
 
     if (bEl) {
       const v = summary.currentRspVsSpy;
@@ -1223,7 +1233,7 @@ async function loadLeadershipChart(range) {
       const s = summary.streak;
       sEl.textContent = Math.abs(s);
       sEl.className   = 'rstat-value' + (s > 0 ? ' positive' : s < 0 ? ' negative' : '');
-      if (sLbl) sLbl.textContent = s > 0 ? 'days RSP leading' : 'days RSP lagging';
+      if (sLbl) sLbl.textContent = s > 0 ? 'days RSP winning daily' : 'days RSP losing daily';
     }
     if (tEl) {
       const v = summary.currentQqewVsQqq;
