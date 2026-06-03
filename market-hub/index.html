@@ -1044,7 +1044,7 @@ async function loadRegimeChart(range) {
               borderColor: ctx => {
                 const v = vs200?.[ctx.p1DataIndex];
                 if (v == null)  return '#3b82f6';
-                if (v > 12)     return '#ef4444'; // bullish overextended
+                if (v > 14)     return '#ef4444'; // overextended — bearish risk
                 if (v < 0)      return '#f97316'; // below 200d SMA — bearish
                 return '#3b82f6';                 // normal bull
               },

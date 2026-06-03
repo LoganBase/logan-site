@@ -179,7 +179,7 @@ function buildRegime(q) {
   const r1 = {
     label: 'Market Status',
     indicator: 'SPY vs 200d SMA',
-    value: usd(spy.price),
+    value: spy.sma200 != null ? `${usd(spy.price)} / 200d: ${usd(spy.sma200)}` : usd(spy.price),
     condition: isBull ? 'Secular Bull' : 'Secular Bear',
     status: isBull ? 'bullish' : 'bearish',
   };
@@ -188,8 +188,8 @@ function buildRegime(q) {
   const v200 = spy.vs200;
   let stretchStatus, stretchCondition;
   if (v200 == null)     { stretchStatus = 'neutral'; stretchCondition = '—'; }
-  else if (v200 > 15)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended — Pull Back Risk'; }
-  else if (v200 > 10)   { stretchStatus = 'neutral'; stretchCondition = 'Extended — Monitor'; }
+  else if (v200 > 14)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended — Pull Back Risk'; }
+  else if (v200 > 10)   { stretchStatus = 'neutral'; stretchCondition = 'Extended — Reduce New Adds'; }
   else if (v200 >= 0)   { stretchStatus = 'bullish'; stretchCondition = 'Normal Bull Market'; }
   else if (v200 >= -10) { stretchStatus = 'neutral'; stretchCondition = 'Bearish Retest'; }
   else                  { stretchStatus = 'bearish'; stretchCondition = 'Deeply Oversold'; }
