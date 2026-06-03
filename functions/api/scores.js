@@ -204,11 +204,13 @@ function buildRegime(q) {
   // Row 3: Trend Confirmation — Golden Cross / Death Cross
   const s50 = spy.sma50, s200 = spy.sma200;
   const isGolden = s50 != null && s200 != null ? s50 > s200 : null;
+  const crossSpread = s50 != null && s200 != null ? ((s50 - s200) / s200) * 100 : null;
+  const spreadStr = crossSpread != null ? ` (${crossSpread >= 0 ? '+' : ''}${crossSpread.toFixed(1)}%)` : '';
   const r3 = {
     label: 'Trend Confirmation',
     indicator: '50d SMA vs 200d SMA',
-    value: s50 != null && s200 != null ? `50d ${usd(s50)} | 200d ${usd(s200)}` : '—',
-    condition: isGolden == null ? '—' : isGolden ? 'Golden Cross — Confirmed Bull' : 'Death Cross — Confirmed Bear',
+    value: s50 != null && s200 != null ? `50d: ${usd(s50)}<br>200d: ${usd(s200)}` : '—',
+    condition: isGolden == null ? '—' : isGolden ? `Golden Cross — Confirmed Bull${spreadStr}` : `Death Cross — Confirmed Bear${spreadStr}`,
     status: isGolden == null ? 'neutral' : isGolden ? 'bullish' : 'bearish',
   };
 
