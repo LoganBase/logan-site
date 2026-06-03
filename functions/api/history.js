@@ -19,6 +19,7 @@ const HEADERS = {
 };
 
 const RANGE_MAP = {
+  '20y': { range: 'max', interval: '1d', days: 7300 },
   '10y': { range: '10y', interval: '1d', days: 3650 },
   '5y':  { range: '5y',  interval: '1d', days: 1825 },
   '1y':  { range: '1y',  interval: '1d', days: 365  },
