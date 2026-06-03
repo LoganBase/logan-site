@@ -554,7 +554,6 @@ function renderCard(card) {
   return `
     <div class="score-card ${card.status}" onclick='openModal(${JSON.stringify(card).replace(/'/g, "&#39;")})'>
       <div class="card-header">
-        <span class="card-num">${String(card.number).padStart(2, '0')}</span>
         <div class="card-titles">
           <div class="card-title">${card.title}</div>
           <div class="card-subtitle">${card.subtitle}</div>
