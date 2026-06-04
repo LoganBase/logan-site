@@ -315,19 +315,56 @@ function buildBreadth(q) {
   return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true };
 }
 
-function buildValuations() {
-  // Valuations are not available from Yahoo Finance v8 — manually maintained, review quarterly
+// ── SHILLER D1 SOURCE ─────────────────────────────────────────────────────────
+async function loadShillerLatest(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, price, earnings, cape FROM shiller_data
+       WHERE cape IS NOT NULL ORDER BY date DESC LIMIT 1`
+    ).all();
+    return results?.[0] ?? null;
+  } catch { return null; }
+}
+
+function buildValuations(shiller) {
+  // CAPE and trailing P/E come from D1 (shiller_data) when available.
+  // Forward P/E, Buffett Indicator and Japan P/E are manually maintained.
+  const cape       = shiller?.cape;
+  const price      = shiller?.price;
+  const earnings   = shiller?.earnings;
+  const latestDate = shiller?.date;
+
+  const capeStr  = cape    ? `${cape.toFixed(1)}×`                     : '~37×';
+  const peStr    = price && earnings && earnings > 0
+                           ? `${(price / earnings).toFixed(1)}×`        : '~28×';
+  const dateLabel = latestDate
+    ? new Date(latestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+    : 'Jun 2026';
+
+  const capeStatus = cape
+    ? (cape > 35 ? 'bearish' : cape > 20 ? 'neutral' : 'bullish')
+    : 'bearish';
+  const capeCond = cape
+    ? (cape > 40 ? 'Extreme — Above 2000 Peak'
+      : cape > 35 ? `Very High — ${dateLabel} (avg ~17×)`
+      : cape > 25 ? `Elevated — ${dateLabel} (avg ~17×)`
+      :             `Normal — ${dateLabel} (avg ~17×)`)
+    : 'Very High (hist avg ~17×)';
+
   const rows = [
-    { label: 'Trailing Earnings', indicator: 'S&P 500 Trailing P/E',     value: '~28×',  condition: 'Elevated (hist avg ~16×)',  status: 'neutral' },
-    { label: 'Forward Earnings',  indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',  status: 'neutral' },
-    { label: 'Cyclical Adj.',     indicator: 'Shiller CAPE (10yr)',        value: '~37×',  condition: 'Very High (hist avg ~17×)', status: 'bearish' },
-    { label: 'Market Size',       indicator: 'Mkt Cap / GDP (Buffett)',    value: '~195%', condition: 'Extreme — Above 2021 Peak', status: 'bearish' },
-    { label: 'Japan P/E',         indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US (~28×)',   status: 'bullish' },
+    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',     value: peStr,   condition: 'Elevated (hist avg ~16×)',  status: 'neutral' },
+    { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',  status: 'neutral' },
+    { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',        value: capeStr, condition: capeCond,                   status: capeStatus },
+    { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',    value: '~195%', condition: 'Extreme — Above 2021 Peak', status: 'bearish' },
+    { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US',          status: 'bullish' },
   ];
-  return { id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
+
+  return {
+    id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
     status: cardStatus(rows),
     rows, hideIndicator: true,
-    note: 'Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. Values manually maintained — last reviewed: June 2026.' };
+    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE & P/E from Shiller/Yale data (${dateLabel}). Buffett Indicator manually maintained.`,
+  };
 }
 
 function buildYield(q) {
@@ -619,7 +656,10 @@ export async function onRequest(context) {
 
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1
   const db  = context.env.DB;
-  const d1  = db ? await loadFromD1(db) : {};
+  const [d1, shiller] = await Promise.all([
+    db ? loadFromD1(db) : Promise.resolve({}),
+    db ? loadShillerLatest(db) : Promise.resolve(null),
+  ]);
   const missing = ALL_SYMBOLS.filter(s => !d1[s]);
 
   const q = { ...d1 };
@@ -637,7 +677,7 @@ export async function onRequest(context) {
     buildRegime(q),
     buildLeadership(q),
     buildBreadth(q),
-    buildValuations(),
+    buildValuations(shiller),
     buildYield(q),
     buildGlobalFlows(q),
     buildSectors(q),
