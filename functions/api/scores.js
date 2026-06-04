@@ -326,6 +326,30 @@ async function loadShillerLatest(db) {
   } catch { return null; }
 }
 
+// ── FRED API — LIVE CAPE ───────────────────────────────────────────────────────
+// Fetches latest Shiller CAPE from FRED (series: CAPE). Caches in KV for 24h.
+// Falls back silently to null if FRED is unavailable or key is missing.
+async function fetchFredCape(kv, apiKey) {
+  if (!apiKey) return null;
+  const today    = new Date().toISOString().slice(0, 10);
+  const cacheKey = `fred:cape:${today}`;
+  try {
+    if (kv) {
+      const cached = await kv.get(cacheKey, 'json');
+      if (cached) return cached;
+    }
+    const url = `https://api.stlouisfed.org/fred/series/observations?series_id=CAPE&api_key=${apiKey}&sort_order=desc&limit=5&file_type=json`;
+    const res  = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const obs  = data?.observations?.find(o => o.value && o.value !== '.');
+    if (!obs) return null;
+    const result = { cape: parseFloat(obs.value), date: obs.date };
+    if (kv) await kv.put(cacheKey, JSON.stringify(result), { expirationTtl: 86400 });
+    return result;
+  } catch { return null; }
+}
+
 function buildValuations(shiller) {
   // CAPE and trailing P/E come from D1 (shiller_data) when available.
   // Forward P/E, Buffett Indicator and Japan P/E are manually maintained.
@@ -656,10 +680,16 @@ export async function onRequest(context) {
 
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1
   const db  = context.env.DB;
-  const [d1, shiller] = await Promise.all([
+  const kv = context.env.SUMMARIES;
+  const [d1, shillerD1, fredCape] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
+    fetchFredCape(kv, context.env.FRED_API_KEY),
   ]);
+  // Prefer FRED for current CAPE (live); fall back to D1 Shiller (may be stale)
+  const shiller = fredCape
+    ? { ...shillerD1, cape: fredCape.cape, date: fredCape.date }
+    : shillerD1;
   const missing = ALL_SYMBOLS.filter(s => !d1[s]);
 
   const q = { ...d1 };
@@ -687,7 +717,6 @@ export async function onRequest(context) {
   ];
 
   // ── DELTA: compare today vs previous trading day ───────────────────────────
-  const kv = context.env.SUMMARIES;
   if (kv) {
     try {
       const today = new Date().toISOString().slice(0, 10);
