@@ -316,16 +316,18 @@ function buildBreadth(q) {
 }
 
 function buildValuations() {
-  // Valuations are not available from Yahoo Finance v8 — static/manual values
+  // Valuations are not available from Yahoo Finance v8 — manually maintained, review quarterly
   const rows = [
-    { label: 'Trailing Earnings', indicator: 'S&P 500 Trailing P/E',     value: '~28×', condition: 'Elevated (hist avg ~16×)',  status: 'neutral' },
-    { label: 'Forward Earnings',  indicator: 'S&P 500 Forward P/E (NTM)',  value: '~22×', condition: 'Elevated',                 status: 'neutral' },
-    { label: 'Cyclical Adj.',     indicator: 'Shiller CAPE (10yr)',         value: '~37×', condition: 'Very High (hist avg ~17×)', status: 'bearish' },
-    { label: 'Market Size',       indicator: 'Mkt Cap / GDP (Buffett)',     value: '~195%',condition: 'Extreme — Above 2021 Peak', status: 'bearish' },
-    { label: 'International',     indicator: 'Japan Nikkei TTM P/E',        value: '~15×', condition: 'Compressed vs US',          status: 'bullish' },
+    { label: 'Trailing Earnings', indicator: 'S&P 500 Trailing P/E',     value: '~28×',  condition: 'Elevated (hist avg ~16×)',  status: 'neutral' },
+    { label: 'Forward Earnings',  indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',  status: 'neutral' },
+    { label: 'Cyclical Adj.',     indicator: 'Shiller CAPE (10yr)',        value: '~37×',  condition: 'Very High (hist avg ~17×)', status: 'bearish' },
+    { label: 'Market Size',       indicator: 'Mkt Cap / GDP (Buffett)',    value: '~195%', condition: 'Extreme — Above 2021 Peak', status: 'bearish' },
+    { label: 'Japan P/E',         indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US (~28×)',   status: 'bullish' },
   ];
-  return { id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band', status: 'neutral', rows,
-    note: 'Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration.' };
+  return { id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
+    status: cardStatus(rows),
+    rows,
+    note: 'Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. Values manually maintained — last reviewed: June 2026.' };
 }
 
 function buildYield(q) {
