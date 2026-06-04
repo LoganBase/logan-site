@@ -312,7 +312,7 @@ function buildBreadth(q) {
       status: rspdBull ? 'bullish' : (rspd ? 'bearish' : 'neutral'),
     },
   ];
-  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: 'neutral', rows };
+  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true };
 }
 
 function buildValuations() {
@@ -326,7 +326,7 @@ function buildValuations() {
   ];
   return { id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
     status: cardStatus(rows),
-    rows,
+    rows, hideIndicator: true,
     note: 'Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. Values manually maintained — last reviewed: June 2026.' };
 }
 
@@ -369,7 +369,7 @@ function buildYield(q) {
     },
   ];
   const status = yieldStat === 'bearish' ? 'bearish' : cardStatus(rows);
-  return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows };
+  return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows, hideIndicator: true };
 }
 
 function buildGlobalFlows(q) {
@@ -414,7 +414,7 @@ function buildGlobalFlows(q) {
       status: d.above ? 'bullish' : 'bearish',
     })),
   ];
-  return { id: 'globalflows', number: 6, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details };
+  return { id: 'globalflows', number: 6, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details, hideIndicator: true };
 }
 
 function buildSectors(q) {
@@ -465,7 +465,7 @@ function buildSectors(q) {
     },
     ...sectRows.slice(0, 4),
   ];
-  return { id: 'sectors', number: 7, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows };
+  return { id: 'sectors', number: 7, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows, hideIndicator: true };
 }
 
 function buildCommodities(q) {
@@ -493,7 +493,7 @@ function buildCommodities(q) {
     };
   });
   const status = bull >= 5 ? 'bullish' : bull >= 3 ? 'neutral' : 'bearish';
-  return { id: 'commodities', number: 8, title: 'Commodities', subtitle: 'The Growth Engine', status, rows,
+  return { id: 'commodities', number: 8, title: 'Commodities', subtitle: 'The Growth Engine', status, rows, hideIndicator: true,
     summary: `${bull}/${comSyms.length} commodities above 200d SMA` };
 }
 
@@ -525,7 +525,7 @@ function buildEquities(q) {
   });
   const total = watchList.length;
   const status = bull >= 7 ? 'bullish' : bull >= 5 ? 'neutral' : 'bearish';
-  return { id: 'equities', number: 9, title: 'Equities', subtitle: 'The Execution Layer', status, rows,
+  return { id: 'equities', number: 9, title: 'Equities', subtitle: 'The Execution Layer', status, rows, hideIndicator: true,
     summary: `${bull}/${total} above both 50d & 200d SMA` };
 }
 
@@ -573,7 +573,7 @@ function buildCredit(q) {
   const bull = rows.filter(r => r.status === 'bullish').length;
   const status = bull >= 3 ? 'bullish' : bull >= 2 ? 'neutral' : 'bearish';
   return {
-    id: 'credit', number: 10, title: 'Credit', subtitle: 'The Risk Canary', status, rows,
+    id: 'credit', number: 10, title: 'Credit', subtitle: 'The Risk Canary', status, rows, hideIndicator: true,
     note: 'Credit spreads lead equity markets. HYG below its 200d SMA has preceded major equity drawdowns by 4–6 weeks historically.',
   };
 }
