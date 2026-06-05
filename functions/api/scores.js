@@ -318,11 +318,20 @@ function buildBreadth(q) {
 // ── SHILLER D1 SOURCE ─────────────────────────────────────────────────────────
 async function loadShillerLatest(db) {
   try {
-    const { results } = await db.prepare(
-      `SELECT date, price, earnings, cape FROM shiller_data
-       WHERE cape IS NOT NULL ORDER BY date DESC LIMIT 1`
-    ).all();
-    return results?.[0] ?? null;
+    const [capeRes, peRes] = await Promise.all([
+      db.prepare(`SELECT date, price, earnings, cape FROM shiller_data
+                  WHERE cape IS NOT NULL ORDER BY date DESC LIMIT 1`).all(),
+      db.prepare(`SELECT price, earnings FROM shiller_data
+                  WHERE earnings > 0 AND price > 0 ORDER BY date DESC LIMIT 1`).all(),
+    ]);
+    const row = capeRes.results?.[0] ?? null;
+    if (!row) return null;
+    // Latest CAPE row may not have earnings yet — attach latest valid P/E separately
+    if ((!row.earnings || row.earnings <= 0) && peRes.results?.[0]) {
+      row.pePrice    = peRes.results[0].price;
+      row.peEarnings = peRes.results[0].earnings;
+    }
+    return row;
   } catch { return null; }
 }
 
@@ -342,8 +351,8 @@ function buildValuations(shiller, buffett) {
   // Buffett Indicator comes from D1 (buffett_data) when available.
   // Forward P/E and Japan P/E are manually maintained.
   const cape         = shiller?.cape;
-  const price        = shiller?.price;
-  const earnings     = shiller?.earnings;
+  const price        = shiller?.pePrice    ?? shiller?.price;
+  const earnings     = shiller?.peEarnings ?? shiller?.earnings;
   const latestDate   = shiller?.date;
   const buffettRatio = buffett?.ratio ?? null;
 
