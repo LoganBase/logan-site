@@ -2455,11 +2455,13 @@ async function loadBuffettChart(range) {
             mode: 'index',
             intersect: false,
             callbacks: {
-              title: ctx => ctx[0]?.label || '',
+              title: ctx => {
+                const i = ctx[0]?.dataIndex;
+                return i != null ? dates[i].slice(0, 7) : '';
+              },
               label: ctx => {
                 const v = ctx.parsed.y;
-                if (v == null) return null;
-                if (ctx.datasetIndex === 1) return ` Avg: ${v.toFixed(1)}%`;
+                if (v == null || ctx.datasetIndex === 1) return null;
                 const zone = v > avg * 1.3 ? 'Significantly Overvalued'
                            : v > avg       ? 'Overvalued'
                            :                 'Undervalued / Fair Value';
