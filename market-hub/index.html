@@ -2545,7 +2545,11 @@ async function loadTrailingPeChart(range) {
     // Cap earnings-collapse spikes (e.g. 2009) at 60× to keep chart readable
     const peData = rawPe.map(v => (v != null && v > 60) ? null : v);
     const valid  = rawPe.filter(v => v != null && v > 0 && v <= 60);
-    const current = rawPe[rawPe.length - 1];
+    // Latest month may lack earnings — step back to last non-null value
+    let current = null, currentDate = null;
+    for (let i = rawPe.length - 1; i >= 0; i--) {
+      if (rawPe[i] != null && rawPe[i] > 0) { current = rawPe[i]; currentDate = dates[i]; break; }
+    }
     const avg    = valid.length ? Math.round((valid.reduce((a, b) => a + b, 0) / valid.length) * 10) / 10 : null;
     const pct    = current != null && valid.length
       ? Math.round((valid.filter(v => v <= current).length / valid.length) * 100)
@@ -2562,7 +2566,7 @@ async function loadTrailingPeChart(range) {
       curEl.textContent = current != null ? current.toFixed(1) + '×' : '—';
       curEl.className   = 'rstat-value' + (current > 25 ? ' negative' : current < 15 ? ' positive' : '');
     }
-    if (dateSub && summary.latestDate) dateSub.textContent = 'as of ' + summary.latestDate.slice(0, 7);
+    if (dateSub && currentDate) dateSub.textContent = 'as of ' + currentDate.slice(0, 7);
     if (avgEl)  avgEl.textContent  = avg != null ? avg.toFixed(1) + '×' : '—';
     if (avgLbl) avgLbl.textContent = `${rangeLabel} Average`;
     if (pctEl) {
