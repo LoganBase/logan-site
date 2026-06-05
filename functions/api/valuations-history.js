@@ -78,6 +78,7 @@ export async function onRequest(context) {
       peRatios,
       summary: {
         currentCape,
+        currentPe: peRatios[n - 1],
         avgCape,
         percentile,
         latestDate: dates[n - 1],

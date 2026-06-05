@@ -732,7 +732,7 @@ function openModal(card) {
           <tr><td class="mt-label">Forward P/E</td><td class="mt-indicator">S&P 500 NTM EPS</td><td class="mt-value">~22×</td><td class="mt-condition">Avg ~15× / Peak ~25× (2021)</td><td>${jewel('neutral')}</td></tr>
           <tr><td class="mt-label">Shiller CAPE</td><td class="mt-indicator">10-Year Real Earnings</td><td class="mt-value" id="vCapeValue">—</td><td class="mt-condition">Avg ~17× / Peak ~44× (Dec 2000)</td><td id="vCapeJewel">${jewel('bearish')}</td></tr>
           <tr><td class="mt-label">Buffett Indicator</td><td class="mt-indicator">Total Mkt Cap / GDP</td><td class="mt-value">~195%</td><td class="mt-condition">Avg ~85% / Peak ~211% (2021)</td><td>${jewel('bearish')}</td></tr>
-          <tr><td class="mt-label">Japan P/E</td><td class="mt-indicator">Nikkei TTM vs US</td><td class="mt-value">~15×</td><td class="mt-condition">Compressed vs US at ~28×</td><td>${jewel('bullish')}</td></tr>
+          <tr><td class="mt-label">Japan P/E</td><td class="mt-indicator">Nikkei TTM vs US</td><td class="mt-value">~15×</td><td class="mt-condition" id="vJapanCond">Compressed vs US</td><td>${jewel('bullish')}</td></tr>
         </tbody>
       </table>
       <button class="summary-btn" id="summaryBtn" onclick="generateSummary('valuations')">✦ Generate AI Summary</button>
@@ -2140,9 +2140,13 @@ async function loadValuationsChart(range) {
     }
     if (pctSub) pctSub.textContent = `of months in ${rangeLabel}`;
 
-    // Update detail table with live CAPE
+    // Update detail table with live CAPE and trailing P/E
     const capeValEl = document.getElementById('vCapeValue');
     if (capeValEl && summary.currentCape) capeValEl.textContent = summary.currentCape.toFixed(1) + '×';
+    const peValEl = document.getElementById('vPeValue');
+    if (peValEl && summary.currentPe) peValEl.textContent = summary.currentPe.toFixed(1) + '×';
+    const japanCondEl = document.getElementById('vJapanCond');
+    if (japanCondEl && summary.currentPe) japanCondEl.textContent = `Compressed vs US at ~${summary.currentPe.toFixed(0)}×`;
 
     // AI summary context
     currentDeepDive = {
