@@ -340,6 +340,26 @@ async function loadShillerLatest(db) {
   } catch { return null; }
 }
 
+// ── FORWARD P/E D1 SOURCE ────────────────────────────────────────────────────
+async function loadForwardPeLatest(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, pe FROM forward_pe_data ORDER BY date DESC LIMIT 1`
+    ).all();
+    return results?.[0] ?? null;
+  } catch { return null; }
+}
+
+// ── JAPAN P/E D1 SOURCE ───────────────────────────────────────────────────────
+async function loadJapanPeLatest(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, pe FROM japan_pe_data ORDER BY date DESC LIMIT 1`
+    ).all();
+    return results?.[0] ?? null;
+  } catch { return null; }
+}
+
 // ── BUFFETT D1 SOURCE ─────────────────────────────────────────────────────────
 async function loadBuffettLatest(db) {
   try {
@@ -351,10 +371,10 @@ async function loadBuffettLatest(db) {
 }
 
 
-function buildValuations(shiller, buffett) {
+function buildValuations(shiller, buffett, forwardPe, japanPe) {
   // CAPE and trailing P/E come from D1 (shiller_data) when available.
   // Buffett Indicator comes from D1 (buffett_data) when available.
-  // Forward P/E and Japan P/E are manually maintained.
+  // Forward P/E and Japan P/E come from D1 (nightly cron) when available.
   const cape         = shiller?.cape;
   const price        = shiller?.pePrice    ?? shiller?.price;
   const earnings     = shiller?.peEarnings ?? shiller?.earnings;
@@ -386,10 +406,32 @@ function buildValuations(shiller, buffett) {
       :             `Normal — ${dateLabel} (avg ~17×)`)
     : 'Very High (hist avg ~17×)';
 
+  const fwdPeVal  = forwardPe?.pe ?? null;
+  const fwdPeStr  = fwdPeVal  != null ? `${fwdPeVal.toFixed(1)}×`  : '~22×';
+  const fwdStatus = fwdPeVal  != null
+    ? (fwdPeVal > 22 ? 'bearish' : fwdPeVal > 16 ? 'neutral' : 'bullish')
+    : 'neutral';
+  const fwdCond = fwdPeVal != null
+    ? (fwdPeVal > 22 ? 'Elevated — Above Historical Average'
+      : fwdPeVal > 16 ? 'Fairly Valued'
+      :                 'Below Average — Attractive')
+    : 'Elevated (hist avg ~15×)';
+
+  const japanPeVal  = japanPe?.pe ?? null;
+  const japanPeStr  = japanPeVal != null ? `${japanPeVal.toFixed(1)}×` : '~15×';
+  const japanStatus = japanPeVal != null && fwdPeVal != null
+    ? (japanPeVal < fwdPeVal * 0.8 ? 'bullish' : japanPeVal < fwdPeVal ? 'neutral' : 'bearish')
+    : 'bullish';
+  const japanCond = japanPeVal != null && fwdPeVal != null
+    ? (japanPeVal < fwdPeVal
+        ? `Compressed vs US (${fwdPeVal.toFixed(0)}×) — Favour International`
+        : `In Line with US (${fwdPeVal.toFixed(0)}×)`)
+    : 'Compressed vs US — Favour International';
+
   const rows = [
-    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',     value: peStr,   condition: 'Elevated (hist avg ~16×)',                 status: 'neutral' },
-    { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',                 status: 'neutral' },
-    { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',        value: capeStr, condition: capeCond,                                   status: capeStatus },
+    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',      value: peStr,    condition: 'Elevated (hist avg ~16×)',  status: 'neutral'    },
+    { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)',  value: fwdPeStr, condition: fwdCond,                     status: fwdStatus    },
+    { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',         value: capeStr,  condition: capeCond,                    status: capeStatus   },
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
       value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
       condition: buffettRatio != null
@@ -401,8 +443,8 @@ function buildValuations(shiller, buffett) {
       status: buffettRatio != null
         ? (buffettRatio > 115 ? 'bearish' : buffettRatio > 80 ? 'neutral' : 'bullish')
         : 'bearish' },
-    // Row 5 — deep-dive context only; excluded from card status so it does not offset US valuation signals
-    { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US — Favour International', status: 'bullish' },
+    // Row 5 — deep-dive context only; excluded from card status
+    { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: japanPeStr, condition: japanCond, status: japanStatus },
   ];
 
   return {
@@ -703,10 +745,12 @@ export async function onRequest(context) {
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1 or stale
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
-  const [d1, shiller, buffett] = await Promise.all([
+  const [d1, shiller, buffett, forwardPe, japanPe] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
     db ? loadBuffettLatest(db) : Promise.resolve(null),
+    db ? loadForwardPeLatest(db) : Promise.resolve(null),
+    db ? loadJapanPeLatest(db) : Promise.resolve(null),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   const missing = ALL_SYMBOLS.filter(s => !d1[s] || d1[s].latestDate < today);
@@ -726,7 +770,7 @@ export async function onRequest(context) {
     buildRegime(q),
     buildLeadership(q),
     buildBreadth(q),
-    buildValuations(shiller, buffett),
+    buildValuations(shiller, buffett, forwardPe, japanPe),
     buildYield(q),
     buildGlobalFlows(q),
     buildSectors(q),
