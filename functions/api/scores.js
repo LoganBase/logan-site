@@ -353,18 +353,19 @@ function buildValuations(shiller) {
     : 'Very High (hist avg ~17×)';
 
   const rows = [
-    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',     value: peStr,   condition: 'Elevated (hist avg ~16×)',  status: 'neutral' },
-    { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',  status: 'neutral' },
-    { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',        value: capeStr, condition: capeCond,                   status: capeStatus },
-    { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',    value: '~195%', condition: 'Extreme — Above 2021 Peak', status: 'bearish' },
-    { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US',          status: 'bullish' },
+    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',     value: peStr,   condition: 'Elevated (hist avg ~16×)',                 status: 'neutral' },
+    { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',                 status: 'neutral' },
+    { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',        value: capeStr, condition: capeCond,                                   status: capeStatus },
+    { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',    value: '~195%', condition: 'Extreme — At Peak Levels',                 status: 'bearish' },
+    // Row 5 — deep-dive context only; excluded from card status so it does not offset US valuation signals
+    { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US — Favour International', status: 'bullish' },
   ];
 
   return {
     id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
-    status: cardStatus(rows),
+    status: cardStatus(rows.slice(0, 4)),  // Japan P/E is deep-dive context only
     rows, hideIndicator: true,
-    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE & P/E from Shiller/Yale data (${dateLabel}). Buffett Indicator manually maintained.`,
+    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). Trailing P/E, Buffett Indicator manually maintained — last reviewed Jun 2026.`,
   };
 }
 
