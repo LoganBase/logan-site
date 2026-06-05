@@ -377,15 +377,15 @@ function buildValuations(shiller, buffett) {
     { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',                 status: 'neutral' },
     { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',        value: capeStr, condition: capeCond,                                   status: capeStatus },
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
-      value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~195%',
+      value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
       condition: buffettRatio != null
-        ? (buffettRatio > 130 ? 'Extreme — At Peak Levels'
-          : buffettRatio > 100 ? 'Overvalued — Above Hist Avg'
-          : buffettRatio > 75  ? 'Fairly Valued'
+        ? (buffettRatio > 160 ? 'Extreme — At or Near Peak Levels'
+          : buffettRatio > 115 ? 'Overvalued — Above Historical Average'
+          : buffettRatio > 80  ? 'Fairly Valued'
           :                      'Undervalued')
-        : 'Extreme — At Peak Levels',
+        : 'Extreme — At or Near Peak Levels',
       status: buffettRatio != null
-        ? (buffettRatio > 100 ? 'bearish' : buffettRatio > 75 ? 'neutral' : 'bullish')
+        ? (buffettRatio > 115 ? 'bearish' : buffettRatio > 80 ? 'neutral' : 'bullish')
         : 'bearish' },
     // Row 5 — deep-dive context only; excluded from card status so it does not offset US valuation signals
     { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US — Favour International', status: 'bullish' },

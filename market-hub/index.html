@@ -2428,8 +2428,9 @@ async function loadBuffettChart(range) {
               borderColor: ctx => {
                 const v = ratios[ctx.p1DataIndex];
                 if (v == null) return '#3b82f6';
-                if (v > avg * 1.3) return '#ef4444';
-                if (v > avg)       return '#f59e0b';
+                if (v > 160) return '#ef4444';
+                if (v > 115) return '#f59e0b';
+                if (v > 80)  return '#94a3b8';
                 return '#22c55e';
               },
             },
@@ -2462,9 +2463,10 @@ async function loadBuffettChart(range) {
               label: ctx => {
                 const v = ctx.parsed.y;
                 if (v == null || ctx.datasetIndex === 1) return null;
-                const zone = v > avg * 1.3 ? 'Significantly Overvalued'
-                           : v > avg       ? 'Overvalued'
-                           :                 'Undervalued / Fair Value';
+                const zone = v > 160 ? 'Extreme'
+                           : v > 115 ? 'Overvalued'
+                           : v > 80  ? 'Fairly Valued'
+                           :           'Undervalued';
                 return ` Buffett: ${v.toFixed(1)}% — ${zone}`;
               },
             },
