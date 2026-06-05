@@ -141,7 +141,7 @@ def main():
     for date in common:
         m, g = mkt[date], gdp[date]
         if m > 0 and g > 0:
-            rows.append((date, round(m, 2), round(g, 2), round(m / g * 100, 2)))
+            rows.append((date, round(m / 1000, 2), round(g, 2), round(m / 1000 / g * 100, 2)))
 
     if not rows:
         print('ERROR: No overlapping quarterly dates found.')
