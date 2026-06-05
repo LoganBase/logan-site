@@ -1,17 +1,22 @@
 """
 Shiller CAPE Seeder
-Downloads S&P 500 monthly valuation data from Robert Shiller's Yale dataset
-and uploads it to Cloudflare D1.
+Uploads S&P 500 monthly valuation data to Cloudflare D1.
 
-Run once for initial seed (~1,800 monthly rows from 1871).
-Re-run monthly to add new rows — INSERT OR REPLACE is idempotent.
+Sources (in priority order):
+  1. Local file path passed as argument:  python seed_shiller.py path/to/ie_data.xls
+  2. Yale URL (may be stale):             python seed_shiller.py
+
+Run once for initial seed (~1,800+ monthly rows from 1871).
+Re-run when a newer file is available — INSERT OR REPLACE is idempotent.
+
+For current data: download from https://shillerdata.com and pass the local path.
 
 Setup:
-  pip install xlrd   (add to requirements.txt)
+  pip install xlrd   (for reading .xls files)
   Uses existing seed/.env credentials (CF_ACCOUNT_ID, CF_API_TOKEN, CF_D1_DB_ID)
 
-Source: http://www.econ.yale.edu/~shiller/data/ie_data.xls
-  Sheet: Data, Header row: 8
+File format:
+  Sheet: Data, Header row: 8 (skiprows=7)
   Date format: YYYY.MM  (e.g. 1871.01 = January 1871, 2024.10 = October 2024)
   Columns: Date, P (price), D (dividend), E (earnings), CPI, ..., CAPE
 """
@@ -86,13 +91,16 @@ def parse_shiller_date(date_val):
         return None
 
 # ── FETCH & PARSE ─────────────────────────────────────────────────────────────
-def fetch_shiller():
-    print(f'Downloading from Yale: {SHILLER_URL}')
-    r = requests.get(SHILLER_URL, timeout=60)
-    r.raise_for_status()
-    print(f'  Downloaded {len(r.content) / 1024:.0f} KB')
-
-    df = pd.read_excel(BytesIO(r.content), sheet_name='Data', header=7, engine='xlrd')
+def fetch_shiller(local_path=None):
+    if local_path:
+        print(f'Reading local file: {local_path}')
+        df = pd.read_excel(local_path, sheet_name='Data', header=7, engine='xlrd')
+    else:
+        print(f'Downloading from Yale: {SHILLER_URL}')
+        r = requests.get(SHILLER_URL, timeout=60)
+        r.raise_for_status()
+        print(f'  Downloaded {len(r.content) / 1024:.0f} KB')
+        df = pd.read_excel(BytesIO(r.content), sheet_name='Data', header=7, engine='xlrd')
 
     # Locate CAPE column — try by name first, fall back to position 12
     cape_col_idx = 12
@@ -167,7 +175,8 @@ def main():
 
     init_schema()
 
-    rows = fetch_shiller()
+    local_path = sys.argv[1] if len(sys.argv) > 1 else None
+    rows = fetch_shiller(local_path)
     if not rows:
         print('ERROR: No rows parsed from Shiller data.')
         sys.exit(1)
