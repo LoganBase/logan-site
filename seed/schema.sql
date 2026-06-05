@@ -45,3 +45,17 @@ CREATE TABLE IF NOT EXISTS buffett_data (
 );
 
 CREATE INDEX IF NOT EXISTS idx_buffett_date ON buffett_data (date DESC);
+
+CREATE TABLE IF NOT EXISTS forward_pe_data (
+  date TEXT PRIMARY KEY,   -- YYYY-MM-DD (monthly)
+  pe   REAL                -- S&P 500 forward P/E estimate
+);
+
+CREATE INDEX IF NOT EXISTS idx_forward_pe_date ON forward_pe_data (date DESC);
+
+CREATE TABLE IF NOT EXISTS japan_pe_data (
+  date TEXT PRIMARY KEY,   -- YYYY-MM-DD (monthly)
+  pe   REAL                -- Nikkei 225 TTM P/E ratio
+);
+
+CREATE INDEX IF NOT EXISTS idx_japan_pe_date ON japan_pe_data (date DESC);
