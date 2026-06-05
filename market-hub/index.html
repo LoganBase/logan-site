@@ -2119,6 +2119,14 @@ async function loadValuationsChart(range) {
     const { dates, capes, summary } = data;
     const rangeLabel = range.toUpperCase();
 
+    // Stale if stored month is 2+ months behind today
+    const capeStale = (() => {
+      if (!summary.latestDate) return true;
+      const d = new Date(summary.latestDate), now = new Date();
+      return (now.getFullYear() * 12 + now.getMonth()) - (d.getFullYear() * 12 + d.getMonth()) > 1;
+    })();
+    const staleMark = capeStale ? ' *' : '';
+
     // Stat boxes
     const capeEl  = document.getElementById('vCape');
     const avgEl   = document.getElementById('vAvg');
@@ -2128,10 +2136,10 @@ async function loadValuationsChart(range) {
     const pctSub  = document.getElementById('vPctSub');
 
     if (capeEl) {
-      capeEl.textContent = summary.currentCape != null ? summary.currentCape.toFixed(1) + '×' : '—';
+      capeEl.textContent = summary.currentCape != null ? summary.currentCape.toFixed(1) + '×' + staleMark : '—';
       capeEl.className   = 'rstat-value' + (summary.currentCape > 35 ? ' negative' : summary.currentCape < 20 ? ' positive' : '');
     }
-    if (dateSub && summary.latestDate) dateSub.textContent = 'as of ' + summary.latestDate.slice(0, 7);
+    if (dateSub && summary.latestDate) dateSub.textContent = 'as of ' + summary.latestDate.slice(0, 7) + (capeStale ? ' — update available' : '');
     if (avgEl)  { avgEl.textContent = summary.avgCape != null ? summary.avgCape.toFixed(1) + '×' : '—'; }
     if (avgLbl) avgLbl.textContent = `${rangeLabel} Average`;
     if (pctEl)  {
@@ -2142,7 +2150,7 @@ async function loadValuationsChart(range) {
 
     // Update detail table with live CAPE and trailing P/E
     const capeValEl = document.getElementById('vCapeValue');
-    if (capeValEl && summary.currentCape) capeValEl.textContent = summary.currentCape.toFixed(1) + '×';
+    if (capeValEl && summary.currentCape) capeValEl.textContent = summary.currentCape.toFixed(1) + '×' + staleMark;
     const peValEl = document.getElementById('vPeValue');
     if (peValEl && summary.currentPe) peValEl.textContent = summary.currentPe.toFixed(1) + '×';
     const japanCondEl = document.getElementById('vJapanCond');

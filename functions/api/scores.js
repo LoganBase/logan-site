@@ -335,9 +335,17 @@ function buildValuations(shiller) {
   const earnings   = shiller?.earnings;
   const latestDate = shiller?.date;
 
-  const capeStr  = cape    ? `${cape.toFixed(1)}×`                     : '~37×';
+  // Stale if stored month is 2+ months behind today (1-month lag is normal publish delay)
+  const capeStale = (() => {
+    if (!latestDate) return true;
+    const d = new Date(latestDate);
+    const now = new Date();
+    return (now.getFullYear() * 12 + now.getMonth()) - (d.getFullYear() * 12 + d.getMonth()) > 1;
+  })();
+
+  const capeStr  = cape    ? `${cape.toFixed(1)}×${capeStale ? ' *' : ''}` : '~37×';
   const peStr    = price && earnings && earnings > 0
-                           ? `${(price / earnings).toFixed(1)}×`        : '~28×';
+                           ? `${(price / earnings).toFixed(1)}×`            : '~28×';
   const dateLabel = latestDate
     ? new Date(latestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : 'Jun 2026';
