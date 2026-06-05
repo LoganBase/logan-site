@@ -478,6 +478,8 @@ let commoditiesChart = null;
 let creditChart      = null;
 let valuationsChart  = null;
 let valuationsRange  = '30y';
+let buffettChart     = null;
+let buffettRange     = '30y';
 let chartJsReady     = false;
 let yieldRange       = '5y';
 let yieldSymbol      = '%5ETYX';
@@ -695,7 +697,8 @@ function openModal(card) {
   }
 
   if (card.id === 'valuations') {
-    const ranges = ['100y','50y','30y','20y','10y'];
+    const capeRanges    = ['100y','50y','30y','20y','10y'];
+    const buffettRanges = ['all','30y','20y','10y','5y'];
     extra = `
       <div class="modal-section-title" style="margin-top:20px">Shiller CAPE — Historical Context</div>
       <div class="regime-stats">
@@ -715,8 +718,8 @@ function openModal(card) {
           <div class="rstat-sub" id="vPctSub">of all months</div>
         </div>
       </div>
-      <div class="range-selector">
-        ${ranges.map(r =>
+      <div class="range-selector" id="capeRanges">
+        ${capeRanges.map(r =>
           `<button class="range-btn${r==='30y'?' active':''}" onclick="loadValuationsChart('${r}')">${r.toUpperCase()}</button>`
         ).join('')}
       </div>
@@ -724,17 +727,35 @@ function openModal(card) {
         <div class="chart-loading" id="valuationsLoading"><div class="spinner"></div> Loading chart…</div>
         <canvas id="valuationsChartCanvas" style="display:none"></canvas>
       </div>
-      <div class="modal-section-title" style="margin-top:20px">Current Readings</div>
-      <table class="modal-table">
-        <thead><tr><th>Metric</th><th>Indicator</th><th>Current</th><th>Historical Context</th><th>Signal</th></tr></thead>
-        <tbody>
-          <tr><td class="mt-label">Trailing P/E</td><td class="mt-indicator">S&P 500 Trailing EPS</td><td class="mt-value" id="vPeValue">~28×</td><td class="mt-condition">Avg ~16× / Peak ~31× (2021)</td><td>${jewel('neutral')}</td></tr>
-          <tr><td class="mt-label">Forward P/E</td><td class="mt-indicator">S&P 500 NTM EPS</td><td class="mt-value">~22×</td><td class="mt-condition">Avg ~15× / Peak ~25× (2021)</td><td>${jewel('neutral')}</td></tr>
-          <tr><td class="mt-label">Shiller CAPE</td><td class="mt-indicator">10-Year Real Earnings</td><td class="mt-value" id="vCapeValue">—</td><td class="mt-condition">Avg ~17× / Peak ~44× (Dec 2000)</td><td id="vCapeJewel">${jewel('bearish')}</td></tr>
-          <tr><td class="mt-label">Buffett Indicator</td><td class="mt-indicator">Total Mkt Cap / GDP</td><td class="mt-value">~195%</td><td class="mt-condition">Avg ~85% / Peak ~211% (2021)</td><td>${jewel('bearish')}</td></tr>
-          <tr><td class="mt-label">Japan P/E</td><td class="mt-indicator">Nikkei TTM vs US</td><td class="mt-value">~15×</td><td class="mt-condition" id="vJapanCond">Compressed vs US</td><td>${jewel('bullish')}</td></tr>
-        </tbody>
-      </table>
+
+      <div class="modal-section-title" style="margin-top:28px">Buffett Indicator — Mkt Cap / GDP</div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">Current Ratio</div>
+          <div class="rstat-value" id="bCurrent">—</div>
+          <div class="rstat-sub" id="bCurrentDate">nonfinancial equities</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label" id="bAvgLabel">Period Avg</div>
+          <div class="rstat-value" id="bAvg">—</div>
+          <div class="rstat-sub">historical average</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Percentile</div>
+          <div class="rstat-value" id="bPct">—</div>
+          <div class="rstat-sub" id="bPctSub">of all quarters</div>
+        </div>
+      </div>
+      <div class="range-selector" id="buffettRanges">
+        ${buffettRanges.map(r =>
+          `<button class="range-btn${r==='30y'?' active':''}" onclick="loadBuffettChart('${r}')">${r.toUpperCase()}</button>`
+        ).join('')}
+      </div>
+      <div class="chart-wrap">
+        <div class="chart-loading" id="buffettLoading"><div class="spinner"></div> Loading chart…</div>
+        <canvas id="buffettChartCanvas" style="display:none"></canvas>
+      </div>
+
       <button class="summary-btn" id="summaryBtn" onclick="generateSummary('valuations')">✦ Generate AI Summary</button>
       <div class="summary-box" id="summaryBox"></div>`;
   }
@@ -958,7 +979,7 @@ function openModal(card) {
   if (card.id === 'regime')      loadRegimeChart('5y');
   if (card.id === 'leadership')  loadLeadershipChart('5y');
   if (card.id === 'breadth')     loadBreadthChart('5y');
-  if (card.id === 'valuations')  loadValuationsChart('30y');
+  if (card.id === 'valuations')  { loadValuationsChart('30y'); loadBuffettChart('30y'); }
   if (card.id === 'yield')       loadYieldChart('5y');
   if (card.id === 'sectors')     loadSectorsChart('5y');
   if (card.id === 'commodities') loadCommoditiesChart('5y');
@@ -976,6 +997,7 @@ function closeModal(e) {
   if (commoditiesChart) { commoditiesChart.destroy(); commoditiesChart = null; }
   if (creditChart)      { creditChart.destroy();      creditChart      = null; }
   if (valuationsChart)  { valuationsChart.destroy();  valuationsChart  = null; }
+  if (buffettChart)     { buffettChart.destroy();     buffettChart     = null; }
   document.getElementById('modal').classList.remove('open');
   document.body.style.overflow = '';
 }
@@ -2096,7 +2118,7 @@ async function loadCreditChart(range, symbol) {
 async function loadValuationsChart(range) {
   if (range) valuationsRange = range; else range = valuationsRange;
 
-  document.querySelectorAll('.range-btn').forEach(b => {
+  document.querySelectorAll('#capeRanges .range-btn').forEach(b => {
     b.classList.toggle('active', b.textContent.toLowerCase() === range);
   });
   ['vCape','vAvg','vPct'].forEach(id => {
@@ -2332,6 +2354,130 @@ function closeHelp(e) {
   document.body.style.overflow = '';
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeHelp(); closeModal(); } });
+
+// ── BUFFETT CHART ─────────────────────────────────────────────────────────────
+async function loadBuffettChart(range) {
+  if (range) buffettRange = range; else range = buffettRange;
+
+  document.querySelectorAll('#buffettRanges .range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === range);
+  });
+  ['bCurrent','bAvg','bPct'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = '…';
+  });
+
+  const loadingEl = document.getElementById('buffettLoading');
+  const canvasEl  = document.getElementById('buffettChartCanvas');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (canvasEl)  canvasEl.style.display  = 'none';
+
+  try {
+    await loadChartJS();
+    const cacheKey = new Date().toISOString().slice(0, 13);
+    const res  = await fetch(`/api/buffett-history?range=${range}&d=${cacheKey}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const { dates, ratios, summary } = data;
+    const rangeLabel = range.toUpperCase();
+
+    const curEl   = document.getElementById('bCurrent');
+    const avgEl   = document.getElementById('bAvg');
+    const pctEl   = document.getElementById('bPct');
+    const dateSub = document.getElementById('bCurrentDate');
+    const avgLbl  = document.getElementById('bAvgLabel');
+    const pctSub  = document.getElementById('bPctSub');
+
+    if (curEl) {
+      curEl.textContent = summary.current != null ? summary.current.toFixed(1) + '%' : '—';
+      curEl.className   = 'rstat-value' + (summary.current > summary.avg ? ' negative' : ' positive');
+    }
+    if (dateSub && summary.latestDate) dateSub.textContent = 'as of ' + summary.latestDate.slice(0, 7);
+    if (avgEl)  avgEl.textContent  = summary.avg != null ? summary.avg.toFixed(1) + '%' : '—';
+    if (avgLbl) avgLbl.textContent = `${rangeLabel} Average`;
+    if (pctEl)  {
+      pctEl.textContent = summary.percentile != null ? summary.percentile + 'th' : '—';
+      pctEl.className   = 'rstat-value' + (summary.percentile >= 80 ? ' negative' : summary.percentile <= 20 ? ' positive' : '');
+    }
+    if (pctSub) pctSub.textContent = `of quarters in ${rangeLabel}`;
+
+    if (buffettChart) { buffettChart.destroy(); buffettChart = null; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (canvasEl)  canvasEl.style.display  = 'block';
+
+    const n     = dates.length;
+    const step  = Math.max(1, Math.floor(n / 20));
+    const avg   = summary.avg;
+    const labels = dates.map((d, i) => i % step === 0 ? d.slice(0, 7) : '');
+
+    buffettChart = new Chart(canvasEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'Buffett Indicator',
+            data: ratios,
+            borderColor: '#3b82f6',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+            segment: {
+              borderColor: ctx => {
+                const v = ratios[ctx.p1DataIndex];
+                if (v == null) return '#3b82f6';
+                if (v > avg * 1.3) return '#ef4444';
+                if (v > avg)       return '#f59e0b';
+                return '#22c55e';
+              },
+            },
+          },
+          {
+            label: `${rangeLabel} Avg`,
+            data: Array(n).fill(avg),
+            borderColor: 'rgba(148,163,184,.5)',
+            borderWidth: 1,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              title: ctx => ctx[0]?.label || '',
+              label: ctx => {
+                const v = ctx.parsed.y;
+                if (v == null) return null;
+                if (ctx.datasetIndex === 1) return ` Avg: ${v.toFixed(1)}%`;
+                const zone = v > avg * 1.3 ? 'Significantly Overvalued'
+                           : v > avg       ? 'Overvalued'
+                           :                 'Undervalued / Fair Value';
+                return ` Buffett: ${v.toFixed(1)}% — ${zone}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
+          y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => v.toFixed(0) + '%' }, grid: { color: 'rgba(30,45,61,.4)' } },
+        },
+      },
+    });
+  } catch (err) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
 
 // ── DATA LOAD ─────────────────────────────────────────────────────────────────
 function showError(msg) {

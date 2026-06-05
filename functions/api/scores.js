@@ -326,14 +326,26 @@ async function loadShillerLatest(db) {
   } catch { return null; }
 }
 
+// ── BUFFETT D1 SOURCE ─────────────────────────────────────────────────────────
+async function loadBuffettLatest(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, ratio FROM buffett_data ORDER BY date DESC LIMIT 1`
+    ).all();
+    return results?.[0] ?? null;
+  } catch { return null; }
+}
 
-function buildValuations(shiller) {
+
+function buildValuations(shiller, buffett) {
   // CAPE and trailing P/E come from D1 (shiller_data) when available.
-  // Forward P/E, Buffett Indicator and Japan P/E are manually maintained.
-  const cape       = shiller?.cape;
-  const price      = shiller?.price;
-  const earnings   = shiller?.earnings;
-  const latestDate = shiller?.date;
+  // Buffett Indicator comes from D1 (buffett_data) when available.
+  // Forward P/E and Japan P/E are manually maintained.
+  const cape         = shiller?.cape;
+  const price        = shiller?.price;
+  const earnings     = shiller?.earnings;
+  const latestDate   = shiller?.date;
+  const buffettRatio = buffett?.ratio ?? null;
 
   // Stale if stored month is 2+ months behind today (1-month lag is normal publish delay)
   const capeStale = (() => {
@@ -364,7 +376,17 @@ function buildValuations(shiller) {
     { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',     value: peStr,   condition: 'Elevated (hist avg ~16×)',                 status: 'neutral' },
     { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)', value: '~22×',  condition: 'Elevated (hist avg ~15×)',                 status: 'neutral' },
     { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',        value: capeStr, condition: capeCond,                                   status: capeStatus },
-    { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',    value: '~195%', condition: 'Extreme — At Peak Levels',                 status: 'bearish' },
+    { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
+      value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~195%',
+      condition: buffettRatio != null
+        ? (buffettRatio > 130 ? 'Extreme — At Peak Levels'
+          : buffettRatio > 100 ? 'Overvalued — Above Hist Avg'
+          : buffettRatio > 75  ? 'Fairly Valued'
+          :                      'Undervalued')
+        : 'Extreme — At Peak Levels',
+      status: buffettRatio != null
+        ? (buffettRatio > 100 ? 'bearish' : buffettRatio > 75 ? 'neutral' : 'bullish')
+        : 'bearish' },
     // Row 5 — deep-dive context only; excluded from card status so it does not offset US valuation signals
     { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: '~15×',  condition: 'Compressed vs US — Favour International', status: 'bullish' },
   ];
@@ -667,9 +689,10 @@ export async function onRequest(context) {
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
-  const [d1, shiller] = await Promise.all([
+  const [d1, shiller, buffett] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
+    db ? loadBuffettLatest(db) : Promise.resolve(null),
   ]);
   const missing = ALL_SYMBOLS.filter(s => !d1[s]);
 
@@ -688,7 +711,7 @@ export async function onRequest(context) {
     buildRegime(q),
     buildLeadership(q),
     buildBreadth(q),
-    buildValuations(shiller),
+    buildValuations(shiller, buffett),
     buildYield(q),
     buildGlobalFlows(q),
     buildSectors(q),
