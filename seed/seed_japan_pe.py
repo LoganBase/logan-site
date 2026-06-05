@@ -108,10 +108,15 @@ def parse_macrotrends_csv(path):
         pe_raw   = row.get(pe_col, '').strip()
         if not date_raw or not pe_raw:
             continue
+        # Handle both YYYY-MM-DD and MM/DD/YYYY
         m = re.match(r'(\d{4}-\d{2}-\d{2})', date_raw)
-        if not m:
-            continue
-        date = m.group(1)
+        if m:
+            date = m.group(1)
+        else:
+            m2 = re.match(r'(\d{1,2})/(\d{1,2})/(\d{4})', date_raw)
+            if not m2:
+                continue
+            date = f'{m2.group(3)}-{m2.group(1).zfill(2)}-{m2.group(2).zfill(2)}'
         try:
             pe = float(pe_raw.replace(',', ''))
         except ValueError:
