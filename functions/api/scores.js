@@ -395,7 +395,7 @@ function buildValuations(shiller, buffett) {
     id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
     status: cardStatus(rows.slice(0, 4)),  // Japan P/E is deep-dive context only
     rows, hideIndicator: true,
-    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). Trailing P/E, Buffett Indicator manually maintained — last reviewed Jun 2026.`,
+    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). Trailing P/E from Shiller data. Buffett Indicator from FRED (live).`,
   };
 }
 
