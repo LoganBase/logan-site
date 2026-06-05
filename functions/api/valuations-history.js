@@ -5,7 +5,7 @@
  * Returns Shiller CAPE and trailing P/E history from D1 shiller_data table
  * for charting in the Valuations deep dive.
  *
- * Ranges: 100y, 50y, 30y, 20y, 10y
+ * Ranges: 100y, 50y, 30y, 20y, 10y, 5y
  * Data source: Robert Shiller's Yale dataset, seeded via seed/seed_shiller.py
  */
 
@@ -15,6 +15,7 @@ const RANGE_DAYS = {
   '30y':  10950,
   '20y':  7300,
   '10y':  3650,
+  '5y':   1825,
 };
 
 export async function onRequest(context) {
