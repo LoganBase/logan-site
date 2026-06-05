@@ -87,8 +87,12 @@ async function loadFromD1(db) {
 
     // Group closes by symbol (already DESC), keep up to 22 for 20-day return
     const bySymbol = {};
+    const latestDate = {};
     for (const row of priceRows) {
-      if (!bySymbol[row.symbol]) bySymbol[row.symbol] = [];
+      if (!bySymbol[row.symbol]) {
+        bySymbol[row.symbol] = [];
+        latestDate[row.symbol] = row.date; // first occurrence = most recent (DESC order)
+      }
       if (bySymbol[row.symbol].length < 22) bySymbol[row.symbol].push(row.close);
     }
 
@@ -111,6 +115,7 @@ async function loadFromD1(db) {
         rsi14:  ind.rsi14,
         vs50:   ind.sma50  ? ((price - ind.sma50)  / ind.sma50)  * 100 : null,
         vs200:  ind.vs200_pct,
+        latestDate: latestDate[sym],
       };
     }
     return q;
@@ -695,7 +700,7 @@ export async function onRequest(context) {
     return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' } });
   }
 
-  // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1
+  // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1 or stale
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
   const [d1, shiller, buffett] = await Promise.all([
@@ -703,7 +708,8 @@ export async function onRequest(context) {
     db ? loadShillerLatest(db) : Promise.resolve(null),
     db ? loadBuffettLatest(db) : Promise.resolve(null),
   ]);
-  const missing = ALL_SYMBOLS.filter(s => !d1[s]);
+  const today = new Date().toISOString().slice(0, 10);
+  const missing = ALL_SYMBOLS.filter(s => !d1[s] || d1[s].latestDate < today);
 
   const q = { ...d1 };
   if (missing.length > 0) {
