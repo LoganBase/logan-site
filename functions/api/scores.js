@@ -390,8 +390,14 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
   })();
 
   const capeStr  = cape    ? `${cape.toFixed(1)}×${capeStale ? ' *' : ''}` : '~37×';
-  const peStr    = price && earnings && earnings > 0
-                           ? `${(price / earnings).toFixed(1)}×`            : '~28×';
+  const peVal    = price && earnings && earnings > 0 ? price / earnings : null;
+  const peStr    = peVal != null ? `${peVal.toFixed(1)}×` : '~28×';
+  const peStatus = peVal == null ? 'neutral' : peVal > 22 ? 'bearish' : peVal > 16 ? 'neutral' : 'bullish';
+  const peCond   = peVal == null ? 'Elevated (hist avg ~16×)'
+    : peVal > 22 ? 'Elevated — Above Long-Term Average'
+    : peVal > 18 ? 'Above Average'
+    : peVal > 16 ? 'Near Average (hist avg ~16×)'
+    :              'Below Average — Historically Cheap';
   const dateLabel = latestDate
     ? new Date(latestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : 'Jun 2026';
@@ -419,7 +425,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     : 'Compressed vs US — Favour International';
 
   const rows = [
-    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',       value: peStr,    condition: 'Elevated (hist avg ~16×)',  status: 'neutral'    },
+    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',       value: peStr,    condition: peCond,                     status: peStatus     },
     { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',          value: capeStr,  condition: capeCond,                   status: capeStatus   },
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
       value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
