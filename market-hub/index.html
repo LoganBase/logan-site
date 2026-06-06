@@ -2446,6 +2446,186 @@ async function loadCreditChart(range, symbol) {
   }
 }
 
+// ── CREDIT STRESS DIAGNOSIS CHART ────────────────────────────────────────────
+async function loadCreditStressChart(range) {
+  creditStressRange = range;
+  document.querySelectorAll('.diag-range-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === range);
+  });
+  ['diagHyg','diagLqd','diagSpread','diagSignal'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = '…';
+  });
+  const loadingEl = document.getElementById('diagLoading');
+  const canvasEl  = document.getElementById('diagChartCanvas');
+  if (loadingEl) loadingEl.style.display = 'flex';
+  if (canvasEl)  canvasEl.style.display  = 'none';
+  try {
+    await loadChartJS();
+    const today = new Date().toISOString().slice(0, 10);
+    const [hygRes, lqdRes] = await Promise.all([
+      fetch(`/api/history?symbol=HYG&range=${range}&d=${today}`),
+      fetch(`/api/history?symbol=LQD&range=${range}&d=${today}`),
+    ]);
+    if (!hygRes.ok || !lqdRes.ok) throw new Error('Fetch failed');
+    const [hygHist, lqdHist] = await Promise.all([hygRes.json(), lqdRes.json()]);
+    if (hygHist.error) throw new Error(hygHist.error);
+    if (lqdHist.error) throw new Error(lqdHist.error);
+
+    // Build LQD lookup by date
+    const lqdMap = {};
+    lqdHist.dates.forEach((d, i) => { lqdMap[d] = lqdHist.vs200?.[i] ?? null; });
+
+    // Align to dates where both HYG and LQD have data
+    const dates           = [];
+    const hygPrices       = [];
+    const hyg200d         = [];
+    const hygVs200Aligned = [];
+    const spreadArr       = [];
+
+    hygHist.dates.forEach((d, i) => {
+      if (!(d in lqdMap)) return;
+      const hv = hygHist.vs200?.[i] ?? null;
+      const lv = lqdMap[d];
+      dates.push(d);
+      hygPrices.push(hygHist.closes[i]);
+      hyg200d.push(hygHist.sma200?.[i] ?? null);
+      hygVs200Aligned.push(hv);
+      spreadArr.push(hv != null && lv != null ? hv - lv : null);
+    });
+
+    // Stat boxes
+    const curHygVs200 = hygHist.summary?.currentVs200;
+    const curLqdVs200 = lqdHist.summary?.currentVs200;
+    const curSpread   = curHygVs200 != null && curLqdVs200 != null ? curHygVs200 - curLqdVs200 : null;
+    const hygBelow    = curHygVs200 != null && curHygVs200 < 0;
+
+    let signal, signalCls;
+    if (!hygBelow)                               { signal = 'No Stress';     signalCls = 'positive'; }
+    else if (curSpread != null && curSpread >= 0) { signal = 'Rate-Driven';  signalCls = ''; }
+    else                                          { signal = 'Credit-Driven'; signalCls = 'negative'; }
+
+    const hygEl    = document.getElementById('diagHyg');
+    const lqdEl    = document.getElementById('diagLqd');
+    const spreadEl = document.getElementById('diagSpread');
+    const sigEl    = document.getElementById('diagSignal');
+    if (hygEl) {
+      hygEl.textContent = curHygVs200 != null ? (curHygVs200 >= 0 ? '+' : '') + curHygVs200.toFixed(1) + '%' : '—';
+      hygEl.className   = 'rstat-value' + (curHygVs200 > 0 ? ' positive' : curHygVs200 < 0 ? ' negative' : '');
+    }
+    if (lqdEl) {
+      lqdEl.textContent = curLqdVs200 != null ? (curLqdVs200 >= 0 ? '+' : '') + curLqdVs200.toFixed(1) + '%' : '—';
+      lqdEl.className   = 'rstat-value' + (curLqdVs200 > 0 ? ' positive' : curLqdVs200 < 0 ? ' negative' : '');
+    }
+    if (spreadEl) {
+      spreadEl.textContent = curSpread != null ? (curSpread >= 0 ? '+' : '') + curSpread.toFixed(1) + '%' : '—';
+      spreadEl.className   = 'rstat-value' + (curSpread > 0 ? ' positive' : curSpread < 0 ? ' negative' : '');
+    }
+    if (sigEl) {
+      sigEl.textContent = signal;
+      sigEl.className   = 'rstat-value' + (signalCls ? ' ' + signalCls : '');
+    }
+
+    if (creditStressChart) { creditStressChart.destroy(); creditStressChart = null; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (canvasEl)  canvasEl.style.display  = 'block';
+
+    const step       = Math.max(1, Math.floor(dates.length / 8));
+    const labelDates = dates.map((d, i) => i % step === 0 ? d.slice(0, 7) : '');
+    const spreadBg   = spreadArr.map(v => v == null ? 'rgba(100,116,139,0.2)' : v >= 0 ? 'rgba(34,197,94,0.45)' : 'rgba(239,68,68,0.45)');
+    const spreadBdr  = spreadArr.map(v => v == null ? 'rgba(100,116,139,0.4)' : v >= 0 ? 'rgba(34,197,94,0.8)'  : 'rgba(239,68,68,0.8)');
+
+    creditStressChart = new Chart(canvasEl.getContext('2d'), {
+      data: {
+        labels: labelDates,
+        datasets: [
+          {
+            type: 'bar',
+            label: 'HY–IG Spread',
+            data: spreadArr,
+            backgroundColor: spreadBg,
+            borderColor: spreadBdr,
+            borderWidth: 1,
+            yAxisID: 'y1',
+            order: 3,
+          },
+          {
+            type: 'line',
+            label: '200d SMA',
+            data: hyg200d,
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            borderDash: [5, 3],
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+            yAxisID: 'y',
+            order: 2,
+          },
+          {
+            type: 'line',
+            label: 'HYG',
+            data: hygPrices,
+            borderWidth: 1.8,
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+            yAxisID: 'y',
+            order: 1,
+            segment: {
+              borderColor: ctx => {
+                const v = hygVs200Aligned[ctx.p1DataIndex];
+                return v != null && v < 0 ? '#ef4444' : '#22c55e';
+              },
+            },
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { labels: { color: '#94a3b8', font: { size: 11 }, boxWidth: 24, padding: 12 } },
+          tooltip: {
+            backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
+            titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
+            callbacks: {
+              title: ctx => dates[ctx[0].dataIndex],
+              label: ctx => {
+                const v = ctx.parsed.y;
+                if (v == null) return null;
+                if (ctx.dataset.yAxisID === 'y')  return ` ${ctx.dataset.label}: $${v.toFixed(2)}`;
+                if (ctx.dataset.yAxisID === 'y1') return ` HY–IG Spread: ${(v >= 0 ? '+' : '') + v.toFixed(1)}%`;
+                return null;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 },
+            grid:  { color: 'rgba(30,45,61,.4)' },
+          },
+          y: {
+            position: 'left',
+            ticks: { color: '#64748b', font: { size: 10 }, callback: v => '$' + v.toFixed(0) },
+            grid:  { color: 'rgba(30,45,61,.4)' },
+          },
+          y1: {
+            position: 'right',
+            grid: { drawOnChartArea: false },
+            ticks: {
+              color: '#64748b', font: { size: 10 },
+              callback: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
+            },
+          },
+        },
+      },
+    });
+  } catch (err) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
 // ── VALUATIONS CHART ─────────────────────────────────────────────────────────
 async function loadValuationsChart(range) {
   if (range) valuationsRange = range; else range = valuationsRange;
