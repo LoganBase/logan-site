@@ -21,9 +21,9 @@ Every card return object in `scores.js` must satisfy:
 |---|------|:-:|:-:|:-:|:-:|:-:|:-:|
 | 01 | Regime | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | 02 | Leadership | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 03 | Breadth | ✅ | ✅ | ❌ | ❌ | — | ⏸ parked |
-| 04 | Valuations | ✅ | ✅ | ❌ | partial | — | 🔄 in progress |
-| 05 | Yield | ✅ | ✅ | ❌ | ❌ | — | ❌ |
+| 03 | Breadth | ✅ | ✅ | ✅ | ⏸ rows 1–3 manual | — | ⏸ parked |
+| 04 | Valuations | ✅ | ✅* | ✅ | ✅ | — | ✅ |
+| 05 | Yield | ✅ | ✅* | ✅ | ✅ | — | ✅ |
 | 06 | Credit | ✅ | ✅* | ✅ | ✅ | ✅ | ✅ |
 | 07 | Global Flows | ✅ | ✅* | ❌ | ❌ | — | ❌ |
 | 08 | Sectors | ✅ | ✅* | ❌ | ❌ | — | ❌ |

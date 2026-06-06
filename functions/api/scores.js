@@ -313,7 +313,7 @@ function buildBreadth(q) {
       label: 'Consumer Signal',
       indicator: 'RSPD (Equal-Weight Consumer Disc.)',
       value: rspd ? usd(rspd.price) : '—',
-      condition: rspdBull == null ? '—' : (rspdBull ? 'Above 200d — Healthy' : 'Below 200d — Watch'),
+      condition: rspdBull == null ? '—' : (rspdBull ? 'Above 200d — Consumer Healthy' : 'Below 200d — Risk Rising'),
       status: rspdBull ? 'bullish' : (rspd ? 'bearish' : 'neutral'),
     },
   ];
@@ -393,11 +393,11 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
   const peVal    = price && earnings && earnings > 0 ? price / earnings : null;
   const peStr    = peVal != null ? `${peVal.toFixed(1)}×` : '~28×';
   const peStatus = peVal == null ? 'neutral' : peVal > 22 ? 'bearish' : peVal > 16 ? 'neutral' : 'bullish';
-  const peCond   = peVal == null ? 'Elevated (hist avg ~16×)'
-    : peVal > 22 ? 'Elevated — Well Above Long-Term Avg (~16×)'
-    : peVal > 18 ? 'Above Average (~16×)'
-    : peVal > 16 ? 'Near Average (hist avg ~16×)'
-    :              'Below Average — Historically Cheap';
+  const peCond   = peVal == null ? 'Elevated — Monitor (hist avg ~16×)'
+    : peVal > 22 ? 'Elevated — Favour Value Over Growth'
+    : peVal > 18 ? 'Above Average — Quality Bias'
+    : peVal > 16 ? 'Near Average — Fully Valued'
+    :              'Below Average — Add on Weakness';
   const dateLabel = latestDate
     ? new Date(latestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : 'Jun 2026';
@@ -406,11 +406,11 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     ? (cape > 35 ? 'bearish' : cape > 20 ? 'neutral' : 'bullish')
     : 'bearish';
   const capeCond = cape
-    ? (cape > 40 ? `Extreme — Near 2000 Peak (avg ~17×, ${dateLabel})`
-      : cape > 35 ? `Very High — ${dateLabel} (avg ~17×)`
-      : cape > 25 ? `Elevated — ${dateLabel} (avg ~17×)`
-      :             `Normal — ${dateLabel} (avg ~17×)`)
-    : 'Very High (hist avg ~17×)';
+    ? (cape > 40 ? 'Extreme — Near 2000 Peak, Limit Exposure'
+      : cape > 35 ? 'Very High — Reduce Equity Allocation'
+      : cape > 25 ? 'Elevated — Quality Bias'
+      :             'Normal Range — Average Expected Returns')
+    : 'Very High — Limit New Exposure';
 
   const japanPeVal  = japanPe?.pe ?? null;
   const japanPeStr  = japanPeVal != null ? `${japanPeVal.toFixed(1)}×` : '~15×';
@@ -422,7 +422,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
   const japanCond = japanPeVal != null && liveUsPe != null
     ? (japanPeVal < liveUsPe
         ? `Compressed vs US (${liveUsPe.toFixed(0)}×) — Favour International`
-        : `In Line with US (${liveUsPe.toFixed(0)}×)`)
+        : `In Line with US (${liveUsPe.toFixed(0)}×) — No Valuation Edge`)
     : 'Compressed vs US — Favour International';
 
   const rows = [
@@ -431,11 +431,11 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
       value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
       condition: buffettRatio != null
-        ? (buffettRatio > 160 ? 'Extreme — At or Near Peak Levels'
-          : buffettRatio > 115 ? 'Overvalued — Above Historical Average'
-          : buffettRatio > 80  ? 'Fairly Valued'
-          :                      'Undervalued')
-        : 'Extreme — At or Near Peak Levels',
+        ? (buffettRatio > 160 ? 'Extreme — Near Peak, Limit Exposure'
+          : buffettRatio > 115 ? 'Overvalued — Reduce Allocation'
+          : buffettRatio > 80  ? 'Fairly Valued — Neutral Allocation'
+          :                      'Undervalued — Accumulate on Dips')
+        : 'Extreme — Near Peak, Limit Exposure',
       status: buffettRatio != null
         ? (buffettRatio > 115 ? 'bearish' : buffettRatio > 80 ? 'neutral' : 'bullish')
         : 'bearish' },
@@ -464,7 +464,7 @@ function buildYield(q) {
   const curveCond    = curveSpread == null ? '—'
     : curveSpread < -0.5 ? 'Deeply Inverted — Recession Risk Elevated'
     : curveSpread < 0    ? 'Inverted — Recession Warning'
-    : curveSpread < 1    ? 'Flat — Transitioning, Watch for Steepening'
+    : curveSpread < 1    ? 'Flat — Watch for Steepening'
     :                      'Steepening — Growth Expectations Returning';
 
   const rows = [
@@ -472,7 +472,7 @@ function buildYield(q) {
       label: '30Y Benchmark',
       indicator: 'US 30-Year Yield (^TYX)',
       value: yieldVal ? yieldVal.toFixed(2) + '%' : '—',
-      condition: yieldRnd == null ? '—' : yieldRnd >= 5 ? 'At/Above 5% — Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% Threshold' : 'Below Threshold',
+      condition: yieldRnd == null ? '—' : yieldRnd >= 5 ? 'At/Above 5% — Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% — Reduce Duration Risk' : 'Below 5% — Multiples Supported',
       status: yieldStat,
     },
     {
@@ -482,7 +482,7 @@ function buildYield(q) {
       condition: tnx?.price == null ? '—'
         : tnx.price >= 4.5 ? 'Restrictive — Compressing Equity Multiples'
         : tnx.price >= 3.5 ? 'Elevated — Headwind for Growth'
-        : tnx.price >= 2.5 ? 'Neutral — Manageable'
+        : tnx.price >= 2.5 ? 'Neutral — Hold Duration'
         :                    'Accommodative — Tailwind for Equities',
       status: tnx?.price == null ? 'neutral'
         : tnx.price >= 4.5 ? 'bearish'
