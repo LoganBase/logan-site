@@ -5,7 +5,8 @@
  * Fetches current P/E ratios from Yahoo Finance and upserts into D1.
  *
  * Sources:
- *   Japan P/E — EWJ trailingPE (summaryDetail)  iShares MSCI Japan ETF
+ *   Japan P/E  — EWJ trailingPE (summaryDetail)  iShares MSCI Japan ETF
+ *   US P/E     — SPY trailingPE (summaryDetail)  live benchmark for Japan comparison
  *
  * Manual trigger:
  *   GET https://market-hub-pe-updater.shane-logan.workers.dev/run
@@ -94,8 +95,11 @@ async function runUpdate(env) {
     return { date: today, error: 'Failed to obtain Yahoo Finance crumb', saved: {} };
   }
 
-  const japanResult = await fetchPe('EWJ', 'trailingPE', 'summaryDetail', auth);
-  const results = { date: today, japanRaw: japanResult, saved: {} };
+  const [japanResult, spyResult] = await Promise.all([
+    fetchPe('EWJ', 'trailingPE', 'summaryDetail', auth),
+    fetchPe('SPY', 'trailingPE', 'summaryDetail', auth),
+  ]);
+  const results = { date: today, japanRaw: japanResult, spyRaw: spyResult, saved: {} };
 
   if (japanResult?.value != null) {
     await env.DB.prepare('INSERT OR REPLACE INTO japan_pe_data (date, pe) VALUES (?, ?)')
@@ -103,7 +107,13 @@ async function runUpdate(env) {
     results.saved.japanPe = japanResult.value;
   }
 
-  console.log(`PE update ${today}: Japan=${japanResult?.value}`);
+  if (spyResult?.value != null) {
+    await env.DB.prepare('INSERT OR REPLACE INTO forward_pe_data (date, pe) VALUES (?, ?)')
+      .bind(today, spyResult.value).run();
+    results.saved.spyPe = spyResult.value;
+  }
+
+  console.log(`PE update ${today}: Japan=${japanResult?.value}, SPY=${spyResult?.value}`);
   return results;
 }
 

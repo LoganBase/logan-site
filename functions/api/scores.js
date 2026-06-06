@@ -394,8 +394,8 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
   const peStr    = peVal != null ? `${peVal.toFixed(1)}×` : '~28×';
   const peStatus = peVal == null ? 'neutral' : peVal > 22 ? 'bearish' : peVal > 16 ? 'neutral' : 'bullish';
   const peCond   = peVal == null ? 'Elevated (hist avg ~16×)'
-    : peVal > 22 ? 'Elevated — Above Long-Term Average'
-    : peVal > 18 ? 'Above Average'
+    : peVal > 22 ? 'Elevated — Well Above Long-Term Avg (~16×)'
+    : peVal > 18 ? 'Above Average (~16×)'
     : peVal > 16 ? 'Near Average (hist avg ~16×)'
     :              'Below Average — Historically Cheap';
   const dateLabel = latestDate
@@ -406,7 +406,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     ? (cape > 35 ? 'bearish' : cape > 20 ? 'neutral' : 'bullish')
     : 'bearish';
   const capeCond = cape
-    ? (cape > 40 ? `Extreme — Near 2000 Peak (${dateLabel})`
+    ? (cape > 40 ? `Extreme — Near 2000 Peak (avg ~17×, ${dateLabel})`
       : cape > 35 ? `Very High — ${dateLabel} (avg ~17×)`
       : cape > 25 ? `Elevated — ${dateLabel} (avg ~17×)`
       :             `Normal — ${dateLabel} (avg ~17×)`)
@@ -414,14 +414,15 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
 
   const japanPeVal  = japanPe?.pe ?? null;
   const japanPeStr  = japanPeVal != null ? `${japanPeVal.toFixed(1)}×` : '~15×';
-  const trailPe = price && earnings && earnings > 0 ? price / earnings : null;
-  const japanStatus = japanPeVal != null && trailPe != null
-    ? (japanPeVal < trailPe * 0.8 ? 'bullish' : japanPeVal < trailPe ? 'neutral' : 'bearish')
+  const trailPe  = price && earnings && earnings > 0 ? price / earnings : null;
+  const liveUsPe = forwardPe?.pe ?? trailPe;  // live SPY trailing P/E preferred over stale Shiller
+  const japanStatus = japanPeVal != null && liveUsPe != null
+    ? (japanPeVal < liveUsPe * 0.8 ? 'bullish' : japanPeVal < liveUsPe ? 'neutral' : 'bearish')
     : 'bullish';
-  const japanCond = japanPeVal != null && trailPe != null
-    ? (japanPeVal < trailPe
-        ? `Compressed vs US (${trailPe.toFixed(0)}×) — Favour International`
-        : `In Line with US (${trailPe.toFixed(0)}×)`)
+  const japanCond = japanPeVal != null && liveUsPe != null
+    ? (japanPeVal < liveUsPe
+        ? `Compressed vs US (${liveUsPe.toFixed(0)}×) — Favour International`
+        : `In Line with US (${liveUsPe.toFixed(0)}×)`)
     : 'Compressed vs US — Favour International';
 
   const rows = [
