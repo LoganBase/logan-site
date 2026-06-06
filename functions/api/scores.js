@@ -454,7 +454,8 @@ function buildYield(q) {
   const tyx = q['^TYX'], tnx = q['^TNX'], tlt = q['TLT'], uup = q['UUP'];
 
   const yieldVal   = tyx?.price;
-  const yieldStat  = yieldVal == null ? 'neutral' : yieldVal >= 5 ? 'bearish' : yieldVal > 4.5 ? 'neutral' : 'bullish';
+  const yieldRnd   = yieldVal != null ? Math.round(yieldVal * 100) / 100 : null;
+  const yieldStat  = yieldRnd == null ? 'neutral' : yieldRnd >= 5 ? 'bearish' : yieldRnd > 4.5 ? 'neutral' : 'bullish';
   const tltBull    = tlt && tlt.price > tlt.sma200;
   const uupBull    = uup && uup.price < uup.sma200; // weak dollar = bullish
 
@@ -463,7 +464,7 @@ function buildYield(q) {
       label: 'Long Bond Threshold',
       indicator: 'US 30-Year Yield (^TYX)',
       value: yieldVal ? yieldVal.toFixed(2) + '%' : '—',
-      condition: yieldVal == null ? '—' : yieldVal >= 5 ? 'At/Above 5% — Risk-On Compression' : yieldVal > 4.5 ? 'Approaching 5% Threshold' : 'Below Threshold',
+      condition: yieldRnd == null ? '—' : yieldRnd >= 5 ? 'At/Above 5% — Risk-On Compression' : yieldRnd > 4.5 ? 'Approaching 5% Threshold' : 'Below Threshold',
       status: yieldStat,
     },
     {
