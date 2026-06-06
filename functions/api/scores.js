@@ -500,7 +500,7 @@ function buildYield(q) {
       label: 'Dollar Strength',
       indicator: 'UUP — US Dollar ETF (DXY proxy)',
       value: uup ? usd(uup.price) : '—',
-      condition: uupBull ? 'Weakening — EM Positive' : (uup ? 'Strengthening — EM Headwind' : '—'),
+      condition: uupBull ? 'Weakening — EM Positive' : (uup ? 'Strengthening — Multinational & EM Headwind' : '—'),
       status: uupBull ? 'bullish' : (uup ? 'bearish' : 'neutral'),
     },
   ];
