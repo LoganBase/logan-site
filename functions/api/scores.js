@@ -224,7 +224,18 @@ function buildRegime(q) {
   const rows = [r1, r2, r3];
   // Card is bearish only when SPY is in a secular bear (below 200d SMA)
   const status = isBull ? cardStatus(rows) : 'bearish';
-  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, hideIndicator: true };
+  const regimeNote = (() => {
+    const crossStr = isGolden == null ? ''
+      : isGolden
+      ? `Golden Cross in place${crossSpread != null ? ` (50d ${pct(crossSpread, 1)} above 200d)` : ''} — trend confirmed.`
+      : `Death Cross in effect${crossSpread != null ? ` (50d ${pct(Math.abs(crossSpread), 1)} below 200d)` : ''} — trend broken.`;
+    const stretchStr = v200 == null ? ''
+      : v200 > 14 ? ` SPY ${pct(v200)} above 200d — overextended, pullback risk elevated.`
+      : v200 >= 0 ? ` SPY ${pct(v200)} above 200d — normal bull range.`
+      : ` SPY ${pct(v200)} below 200d — bear regime active; read all cards defensively.`;
+    return crossStr + stretchStr;
+  })();
+  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, hideIndicator: true, note: regimeNote };
 }
 
 function buildLeadership(q) {
@@ -277,7 +288,16 @@ function buildLeadership(q) {
       status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'neutral'),
     },
   ];
-  return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, hideIndicator: true };
+  const leaderNote = (() => {
+    const breadthStr = rspLead
+      ? `Breadth expanding — RSP leading SPY${rspSpreadStr}. Broad participation is healthy.`
+      : `Rally narrowing — SPY leading RSP${rspSpreadStr}. Concentration risk rising.`;
+    const styleStr = growthLead == null ? ''
+      : growthLead ? ' Growth over Value — risk appetite intact.'
+      : ' Value over Growth — defensive rotation underway.';
+    return breadthStr + styleStr;
+  })();
+  return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, hideIndicator: true, note: leaderNote };
 }
 
 function buildBreadth(q) {
@@ -317,7 +337,12 @@ function buildBreadth(q) {
       status: rspdBull ? 'bullish' : (rspd ? 'bearish' : 'neutral'),
     },
   ];
-  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true };
+  const breadthNote = rspd
+    ? (rspdBull
+      ? 'Consumer Disc. (RSPD) above 200d — discretionary spending healthy, consumer-led growth intact.'
+      : 'Consumer Disc. (RSPD) below 200d — consumer weakness; watch for broadening selloff into other sectors.')
+    : 'NYSE breadth data requires manual check via the StockCharts links above.';
+  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true, note: breadthNote };
 }
 
 // ── SHILLER D1 SOURCE ─────────────────────────────────────────────────────────
@@ -447,7 +472,12 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
     status: cardStatus(rows.slice(0, 3)),  // Japan P/E is deep-dive context only
     rows, hideIndicator: true,
-    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). Japan P/E via EWJ ETF, updated nightly. Buffett Indicator from FRED (live).`,
+    note: [
+      'Valuations set return expectations, not entry points — combine with Regime and Credit before acting.',
+      cape != null ? `CAPE ${cape.toFixed(1)}× (${dateLabel}) — ${cape > 35 ? 'top decile historically; long-run returns compress from here' : cape > 25 ? 'elevated vs ~17× long-run avg' : 'near long-run average'}.` : null,
+      buffettRatio != null ? `Buffett Indicator ${buffettRatio.toFixed(0)}% — ${buffettRatio > 160 ? 'extreme overvaluation' : buffettRatio > 115 ? 'overvalued vs GDP' : 'fair-value range'}.` : null,
+      japanPeVal != null && liveUsPe != null ? `Japan (EWJ) ${japanPeVal.toFixed(1)}× vs US ${liveUsPe.toFixed(0)}× — ${japanPeVal < liveUsPe ? 'international valuation premium intact' : 'valuation gap has closed'}.` : null,
+    ].filter(Boolean).join(' '),
   };
 }
 
@@ -505,7 +535,18 @@ function buildYield(q) {
     },
   ];
   const status = yieldStat === 'bearish' ? 'bearish' : cardStatus(rows);
-  return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows, hideIndicator: true };
+  const yieldNote = (() => {
+    const threshStr = yieldRnd == null ? ''
+      : yieldRnd >= 5 ? `30Y at ${yieldRnd}% — above the 5% threshold; equity multiple compression in effect.`
+      : yieldRnd > 4.5 ? `30Y at ${yieldRnd}% — approaching the 5% danger zone; monitor closely.`
+      : `30Y at ${yieldRnd}% — below the 5% threshold; rate pressure contained.`;
+    const curveStr = curveSpread == null ? ''
+      : curveSpread < 0 ? ` Curve inverted (${pct(curveSpread, 2)}) — NY Fed recession model elevated.`
+      : curveSpread < 1 ? ` Curve flat (${pct(curveSpread, 2)}) — transition phase; watch for steepening.`
+      : ` Curve steepening (${pct(curveSpread, 2)}) — growth expectations rebuilding.`;
+    return threshStr + curveStr;
+  })();
+  return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows, hideIndicator: true, note: yieldNote };
 }
 
 function buildGlobalFlows(q) {
@@ -562,7 +603,14 @@ function buildGlobalFlows(q) {
       status: d.above ? 'bullish' : 'bearish',
     })),
   ];
-  return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details, hideIndicator: true };
+  const weakest = exUS[exUS.length - 1];
+  const flowNote = (bull >= 10
+    ? `${bull}/${total} markets above 200d — synchronized global expansion; broad risk-on.`
+    : bull >= 7
+    ? `${bull}/${total} markets above 200d — partial expansion; favour the strongest markets.`
+    : `${bull}/${total} markets above 200d — broad global weakness; defensive positioning warranted.`)
+    + (weakest ? ` Weakest market: ${weakest.label} (${weakest.vs200} vs 200d).` : '');
+  return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details, hideIndicator: true, note: flowNote };
 }
 
 function buildSectors(q) {
@@ -617,7 +665,10 @@ function buildSectors(q) {
     },
     ...sectRows.slice(0, 4),
   ];
-  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows, hideIndicator: true };
+  const sectNote = offenseLeading
+    ? `${cycBull}/${cyclicals.length} cyclicals above 200d — offense leading; growth-oriented positioning supported.`
+    : `Defensives leading cyclicals (${defBull}/${defensives.length} defensive above 200d) — rotation to safety underway; reduce cyclical exposure.`;
+  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows, hideIndicator: true, note: sectNote };
 }
 
 function buildCommodities(q) {
@@ -645,8 +696,14 @@ function buildCommodities(q) {
     };
   });
   const status = bull >= 5 ? 'bullish' : bull >= 3 ? 'neutral' : 'bearish';
+  const copper = q['HG=F'], gold = q['GLD'];
+  const copperAbove = copper?.price && copper?.sma200 && copper.price > copper.sma200;
+  const goldAbove   = gold?.price   && gold?.sma200   && gold.price   > gold.sma200;
+  const commNote = `${bull}/${comSyms.length} commodities above 200d SMA.`
+    + (copper ? (copperAbove ? ' Copper above 200d — industrial growth confirmed.' : ' Copper below 200d — growth warning.') : '')
+    + (copperAbove === false && goldAbove ? ' Gold up, copper down — safe haven demand with growth caution.' : '');
   return { id: 'commodities', number: 9, title: 'Commodities', subtitle: 'The Growth Engine', status, rows, hideIndicator: true,
-    summary: `${bull}/${comSyms.length} commodities above 200d SMA` };
+    summary: `${bull}/${comSyms.length} commodities above 200d SMA`, note: commNote };
 }
 
 function buildEquities(q) {
@@ -677,8 +734,12 @@ function buildEquities(q) {
   });
   const total = watchList.length;
   const status = bull >= 7 ? 'bullish' : bull >= 5 ? 'neutral' : 'bearish';
+  const equityNote = `${bull}/${total} watchlist names above both 50d & 200d. `
+    + (bull >= 7 ? 'Strong momentum — execution environment favourable.'
+    : bull >= 5 ? 'Mixed signals — be selective; focus on confirmed breakouts above both MAs.'
+    : 'Broad weakness — wait for MA recapture before adding positions.');
   return { id: 'equities', number: 10, title: 'Equities', subtitle: 'The Execution Layer', status, rows, hideIndicator: true,
-    summary: `${bull}/${total} above both 50d & 200d SMA` };
+    summary: `${bull}/${total} above both 50d & 200d SMA`, note: equityNote };
 }
 
 function buildCredit(q) {
@@ -712,7 +773,7 @@ function buildCredit(q) {
       value: hyg?.vs200 != null && lqd?.vs200 != null
         ? `HYG&nbsp;${pct(hyg.vs200)}<br>LQD&nbsp;${pct(lqd.vs200)}`
         : '—',
-      condition: spreadTightening == null ? '—' : spreadTightening ? 'HY Outperforming IG — Spreads Tightening' : 'IG Outperforming HY — Spreads Widening',
+      condition: spreadTightening == null ? '—' : spreadTightening ? 'HY Outperforming IG — Rate-Driven' : 'IG Outperforming HY — Credit-Driven',
       status: spreadTightening == null ? 'neutral' : spreadTightening ? 'bullish' : 'bearish',
     },
     {
@@ -743,9 +804,24 @@ function buildCredit(q) {
 
   const bull = rows.filter(r => r.status === 'bullish').length;
   const status = bull >= 3 ? 'bullish' : bull >= 2 ? 'neutral' : 'bearish';
+  const creditNote = (() => {
+    const hygStr = hygBull == null ? 'Credit data unavailable.'
+      : hygBull
+      ? 'HYG above 200d — no leading credit stress signal.'
+      : 'HYG below 200d — leading stress signal active; historical lead of 4–6 weeks before equity drawdowns.';
+    const spreadStr = !hygBull && spreadTightening != null
+      ? (spreadTightening
+        ? ' Spread is rate-driven (HY outperforming IG) — credit quality intact, rate sensitivity dominant.'
+        : ' Spread is credit-driven (IG outperforming HY) — true credit deterioration; more severe outlook.')
+      : '';
+    const embStr = !embBull && emb?.vs200 != null && emb.vs200 < -2
+      ? ' EMB below 200d — EM credit stress, watch for contagion beyond US markets.'
+      : '';
+    return hygStr + spreadStr + embStr;
+  })();
   return {
     id: 'credit', number: 6, title: 'Credit', subtitle: 'The Risk Canary', status, rows, hideIndicator: true,
-    note: 'Credit leads equities. HYG below its 200d has preceded major equity drawdowns by 4–6 weeks. EMB stress signals credit contagion spreading beyond US markets.',
+    note: creditNote,
   };
 }
 

@@ -12,23 +12,24 @@ Every card return object in `scores.js` must satisfy:
 | Actionable conditions | `"Signal — Action"` format | e.g. `"Secular Bull — Stay Long"`, `"Rally Narrowing — Stay with Leaders"` |
 | Stacked values | `<br>` + `&nbsp;` between ticker and value | When showing two related numbers e.g. `RSP&nbsp;+3.0%<br>SPY&nbsp;+4.2%` |
 | No `US$` prefix | Use `$` prefix directly | `$759.57` not `US$759.57` in card face values |
+| Dynamic note | `note:` built from live card data | One or two sentences; references actual current values, not generic text |
 
 ---
 
 ## Completion Tracker
 
-| # | Card | `hideIndicator` | `cardStatus()` | Short Labels | Actionable Conditions | Stacked Values | Reviewed |
-|---|------|:-:|:-:|:-:|:-:|:-:|:-:|
-| 01 | Regime | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 02 | Leadership | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 03 | Breadth | ✅ | ✅ | ✅ | ⏸ rows 1–3 manual | — | ⏸ parked |
-| 04 | Valuations | ✅ | ✅* | ✅ | ✅ | — | ✅ |
-| 05 | Yield | ✅ | ✅* | ✅ | ✅ | — | ✅ |
-| 06 | Credit | ✅ | ✅* | ✅ | ✅ | ✅ | ✅ |
-| 07 | Global Flows | ✅ | ✅* | ❌ | ❌ | — | ❌ |
-| 08 | Sectors | ✅ | ✅* | ❌ | ❌ | — | ❌ |
-| 09 | Commodities | ✅ | ✅* | ❌ | ❌ | — | ❌ |
-| 10 | Equities | ✅ | ✅* | ❌ | ❌ | — | ❌ |
+| # | Card | `hideIndicator` | `cardStatus()` | Short Labels | Actionable Conditions | Stacked Values | Dynamic Note | Reviewed |
+|---|------|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| 01 | Regime | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 02 | Leadership | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 03 | Breadth | ✅ | ✅ | ✅ | ⏸ rows 1–3 manual | — | ✅ | ⏸ parked |
+| 04 | Valuations | ✅ | ✅* | ✅ | ✅ | — | ✅ | ✅ |
+| 05 | Yield | ✅ | ✅* | ✅ | ✅ | — | ✅ | ✅ |
+| 06 | Credit | ✅ | ✅* | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 07 | Global Flows | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
+| 08 | Sectors | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
+| 09 | Commodities | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
+| 10 | Equities | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
 
 ✅* = custom scoring logic (intentional, not hardcoded neutral)
 
