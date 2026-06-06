@@ -701,7 +701,7 @@ function buildCredit(q) {
       label: 'Risk Appetite',
       indicator: 'HYG — High Yield Corp Bond ETF',
       value: hyg ? usd(hyg.price) : '—',
-      condition: hygBull == null ? '—' : hygBull ? `${pct(hyg.vs200)} above 200d — Healthy` : `${pct(hyg.vs200)} below 200d — Watch`,
+      condition: hygBull == null ? '—' : hygBull ? `${pct(hyg.vs200)} above 200d — Healthy` : `${pct(hyg.vs200)} below 200d — Risk Signal`,
       status: hygBull == null ? 'neutral' : hygBull ? 'bullish' : 'bearish',
     },
     {
@@ -722,7 +722,13 @@ function buildCredit(q) {
       label: 'Global Credit',
       indicator: 'EMB — EM USD Bond ETF (JP Morgan)',
       value: emb ? usd(emb.price) : '—',
-      condition: embBull == null ? '—' : embBull ? `${pct(emb.vs200)} above 200d — Contained` : `${pct(emb.vs200)} below 200d — Stress Spreading`,
+      condition: embBull == null ? '—' : embBull
+        ? `${pct(emb.vs200)} above 200d — Contained`
+        : emb.vs200 >= -2
+          ? `${pct(emb.vs200)} below 200d — Watch`
+          : emb.vs200 >= -5
+            ? `${pct(emb.vs200)} below 200d — Stress Spreading`
+            : `${pct(emb.vs200)} below 200d — Contagion Risk`,
       status: embBull == null ? 'neutral' : embBull ? 'bullish' : 'bearish',
     },
   ];
