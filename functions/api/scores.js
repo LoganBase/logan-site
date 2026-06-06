@@ -21,7 +21,7 @@ const ALL_SYMBOLS = [
   'SPY','QQQ','RSP','QQEW','IVW','IVE',          // Regime + Leadership
   'RSPD',                                          // Breadth proxy
   '^TYX','^TNX','^IRX','TLT','UUP',               // Yield
-  'HYG','LQD','JNK',                              // Credit
+  'HYG','LQD','EMB',                               // Credit
   '^GSPTSE','SPDW','EWT','EWY','AIA','EZU',       // Global Flows
   'VEU','EEM','EWJ','EWW','EWZ','ILF',
   'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors
@@ -684,12 +684,17 @@ function buildEquities(q) {
 function buildCredit(q) {
   const hyg = q['HYG'];
   const lqd = q['LQD'];
-  const jnk = q['JNK'];
+  const emb = q['EMB'];
 
   const hygBull = hyg && hyg.price && hyg.sma200 ? hyg.price > hyg.sma200 : null;
   const lqdBull = lqd && lqd.price && lqd.sma200 ? lqd.price > lqd.sma200 : null;
-  const jnkBull = jnk && jnk.price && jnk.sma200 ? jnk.price > jnk.sma200 : null;
-  const spreadTightening = hyg && lqd ? hyg.changePct > lqd.changePct : null;
+  const embBull = emb && emb.price && emb.sma200 ? emb.price > emb.sma200 : null;
+
+  // Compare vs200 distance: HY closer to/above 200d than IG = tightening
+  // Avoids duration-noise from daily changePct (LQD has ~2× HYG's duration)
+  const spreadTightening = hyg?.vs200 != null && lqd?.vs200 != null
+    ? hyg.vs200 > lqd.vs200
+    : hyg && lqd ? hyg.changePct > lqd.changePct : null;
 
   const rows = [
     {
@@ -701,24 +706,24 @@ function buildCredit(q) {
     },
     {
       label: 'Spread Signal',
-      indicator: 'HYG vs LQD (HY vs IG spread proxy)',
-      value: hyg && lqd ? `HYG ${pct(hyg.changePct, 2)} | LQD ${pct(lqd.changePct, 2)}` : '—',
-      condition: spreadTightening == null ? '—' : spreadTightening ? 'Spreads Tightening — Risk-On' : 'Spreads Widening — Caution',
+      indicator: 'HYG vs LQD — HY vs IG (200d basis)',
+      value: hyg?.vs200 != null && lqd?.vs200 != null ? `HYG ${pct(hyg.vs200)} | LQD ${pct(lqd.vs200)}` : '—',
+      condition: spreadTightening == null ? '—' : spreadTightening ? 'HY Outperforming IG — Tightening' : 'IG Outperforming HY — Widening',
       status: spreadTightening == null ? 'neutral' : spreadTightening ? 'bullish' : 'bearish',
     },
     {
       label: 'IG Demand',
       indicator: 'LQD — Investment Grade Bond ETF',
       value: lqd ? usd(lqd.price) : '—',
-      condition: lqdBull == null ? '—' : lqdBull ? `${pct(lqd.vs200)} above 200d` : `${pct(lqd.vs200)} below 200d`,
+      condition: lqdBull == null ? '—' : lqdBull ? `${pct(lqd.vs200)} above 200d — Bullish` : `${pct(lqd.vs200)} below 200d — Bearish`,
       status: lqdBull == null ? 'neutral' : lqdBull ? 'bullish' : 'bearish',
     },
     {
-      label: 'Distress Signal',
-      indicator: 'JNK — SPDR High Yield Bond ETF',
-      value: jnk ? usd(jnk.price) : '—',
-      condition: jnkBull == null ? '—' : jnkBull ? `${pct(jnk.vs200)} above 200d — No Stress` : `${pct(jnk.vs200)} below 200d — Stress`,
-      status: jnkBull == null ? 'neutral' : jnkBull ? 'bullish' : 'bearish',
+      label: 'Global Credit',
+      indicator: 'EMB — EM USD Bond ETF (JP Morgan)',
+      value: emb ? usd(emb.price) : '—',
+      condition: embBull == null ? '—' : embBull ? `${pct(emb.vs200)} above 200d — Contained` : `${pct(emb.vs200)} below 200d — Stress Spreading`,
+      status: embBull == null ? 'neutral' : embBull ? 'bullish' : 'bearish',
     },
   ];
 
@@ -726,7 +731,7 @@ function buildCredit(q) {
   const status = bull >= 3 ? 'bullish' : bull >= 2 ? 'neutral' : 'bearish';
   return {
     id: 'credit', number: 6, title: 'Credit', subtitle: 'The Risk Canary', status, rows, hideIndicator: true,
-    note: 'Credit spreads lead equity markets. HYG below its 200d SMA has preceded major equity drawdowns by 4–6 weeks historically.',
+    note: 'Credit leads equities. HYG below its 200d has preceded major equity drawdowns by 4–6 weeks. EMB stress signals credit contagion spreading beyond US markets.',
   };
 }
 
