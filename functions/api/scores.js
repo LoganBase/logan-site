@@ -406,34 +406,21 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
       :             `Normal — ${dateLabel} (avg ~17×)`)
     : 'Very High (hist avg ~17×)';
 
-  // SPY trailing P/E (stored in forward_pe_data — best available free proxy)
-  const spyPeVal  = forwardPe?.pe ?? null;
-  const spyPeStr  = spyPeVal  != null ? `${spyPeVal.toFixed(1)}×`  : '~26×';
-  const spyStatus = spyPeVal  != null
-    ? (spyPeVal > 27 ? 'bearish' : spyPeVal > 22 ? 'neutral' : 'bullish')
-    : 'neutral';
-  const spyCond = spyPeVal != null
-    ? (spyPeVal > 27 ? 'Elevated — Well Above Hist. Average'
-      : spyPeVal > 22 ? 'Above Average — Fairly Valued'
-      : spyPeVal > 17 ? 'Near Average — Neutral'
-      :                 'Below Average — Attractive')
-    : 'Elevated (hist avg ~18×)';
-
   const japanPeVal  = japanPe?.pe ?? null;
   const japanPeStr  = japanPeVal != null ? `${japanPeVal.toFixed(1)}×` : '~15×';
-  const japanStatus = japanPeVal != null && spyPeVal != null
-    ? (japanPeVal < spyPeVal * 0.8 ? 'bullish' : japanPeVal < spyPeVal ? 'neutral' : 'bearish')
+  const trailPe = price && earnings && earnings > 0 ? price / earnings : null;
+  const japanStatus = japanPeVal != null && trailPe != null
+    ? (japanPeVal < trailPe * 0.8 ? 'bullish' : japanPeVal < trailPe ? 'neutral' : 'bearish')
     : 'bullish';
-  const japanCond = japanPeVal != null && spyPeVal != null
-    ? (japanPeVal < spyPeVal
-        ? `Compressed vs US (${spyPeVal.toFixed(0)}×) — Favour International`
-        : `In Line with US (${spyPeVal.toFixed(0)}×)`)
+  const japanCond = japanPeVal != null && trailPe != null
+    ? (japanPeVal < trailPe
+        ? `Compressed vs US (${trailPe.toFixed(0)}×) — Favour International`
+        : `In Line with US (${trailPe.toFixed(0)}×)`)
     : 'Compressed vs US — Favour International';
 
   const rows = [
-    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',      value: peStr,    condition: 'Elevated (hist avg ~16×)',  status: 'neutral'    },
-    { label: 'S&P P/E (TTM)', indicator: 'SPY Trailing P/E (live)',     value: spyPeStr, condition: spyCond,                     status: spyStatus    },
-    { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',         value: capeStr,  condition: capeCond,                    status: capeStatus   },
+    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',       value: peStr,    condition: 'Elevated (hist avg ~16×)',  status: 'neutral'    },
+    { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',          value: capeStr,  condition: capeCond,                   status: capeStatus   },
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
       value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
       condition: buffettRatio != null
@@ -446,14 +433,14 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
         ? (buffettRatio > 115 ? 'bearish' : buffettRatio > 80 ? 'neutral' : 'bullish')
         : 'bearish' },
     // Row 5 — deep-dive context only; excluded from card status
-    { label: 'Japan P/E',     indicator: 'Nikkei TTM P/E vs US',       value: japanPeStr, condition: japanCond, status: japanStatus },
+    { label: 'Japan P/E',     indicator: 'EWJ (Japan ETF) vs S&P 500', value: japanPeStr, condition: japanCond, status: japanStatus },
   ];
 
   return {
     id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
     status: cardStatus(rows.slice(0, 4)),  // Japan P/E is deep-dive context only
     rows, hideIndicator: true,
-    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). SPY P/E and Japan P/E (EWJ) updated nightly. Buffett Indicator from FRED (live).`,
+    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). Japan P/E via EWJ ETF, updated nightly. Buffett Indicator from FRED (live).`,
   };
 }
 

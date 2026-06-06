@@ -5,8 +5,7 @@
  * Fetches current P/E ratios from Yahoo Finance and upserts into D1.
  *
  * Sources:
- *   Japan P/E      — EWJ trailingPE (summaryDetail)  iShares MSCI Japan ETF
- *   S&P 500 P/E    — SPY trailingPE (summaryDetail)  trailing 12-month (forward P/E not free)
+ *   Japan P/E — EWJ trailingPE (summaryDetail)  iShares MSCI Japan ETF
  *
  * Manual trigger:
  *   GET https://market-hub-pe-updater.shane-logan.workers.dev/run
@@ -85,32 +84,18 @@ async function fetchPe(symbol, field, modName, auth) {
   }
 }
 
-// ── FORWARD P/E: SPY price ÷ forwardEps ──────────────────────────────────────
-
-async function fetchForwardPe(auth) {
-  // True forward P/E (analyst consensus) is not available via free APIs.
-  // Use SPY trailing P/E as the best free proxy — reflects current 12-month earnings,
-  // distinct from Shiller CAPE which uses a 10-year average.
-  return fetchPe('SPY', 'trailingPE', 'summaryDetail', auth);
-}
-
 // ── MAIN UPDATE ───────────────────────────────────────────────────────────────
 
 async function runUpdate(env) {
   const today = new Date().toISOString().slice(0, 10);
 
-  // Get Yahoo Finance crumb/cookies
   const auth = await getYFAuth();
   if (!auth) {
     return { date: today, error: 'Failed to obtain Yahoo Finance crumb', saved: {} };
   }
 
-  const [japanResult, forwardResult] = await Promise.all([
-    fetchPe('EWJ', 'trailingPE', 'summaryDetail', auth),
-    fetchForwardPe(auth),
-  ]);
-
-  const results = { date: today, japanRaw: japanResult, forwardRaw: forwardResult, saved: {} };
+  const japanResult = await fetchPe('EWJ', 'trailingPE', 'summaryDetail', auth);
+  const results = { date: today, japanRaw: japanResult, saved: {} };
 
   if (japanResult?.value != null) {
     await env.DB.prepare('INSERT OR REPLACE INTO japan_pe_data (date, pe) VALUES (?, ?)')
@@ -118,13 +103,7 @@ async function runUpdate(env) {
     results.saved.japanPe = japanResult.value;
   }
 
-  if (forwardResult?.value != null) {
-    await env.DB.prepare('INSERT OR REPLACE INTO forward_pe_data (date, pe) VALUES (?, ?)')
-      .bind(today, forwardResult.value).run();
-    results.saved.forwardPe = forwardResult.value;
-  }
-
-  console.log(`PE update ${today}: Japan=${japanResult?.value}, Forward=${forwardResult?.value}`);
+  console.log(`PE update ${today}: Japan=${japanResult?.value}`);
   return results;
 }
 
