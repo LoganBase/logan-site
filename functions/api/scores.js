@@ -20,7 +20,7 @@ const HEADERS = {
 const ALL_SYMBOLS = [
   'SPY','QQQ','RSP','QQEW','IVW','IVE',          // Regime + Leadership
   'RSPD',                                          // Breadth proxy
-  '^TYX','^TNX','TLT','UUP',                      // Yield
+  '^TYX','^TNX','^IRX','TLT','UUP',               // Yield
   'HYG','LQD','JNK',                              // Credit
   '^GSPTSE','SPDW','EWT','EWY','AIA','EZU',       // Global Flows
   'VEU','EEM','^N225','EWW','EWZ','ILF',
@@ -452,24 +452,31 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
 }
 
 function buildYield(q) {
-  const tyx = q['^TYX'], tnx = q['^TNX'], tlt = q['TLT'], uup = q['UUP'];
+  const tyx = q['^TYX'], tnx = q['^TNX'], irx = q['^IRX'], uup = q['UUP'];
 
   const yieldVal   = tyx?.price;
   const yieldRnd   = yieldVal != null ? Math.round(yieldVal * 100) / 100 : null;
   const yieldStat  = yieldRnd == null ? 'neutral' : yieldRnd >= 5 ? 'bearish' : yieldRnd > 4.5 ? 'neutral' : 'bullish';
-  const tltBull    = tlt && tlt.price > tlt.sma200;
-  const uupBull    = uup && uup.price < uup.sma200; // weak dollar = bullish
+  const uupBull    = uup && uup.price < uup.sma200;
+
+  const curveSpread  = tnx?.price != null && irx?.price != null ? tnx.price - irx.price : null;
+  const curveStatus  = curveSpread == null ? 'neutral' : curveSpread < 0 ? 'bearish' : curveSpread < 1 ? 'neutral' : 'bullish';
+  const curveCond    = curveSpread == null ? '—'
+    : curveSpread < -0.5 ? 'Deeply Inverted — Recession Risk Elevated'
+    : curveSpread < 0    ? 'Inverted — Recession Warning'
+    : curveSpread < 1    ? 'Flat — Transitioning, Watch for Steepening'
+    :                      'Steepening — Growth Expectations Returning';
 
   const rows = [
     {
       label: 'Long Bond Threshold',
       indicator: 'US 30-Year Yield (^TYX)',
       value: yieldVal ? yieldVal.toFixed(2) + '%' : '—',
-      condition: yieldRnd == null ? '—' : yieldRnd >= 5 ? 'At/Above 5% — Risk-On Compression' : yieldRnd > 4.5 ? 'Approaching 5% Threshold' : 'Below Threshold',
+      condition: yieldRnd == null ? '—' : yieldRnd >= 5 ? 'At/Above 5% — Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% Threshold' : 'Below Threshold',
       status: yieldStat,
     },
     {
-      label: 'Real Rate Signal',
+      label: '10Y Benchmark',
       indicator: 'US 10-Year Yield (^TNX)',
       value: tnx?.price ? tnx.price.toFixed(2) + '%' : '—',
       condition: tnx?.price == null ? '—'
@@ -483,11 +490,11 @@ function buildYield(q) {
         : 'bullish',
     },
     {
-      label: 'Duration Proxy',
-      indicator: 'TLT — 20yr Bond ETF',
-      value: tlt ? usd(tlt.price) : '—',
-      condition: tltBull ? 'Above 200d SMA — Bullish' : (tlt ? 'Below 200d SMA — Bear' : '—'),
-      status: tltBull ? 'bullish' : (tlt ? 'bearish' : 'neutral'),
+      label: 'Yield Curve',
+      indicator: '3m–10Y Spread (Recession Signal)',
+      value: curveSpread != null ? (curveSpread >= 0 ? '+' : '') + curveSpread.toFixed(2) + '%' : '—',
+      condition: curveCond,
+      status: curveStatus,
     },
     {
       label: 'Dollar Strength',
