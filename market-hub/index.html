@@ -268,14 +268,14 @@ body {
 .rstat-sub { font-size: 10px; color: var(--muted); margin-top: 5px; }
 
 .range-selector { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-.range-btn, .sym-btn {
+.range-btn, .uup-range-btn, .sym-btn {
   background: var(--surface); border: 1px solid var(--border);
   color: var(--muted); padding: 4px 10px; border-radius: 4px;
   font-size: 10px; font-weight: 600; cursor: pointer;
   font-family: inherit; letter-spacing: .05em; transition: all .15s;
 }
-.range-btn:hover, .sym-btn:hover { background: var(--border); color: var(--text); }
-.range-btn.active, .sym-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.range-btn:hover, .uup-range-btn:hover, .sym-btn:hover { background: var(--border); color: var(--text); }
+.range-btn.active, .uup-range-btn.active, .sym-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .chart-wrap { position: relative; height: 210px; }
 .rsi-wrap   { position: relative; height: 90px; margin-top: 6px; }
