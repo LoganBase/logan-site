@@ -406,7 +406,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     ? (cape > 35 ? 'bearish' : cape > 20 ? 'neutral' : 'bullish')
     : 'bearish';
   const capeCond = cape
-    ? (cape > 40 ? 'Extreme — Above 2000 Peak'
+    ? (cape > 40 ? `Extreme — Near 2000 Peak (${dateLabel})`
       : cape > 35 ? `Very High — ${dateLabel} (avg ~17×)`
       : cape > 25 ? `Elevated — ${dateLabel} (avg ~17×)`
       :             `Normal — ${dateLabel} (avg ~17×)`)
@@ -425,7 +425,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     : 'Compressed vs US — Favour International';
 
   const rows = [
-    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',       value: peStr,    condition: peCond,                     status: peStatus     },
+    { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E (Shiller, 1-2mo lag)', value: peStr, condition: peCond, status: peStatus },
     { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',          value: capeStr,  condition: capeCond,                   status: capeStatus   },
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
       value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
@@ -444,7 +444,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
 
   return {
     id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
-    status: cardStatus(rows.slice(0, 4)),  // Japan P/E is deep-dive context only
+    status: cardStatus(rows.slice(0, 3)),  // Japan P/E is deep-dive context only
     rows, hideIndicator: true,
     note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). Japan P/E via EWJ ETF, updated nightly. Buffett Indicator from FRED (live).`,
   };
