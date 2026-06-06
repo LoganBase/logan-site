@@ -5,85 +5,135 @@
  * Fetches current P/E ratios from Yahoo Finance and upserts into D1.
  *
  * Sources:
- *   Japan P/E  — ^N225 trailingPE (Yahoo Finance v10)
- *   Forward P/E — SPY forwardPE   (Yahoo Finance v10, analyst consensus)
+ *   Japan P/E   — ^N225 trailingPE  (Yahoo Finance v10)
+ *   Forward P/E — SPY   forwardPE   (Yahoo Finance v10, analyst consensus)
  *
- * Manual trigger (for testing):
- *   GET https://market-hub-pe-updater.<your-subdomain>.workers.dev/run
+ * Manual trigger:
+ *   GET https://market-hub-pe-updater.shane-logan.workers.dev/run
  *   Header: Authorization: Bearer <CRON_SECRET>
- *
- * Setup:
- *   Set CRON_SECRET via: npx wrangler secret put CRON_SECRET
  */
 
-const YF_V10 = 'https://query1.finance.yahoo.com/v10/finance/quoteSummary';
-const HEADERS = {
-  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-  'Accept':     'application/json',
-  'Referer':    'https://finance.yahoo.com/',
-};
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-async function fetchPe(symbol, field) {
+// ── YAHOO FINANCE AUTH (crumb + cookies) ──────────────────────────────────────
+
+async function getYFAuth() {
+  // Step 1: visit Yahoo Finance to get session cookies
+  const landingRes = await fetch('https://finance.yahoo.com/', {
+    headers: {
+      'User-Agent': UA,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+    },
+    redirect: 'follow',
+  });
+
+  // Collect cookies — Workers exposes Set-Cookie as a single joined header
+  const rawCookies = landingRes.headers.get('set-cookie') || '';
+  const cookies = rawCookies
+    .split(/,(?=\s*[A-Za-z0-9_\-]+=)/)
+    .map(c => c.trim().split(';')[0])
+    .filter(Boolean)
+    .join('; ');
+
+  // Step 2: fetch crumb using the cookies
+  const crumbRes = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+    headers: {
+      'User-Agent': UA,
+      'Accept': '*/*',
+      'Referer': 'https://finance.yahoo.com/',
+      'Cookie': cookies,
+    },
+  });
+
+  if (!crumbRes.ok) return null;
+  const crumb = (await crumbRes.text()).trim();
+  if (!crumb || crumb.includes('{')) return null;  // got HTML/JSON instead of crumb
+  return { cookies, crumb };
+}
+
+// ── FETCH P/E FROM YF v10 ─────────────────────────────────────────────────────
+
+async function fetchPe(symbol, field, auth) {
+  const encoded = encodeURIComponent(symbol);
+  const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encoded}` +
+              `?modules=summaryDetail&crumb=${encodeURIComponent(auth.crumb)}`;
   try {
-    const encoded = encodeURIComponent(symbol);
-    const res = await fetch(`${YF_V10}/${encoded}?modules=summaryDetail`, { headers: HEADERS });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const val  = data?.quoteSummary?.result?.[0]?.summaryDetail?.[field]?.raw;
-    return val != null ? Math.round(val * 10) / 10 : null;
-  } catch {
-    return null;
+    const res  = await fetch(url, {
+      headers: {
+        'User-Agent': UA,
+        'Accept': 'application/json',
+        'Referer': 'https://finance.yahoo.com/',
+        'Cookie': auth.cookies,
+      },
+    });
+    const text = await res.text();
+    if (!res.ok) return { error: `HTTP ${res.status}`, body: text.slice(0, 200) };
+    let data;
+    try { data = JSON.parse(text); } catch { return { error: 'invalid JSON' }; }
+    const detail = data?.quoteSummary?.result?.[0]?.summaryDetail;
+    if (!detail) return { error: 'no summaryDetail', yfError: data?.quoteSummary?.error };
+    const val = detail[field]?.raw;
+    if (val == null) {
+      return { error: `"${field}" not in response`, availableKeys: Object.keys(detail) };
+    }
+    return { value: Math.round(val * 10) / 10 };
+  } catch (e) {
+    return { error: e.message };
   }
 }
+
+// ── MAIN UPDATE ───────────────────────────────────────────────────────────────
 
 async function runUpdate(env) {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [japanPe, forwardPe] = await Promise.all([
-    fetchPe('^N225', 'trailingPE'),
-    fetchPe('SPY',   'forwardPE'),
+  // Get Yahoo Finance crumb/cookies
+  const auth = await getYFAuth();
+  if (!auth) {
+    return { date: today, error: 'Failed to obtain Yahoo Finance crumb', saved: {} };
+  }
+
+  const [japanResult, forwardResult] = await Promise.all([
+    fetchPe('^N225', 'trailingPE', auth),
+    fetchPe('SPY',   'forwardPE',  auth),
   ]);
 
-  const results = { date: today, japanPe, forwardPe, errors: [] };
+  const results = { date: today, japanRaw: japanResult, forwardRaw: forwardResult, saved: {} };
 
-  if (japanPe != null) {
+  if (japanResult?.value != null) {
     await env.DB.prepare('INSERT OR REPLACE INTO japan_pe_data (date, pe) VALUES (?, ?)')
-      .bind(today, japanPe).run();
-  } else {
-    results.errors.push('japan_pe: no value returned from Yahoo Finance');
+      .bind(today, japanResult.value).run();
+    results.saved.japanPe = japanResult.value;
   }
 
-  if (forwardPe != null) {
+  if (forwardResult?.value != null) {
     await env.DB.prepare('INSERT OR REPLACE INTO forward_pe_data (date, pe) VALUES (?, ?)')
-      .bind(today, forwardPe).run();
-  } else {
-    results.errors.push('forward_pe: no value returned from Yahoo Finance');
+      .bind(today, forwardResult.value).run();
+    results.saved.forwardPe = forwardResult.value;
   }
 
-  console.log(`PE update: Japan=${japanPe}×, Forward=${forwardPe}×, date=${today}`);
+  console.log(`PE update ${today}: Japan=${japanResult?.value}, Forward=${forwardResult?.value}`);
   return results;
 }
 
+// ── HANDLERS ──────────────────────────────────────────────────────────────────
+
 export default {
-  // Cron trigger — fires nightly at 02:00 UTC
   async scheduled(event, env, ctx) {
     ctx.waitUntil(runUpdate(env));
   },
 
-  // HTTP trigger — for manual testing
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     if (url.pathname !== '/run') {
-      return new Response('PE Updater Worker — POST /run to trigger manually', { status: 200 });
+      return new Response('PE Updater — GET /run with Authorization: Bearer <secret>', { status: 200 });
     }
-
-    // Require bearer token to prevent abuse
     const secret = env.CRON_SECRET;
     const auth   = request.headers.get('Authorization') ?? '';
     if (secret && auth !== `Bearer ${secret}`) {
       return new Response('Unauthorized', { status: 401 });
     }
-
     const results = await runUpdate(env);
     return new Response(JSON.stringify(results, null, 2), {
       headers: { 'Content-Type': 'application/json' },
