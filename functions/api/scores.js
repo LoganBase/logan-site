@@ -23,7 +23,7 @@ const ALL_SYMBOLS = [
   '^TYX','^TNX','^IRX','TLT','UUP',               // Yield
   'HYG','LQD','JNK',                              // Credit
   '^GSPTSE','SPDW','EWT','EWY','AIA','EZU',       // Global Flows
-  'VEU','EEM','^N225','EWW','EWZ','ILF',
+  'VEU','EEM','EWJ','EWW','EWZ','ILF',
   'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors
   'XME','GDX','COPX','KBE',
   'USCI','HG=F','GLD','IXC','XES','DBA','SLX',   // Commodities
@@ -514,7 +514,7 @@ function buildGlobalFlows(q) {
     { sym: '^GSPTSE',  label: 'S&P/TSX',        region: '🇨🇦 Canada' },
     { sym: 'SPDW',     label: 'Dev. ex-US',     region: '🌍 Developed' },
     { sym: 'EZU',      label: 'Eurozone',        region: '🇪🇺 Europe' },
-    { sym: '^N225',    label: 'Nikkei 225',      region: '🇯🇵 Japan' },
+    { sym: 'EWJ',      label: 'Japan',            region: '🇯🇵 Japan' },
     { sym: 'EWT',      label: 'Taiwan',          region: '🇹🇼 Taiwan' },
     { sym: 'EWY',      label: 'S. Korea',        region: '🇰🇷 Korea' },
     { sym: 'AIA',      label: 'Asia 50',         region: '🌏 Asia' },
@@ -530,10 +530,22 @@ function buildGlobalFlows(q) {
     const above = d && d.price && d.sma200 && d.price > d.sma200;
     if (above) bull++;
     const v200 = d?.vs200;
-    return { region, label, sym, value: d ? usd(d.price) : '—', vs200: v200 != null ? pct(v200) : '—', above: !!above };
+    return { region, label, sym, value: d ? usd(d.price) : '—', vs200: v200 != null ? pct(v200) : '—', vs200Raw: v200 ?? -Infinity, above: !!above };
   });
   const total = globalSyms.length;
   const gStatus = bull >= 10 ? 'bullish' : bull >= 7 ? 'neutral' : 'bearish';
+
+  // Curate 4 rows: USA anchor + top 2 ex-US by vs200 + weakest market
+  const exUS   = details.filter(d => d.sym !== 'SPY').sort((a, b) => b.vs200Raw - a.vs200Raw);
+  const featured = [
+    details.find(d => d.sym === 'SPY'),
+    exUS[0],
+    exUS[1],
+    exUS[exUS.length - 1],
+  ].filter(Boolean);
+  const seen = new Set();
+  const curated = featured.filter(d => !seen.has(d.sym) && seen.add(d.sym));
+
   const rows = [
     {
       label: 'Global Breadth',
@@ -542,11 +554,11 @@ function buildGlobalFlows(q) {
       condition: bull >= 10 ? 'Synchronized Expansion' : bull >= 7 ? 'Partial Expansion' : 'Global Divergence',
       status: gStatus,
     },
-    ...details.slice(0, 4).map(d => ({
+    ...curated.map(d => ({
       label: d.region,
       indicator: `${d.label} (${d.sym})`,
       value: d.value,
-      condition: d.above ? 'Above 200d — Bull' : 'Below 200d — Bear',
+      condition: d.above ? `Above 200d (${d.vs200}) — Bull` : `Below 200d (${d.vs200}) — Bear`,
       status: d.above ? 'bullish' : 'bearish',
     })),
   ];
