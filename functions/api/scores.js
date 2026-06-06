@@ -406,31 +406,33 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
       :             `Normal — ${dateLabel} (avg ~17×)`)
     : 'Very High (hist avg ~17×)';
 
-  const fwdPeVal  = forwardPe?.pe ?? null;
-  const fwdPeStr  = fwdPeVal  != null ? `${fwdPeVal.toFixed(1)}×`  : '~22×';
-  const fwdStatus = fwdPeVal  != null
-    ? (fwdPeVal > 22 ? 'bearish' : fwdPeVal > 16 ? 'neutral' : 'bullish')
+  // SPY trailing P/E (stored in forward_pe_data — best available free proxy)
+  const spyPeVal  = forwardPe?.pe ?? null;
+  const spyPeStr  = spyPeVal  != null ? `${spyPeVal.toFixed(1)}×`  : '~26×';
+  const spyStatus = spyPeVal  != null
+    ? (spyPeVal > 27 ? 'bearish' : spyPeVal > 22 ? 'neutral' : 'bullish')
     : 'neutral';
-  const fwdCond = fwdPeVal != null
-    ? (fwdPeVal > 22 ? 'Elevated — Above Historical Average'
-      : fwdPeVal > 16 ? 'Fairly Valued'
+  const spyCond = spyPeVal != null
+    ? (spyPeVal > 27 ? 'Elevated — Well Above Hist. Average'
+      : spyPeVal > 22 ? 'Above Average — Fairly Valued'
+      : spyPeVal > 17 ? 'Near Average — Neutral'
       :                 'Below Average — Attractive')
-    : 'Elevated (hist avg ~15×)';
+    : 'Elevated (hist avg ~18×)';
 
   const japanPeVal  = japanPe?.pe ?? null;
   const japanPeStr  = japanPeVal != null ? `${japanPeVal.toFixed(1)}×` : '~15×';
-  const japanStatus = japanPeVal != null && fwdPeVal != null
-    ? (japanPeVal < fwdPeVal * 0.8 ? 'bullish' : japanPeVal < fwdPeVal ? 'neutral' : 'bearish')
+  const japanStatus = japanPeVal != null && spyPeVal != null
+    ? (japanPeVal < spyPeVal * 0.8 ? 'bullish' : japanPeVal < spyPeVal ? 'neutral' : 'bearish')
     : 'bullish';
-  const japanCond = japanPeVal != null && fwdPeVal != null
-    ? (japanPeVal < fwdPeVal
-        ? `Compressed vs US (${fwdPeVal.toFixed(0)}×) — Favour International`
-        : `In Line with US (${fwdPeVal.toFixed(0)}×)`)
+  const japanCond = japanPeVal != null && spyPeVal != null
+    ? (japanPeVal < spyPeVal
+        ? `Compressed vs US (${spyPeVal.toFixed(0)}×) — Favour International`
+        : `In Line with US (${spyPeVal.toFixed(0)}×)`)
     : 'Compressed vs US — Favour International';
 
   const rows = [
     { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E',      value: peStr,    condition: 'Elevated (hist avg ~16×)',  status: 'neutral'    },
-    { label: 'Forward P/E',   indicator: 'S&P 500 Forward P/E (NTM)',  value: fwdPeStr, condition: fwdCond,                     status: fwdStatus    },
+    { label: 'S&P P/E (TTM)', indicator: 'SPY Trailing P/E (live)',     value: spyPeStr, condition: spyCond,                     status: spyStatus    },
     { label: 'CAPE',          indicator: 'Shiller CAPE (10yr)',         value: capeStr,  condition: capeCond,                    status: capeStatus   },
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
       value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
@@ -451,7 +453,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
     status: cardStatus(rows.slice(0, 4)),  // Japan P/E is deep-dive context only
     rows, hideIndicator: true,
-    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). Trailing P/E from Shiller data. Buffett Indicator from FRED (live).`,
+    note: `Valuations are not a market-timing tool. They turn bearish only when combined with rising rates + earnings deceleration. CAPE from Shiller/Yale (${dateLabel}). SPY P/E and Japan P/E (EWJ) updated nightly. Buffett Indicator from FRED (live).`,
   };
 }
 
@@ -804,8 +806,13 @@ export async function onRequest(context) {
     } catch { /* non-fatal */ }
   }
 
+  const source = !db || missing.length === ALL_SYMBOLS.length ? 'yahoo'
+    : missing.length === 0 ? 'd1'
+    : 'd1+yahoo';
+
   const body = JSON.stringify({
     timestamp: new Date().toISOString(),
+    source,
     aggregate: buildAggregate(cards),
     cards,
   });

@@ -5,8 +5,8 @@
  * Fetches current P/E ratios from Yahoo Finance and upserts into D1.
  *
  * Sources:
- *   Japan P/E   — ^N225 trailingPE  (Yahoo Finance v10)
- *   Forward P/E — SPY   forwardPE   (Yahoo Finance v10, analyst consensus)
+ *   Japan P/E      — EWJ trailingPE (summaryDetail)  iShares MSCI Japan ETF
+ *   S&P 500 P/E    — SPY trailingPE (summaryDetail)  trailing 12-month (forward P/E not free)
  *
  * Manual trigger:
  *   GET https://market-hub-pe-updater.shane-logan.workers.dev/run
@@ -54,10 +54,10 @@ async function getYFAuth() {
 
 // ── FETCH P/E FROM YF v10 ─────────────────────────────────────────────────────
 
-async function fetchPe(symbol, field, auth) {
+async function fetchPe(symbol, field, modName, auth) {
   const encoded = encodeURIComponent(symbol);
   const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${encoded}` +
-              `?modules=summaryDetail&crumb=${encodeURIComponent(auth.crumb)}`;
+              `?modules=${modName}&crumb=${encodeURIComponent(auth.crumb)}`;
   try {
     const res  = await fetch(url, {
       headers: {
@@ -70,17 +70,28 @@ async function fetchPe(symbol, field, auth) {
     const text = await res.text();
     if (!res.ok) return { error: `HTTP ${res.status}`, body: text.slice(0, 200) };
     let data;
-    try { data = JSON.parse(text); } catch { return { error: 'invalid JSON' }; }
-    const detail = data?.quoteSummary?.result?.[0]?.summaryDetail;
-    if (!detail) return { error: 'no summaryDetail', yfError: data?.quoteSummary?.error };
-    const val = detail[field]?.raw;
+    try { data = JSON.parse(text); } catch (e) { return { error: 'invalid JSON' }; }
+    const detail = data?.quoteSummary?.result?.[0]?.[modName];
+    if (!detail) return { error: `no ${modName}`, yfError: data?.quoteSummary?.error };
+    const raw = detail[field];
+    // Yahoo returns some fields as {raw, fmt} and others as plain numbers
+    const val = (raw != null && typeof raw === 'object') ? raw.raw : (typeof raw === 'number' ? raw : null);
     if (val == null) {
-      return { error: `"${field}" not in response`, availableKeys: Object.keys(detail) };
+      return { error: `"${field}" not in response`, fieldRawValue: JSON.stringify(raw), availableKeys: Object.keys(detail) };
     }
     return { value: Math.round(val * 10) / 10 };
   } catch (e) {
     return { error: e.message };
   }
+}
+
+// ── FORWARD P/E: SPY price ÷ forwardEps ──────────────────────────────────────
+
+async function fetchForwardPe(auth) {
+  // True forward P/E (analyst consensus) is not available via free APIs.
+  // Use SPY trailing P/E as the best free proxy — reflects current 12-month earnings,
+  // distinct from Shiller CAPE which uses a 10-year average.
+  return fetchPe('SPY', 'trailingPE', 'summaryDetail', auth);
 }
 
 // ── MAIN UPDATE ───────────────────────────────────────────────────────────────
@@ -95,8 +106,8 @@ async function runUpdate(env) {
   }
 
   const [japanResult, forwardResult] = await Promise.all([
-    fetchPe('^N225', 'trailingPE', auth),
-    fetchPe('SPY',   'forwardPE',  auth),
+    fetchPe('EWJ', 'trailingPE', 'summaryDetail', auth),
+    fetchForwardPe(auth),
   ]);
 
   const results = { date: today, japanRaw: japanResult, forwardRaw: forwardResult, saved: {} };
@@ -134,7 +145,12 @@ export default {
     if (secret && auth !== `Bearer ${secret}`) {
       return new Response('Unauthorized', { status: 401 });
     }
-    const results = await runUpdate(env);
+    let results;
+    try {
+      results = await runUpdate(env);
+    } catch (err) {
+      results = { error: err.message, stack: err.stack?.slice(0, 500) };
+    }
     return new Response(JSON.stringify(results, null, 2), {
       headers: { 'Content-Type': 'application/json' },
     });
