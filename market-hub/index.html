@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Market Hub — Institutional Dashboard</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'><rect x='0' y='14' width='7' height='12' rx='1.5' fill='%233b82f6' opacity='0.45'/><rect x='11' y='7' width='7' height='19' rx='1.5' fill='%233b82f6' opacity='0.75'/><rect x='22' y='1' width='8' height='25' rx='1.5' fill='%2322c55e'/></svg>">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'><rect x='0' y='14' width='7' height='12' rx='1.5' fill='%23ef4444'/><rect x='11' y='7' width='7' height='19' rx='1.5' fill='%23f59e0b'/><rect x='22' y='1' width='8' height='25' rx='1.5' fill='%2322c55e'/></svg>">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -269,14 +269,14 @@ body {
 .rstat-sub { font-size: 10px; color: var(--muted); margin-top: 5px; }
 
 .range-selector { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-.range-btn, .uup-range-btn, .sym-btn {
+.range-btn, .uup-range-btn, .diag-range-btn, .sym-btn {
   background: var(--surface); border: 1px solid var(--border);
   color: var(--muted); padding: 4px 10px; border-radius: 4px;
   font-size: 10px; font-weight: 600; cursor: pointer;
   font-family: inherit; letter-spacing: .05em; transition: all .15s;
 }
-.range-btn:hover, .uup-range-btn:hover, .sym-btn:hover { background: var(--border); color: var(--text); }
-.range-btn.active, .uup-range-btn.active, .sym-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.range-btn:hover, .uup-range-btn:hover, .diag-range-btn:hover, .sym-btn:hover { background: var(--border); color: var(--text); }
+.range-btn.active, .uup-range-btn.active, .diag-range-btn.active, .sym-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .chart-wrap { position: relative; height: 210px; }
 .rsi-wrap   { position: relative; height: 90px; margin-top: 6px; }
@@ -335,8 +335,8 @@ body {
 <header class="header">
   <div class="header-brand">
     <svg class="brand-mark" width="30" height="26" viewBox="0 0 30 26" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0"  y="14" width="7" height="12" rx="1.5" fill="#3b82f6" opacity="0.45"/>
-      <rect x="11" y="7"  width="7" height="19" rx="1.5" fill="#3b82f6" opacity="0.75"/>
+      <rect x="0"  y="14" width="7" height="12" rx="1.5" fill="#ef4444"/>
+      <rect x="11" y="7"  width="7" height="19" rx="1.5" fill="#f59e0b"/>
       <rect x="22" y="1"  width="8" height="25" rx="1.5" fill="#22c55e"/>
     </svg>
     <div>
@@ -490,6 +490,8 @@ let yieldRange       = '5y';
 let yieldSymbol      = '%5ETYX';
 let creditRange      = '5y';
 let creditSymbol     = 'HYG';
+let creditStressChart = null;
+let creditStressRange = '2y';
 let currentDeepDive = {};
 
 // ── STATUS HELPERS ────────────────────────────────────────────────────────────
@@ -1001,6 +1003,42 @@ function openModal(card) {
         <div class="chart-loading" id="creditLoading"><div class="spinner"></div> Loading chart…</div>
         <canvas id="creditChartCanvas" style="display:none"></canvas>
       </div>
+      <div class="modal-section-title" style="margin-top:28px">Stress Diagnosis — Rate-Driven vs Credit-Driven</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px;line-height:1.5">
+        HYG below 200d (red line) signals credit stress. The HY–IG spread distinguishes the cause:
+        positive spread = HY outperforming IG = rate-driven decline; negative spread = HY underperforming IG = credit spreads widening.
+      </div>
+      <div class="regime-stats">
+        <div class="rstat-box">
+          <div class="rstat-label">HYG vs 200d</div>
+          <div class="rstat-value" id="diagHyg">—</div>
+          <div class="rstat-sub">high yield position</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">LQD vs 200d</div>
+          <div class="rstat-value" id="diagLqd">—</div>
+          <div class="rstat-sub">inv. grade position</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">HY–IG Spread</div>
+          <div class="rstat-value" id="diagSpread">—</div>
+          <div class="rstat-sub">+ve = rate-driven</div>
+        </div>
+        <div class="rstat-box">
+          <div class="rstat-label">Signal</div>
+          <div class="rstat-value" id="diagSignal">—</div>
+          <div class="rstat-sub">stress type</div>
+        </div>
+      </div>
+      <div class="range-selector">
+        ${['2y','1y','6mo','3mo'].map(r =>
+          `<button class="diag-range-btn${r==='2y'?' active':''}" onclick="loadCreditStressChart('${r}')">${r.toUpperCase()}</button>`
+        ).join('')}
+      </div>
+      <div class="chart-wrap" style="height:240px">
+        <div class="chart-loading" id="diagLoading"><div class="spinner"></div> Loading chart…</div>
+        <canvas id="diagChartCanvas" style="display:none"></canvas>
+      </div>
       <button class="summary-btn" id="summaryBtn" onclick="generateSummary('credit')">✦ Generate AI Summary</button>
       <div class="summary-box" id="summaryBox"></div>`;
   }
@@ -1045,7 +1083,7 @@ function openModal(card) {
   if (card.id === 'yield')       { loadYieldChart('5y'); loadUUPChart('5y'); }
   if (card.id === 'sectors')     loadSectorsChart('5y');
   if (card.id === 'commodities') loadCommoditiesChart('5y');
-  if (card.id === 'credit')      loadCreditChart('5y', 'HYG');
+  if (card.id === 'credit')      { loadCreditChart('5y', 'HYG'); loadCreditStressChart('2y'); }
 }
 
 function closeModal(e) {
@@ -1058,7 +1096,8 @@ function closeModal(e) {
   if (uupChart)         { uupChart.destroy();         uupChart         = null; }
   if (sectorsChart)     { sectorsChart.destroy();     sectorsChart     = null; }
   if (commoditiesChart) { commoditiesChart.destroy(); commoditiesChart = null; }
-  if (creditChart)      { creditChart.destroy();      creditChart      = null; }
+  if (creditChart)       { creditChart.destroy();       creditChart       = null; }
+  if (creditStressChart) { creditStressChart.destroy(); creditStressChart = null; }
   if (valuationsChart)  { valuationsChart.destroy();  valuationsChart  = null; }
   if (buffettChart)     { buffettChart.destroy();     buffettChart     = null; }
   if (peChart)          { peChart.destroy();          peChart          = null; }
