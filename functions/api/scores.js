@@ -562,7 +562,7 @@ function buildGlobalFlows(q) {
       status: d.above ? 'bullish' : 'bearish',
     })),
   ];
-  return { id: 'globalflows', number: 6, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details, hideIndicator: true };
+  return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details, hideIndicator: true };
 }
 
 function buildSectors(q) {
@@ -617,7 +617,7 @@ function buildSectors(q) {
     },
     ...sectRows.slice(0, 4),
   ];
-  return { id: 'sectors', number: 7, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows, hideIndicator: true };
+  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows, hideIndicator: true };
 }
 
 function buildCommodities(q) {
@@ -645,7 +645,7 @@ function buildCommodities(q) {
     };
   });
   const status = bull >= 5 ? 'bullish' : bull >= 3 ? 'neutral' : 'bearish';
-  return { id: 'commodities', number: 8, title: 'Commodities', subtitle: 'The Growth Engine', status, rows, hideIndicator: true,
+  return { id: 'commodities', number: 9, title: 'Commodities', subtitle: 'The Growth Engine', status, rows, hideIndicator: true,
     summary: `${bull}/${comSyms.length} commodities above 200d SMA` };
 }
 
@@ -677,7 +677,7 @@ function buildEquities(q) {
   });
   const total = watchList.length;
   const status = bull >= 7 ? 'bullish' : bull >= 5 ? 'neutral' : 'bearish';
-  return { id: 'equities', number: 9, title: 'Equities', subtitle: 'The Execution Layer', status, rows, hideIndicator: true,
+  return { id: 'equities', number: 10, title: 'Equities', subtitle: 'The Execution Layer', status, rows, hideIndicator: true,
     summary: `${bull}/${total} above both 50d & 200d SMA` };
 }
 
@@ -725,7 +725,7 @@ function buildCredit(q) {
   const bull = rows.filter(r => r.status === 'bullish').length;
   const status = bull >= 3 ? 'bullish' : bull >= 2 ? 'neutral' : 'bearish';
   return {
-    id: 'credit', number: 10, title: 'Credit', subtitle: 'The Risk Canary', status, rows, hideIndicator: true,
+    id: 'credit', number: 6, title: 'Credit', subtitle: 'The Risk Canary', status, rows, hideIndicator: true,
     note: 'Credit spreads lead equity markets. HYG below its 200d SMA has preceded major equity drawdowns by 4–6 weeks historically.',
   };
 }
