@@ -454,7 +454,7 @@ function buildYield(q) {
   const tyx = q['^TYX'], tnx = q['^TNX'], tlt = q['TLT'], uup = q['UUP'];
 
   const yieldVal   = tyx?.price;
-  const yieldStat  = yieldVal == null ? 'neutral' : yieldVal > 5 ? 'bearish' : yieldVal > 4.5 ? 'neutral' : 'bullish';
+  const yieldStat  = yieldVal == null ? 'neutral' : yieldVal >= 5 ? 'bearish' : yieldVal > 4.5 ? 'neutral' : 'bullish';
   const tltBull    = tlt && tlt.price > tlt.sma200;
   const uupBull    = uup && uup.price < uup.sma200; // weak dollar = bullish
 
@@ -463,15 +463,22 @@ function buildYield(q) {
       label: 'Long Bond Threshold',
       indicator: 'US 30-Year Yield (^TYX)',
       value: yieldVal ? yieldVal.toFixed(2) + '%' : '—',
-      condition: yieldVal == null ? '—' : yieldVal > 5 ? 'Above 5% — Risk On Compression' : yieldVal > 4.5 ? 'Approaching Threshold' : 'Below Threshold',
+      condition: yieldVal == null ? '—' : yieldVal >= 5 ? 'At/Above 5% — Risk-On Compression' : yieldVal > 4.5 ? 'Approaching 5% Threshold' : 'Below Threshold',
       status: yieldStat,
     },
     {
       label: 'Real Rate Signal',
       indicator: 'US 10-Year Yield (^TNX)',
       value: tnx?.price ? tnx.price.toFixed(2) + '%' : '—',
-      condition: 'Monitor vs CPI YoY',
-      status: 'neutral',
+      condition: tnx?.price == null ? '—'
+        : tnx.price >= 4.5 ? 'Restrictive — Compressing Equity Multiples'
+        : tnx.price >= 3.5 ? 'Elevated — Headwind for Growth'
+        : tnx.price >= 2.5 ? 'Neutral — Manageable'
+        :                    'Accommodative — Tailwind for Equities',
+      status: tnx?.price == null ? 'neutral'
+        : tnx.price >= 4.5 ? 'bearish'
+        : tnx.price >= 3.5 ? 'neutral'
+        : 'bullish',
     },
     {
       label: 'Duration Proxy',
@@ -542,34 +549,38 @@ function buildSectors(q) {
   const defensives = ['XLU', 'XLRE', 'XLP'];
   const spy = q['SPY'];
 
+  // 20-day return — consistent with Leadership card; falls back to daily changePct
+  const ret20 = s => s?.price20d ? (s.price / s.price20d - 1) * 100 : s?.changePct ?? null;
+  const spy20 = ret20(spy);
+
   let cycBull = 0, defBull = 0;
   const sectRows = [];
 
   cyclicals.forEach(sym => {
     const d = q[sym];
     if (!d || !spy) return;
-    const relPerf = d.changePct - spy.changePct;
+    const relPerf = (ret20(d) ?? 0) - (spy20 ?? 0);
     const abv200  = d.price > d.sma200;
     if (abv200) cycBull++;
     sectRows.push({
       label: 'Cyclical',
       indicator: sym,
       value: usd(d.price),
-      condition: abv200 ? `${pct(relPerf)} vs SPY — Bull` : `${pct(relPerf)} vs SPY — Watch`,
+      condition: abv200 ? `${pct(relPerf, 1)} vs SPY (20d) — Bull` : `${pct(relPerf, 1)} vs SPY (20d) — Watch`,
       status: abv200 ? 'bullish' : 'neutral',
     });
   });
   defensives.forEach(sym => {
     const d = q[sym];
     if (!d || !spy) return;
-    const relPerf = d.changePct - spy.changePct;
+    const relPerf = (ret20(d) ?? 0) - (spy20 ?? 0);
     const abv200  = d.price > d.sma200;
     if (abv200) defBull++;
     sectRows.push({
       label: 'Defensive',
       indicator: sym,
       value: usd(d.price),
-      condition: abv200 ? `${pct(relPerf)} vs SPY` : `${pct(relPerf)} vs SPY`,
+      condition: abv200 ? `${pct(relPerf, 1)} vs SPY (20d)` : `${pct(relPerf, 1)} vs SPY (20d)`,
       status: abv200 && relPerf > 0 ? 'bearish' : 'neutral', // defensives leading = bearish signal
     });
   });
