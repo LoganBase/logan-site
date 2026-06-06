@@ -128,7 +128,7 @@ function compute(rows) {
       currentRspVsSpy:  rspVsSpy[n - 1],
       currentQqewVsQqq: qqewVsQqq[n - 1],
       streak,
-      rspLeading: rspVsSpy[n - 1] > 0,
+      rspLeading: streak > 0,
     },
   };
 }
