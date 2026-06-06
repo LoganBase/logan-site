@@ -3163,7 +3163,6 @@ async function loadData() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     lastData = data;
-    document.getElementById('ts').textContent = `As of ${fmt(data.timestamp)}`;
     renderExec(data.aggregate);
     renderGrid(data.cards);
   } catch (err) {
