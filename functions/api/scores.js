@@ -469,7 +469,7 @@ function buildYield(q) {
 
   const rows = [
     {
-      label: 'Long Bond Threshold',
+      label: '30Y Benchmark',
       indicator: 'US 30-Year Yield (^TYX)',
       value: yieldVal ? yieldVal.toFixed(2) + '%' : '—',
       condition: yieldRnd == null ? '—' : yieldRnd >= 5 ? 'At/Above 5% — Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% Threshold' : 'Below Threshold',
