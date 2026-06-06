@@ -63,7 +63,7 @@ function pct(n, dec = 2) {
   return (n >= 0 ? '+' : '') + n.toFixed(dec) + '%';
 }
 
-function usd(n) { return n != null ? `US$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'; }
+function usd(n) { return n != null ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'; }
 function num(n, d = 1) { return n != null ? n.toFixed(d) : '—'; }
 
 // ── D1 SOURCE ─────────────────────────────────────────────────────────────────
@@ -700,35 +700,43 @@ function buildCredit(q) {
     {
       label: 'Risk Appetite',
       indicator: 'HYG — High Yield Corp Bond ETF',
-      value: hyg ? usd(hyg.price) : '—',
-      condition: hygBull == null ? '—' : hygBull ? `${pct(hyg.vs200)} above 200d — Healthy` : `${pct(hyg.vs200)} below 200d — Risk Signal`,
+      value: hyg
+        ? (hyg.vs200 != null ? `${usd(hyg.price)}<br>vs200&nbsp;${pct(hyg.vs200)}` : usd(hyg.price))
+        : '—',
+      condition: hygBull == null ? '—' : hygBull ? 'Above 200d — Appetite Healthy' : 'Below 200d — Risk Signal',
       status: hygBull == null ? 'neutral' : hygBull ? 'bullish' : 'bearish',
     },
     {
       label: 'Spread Signal',
       indicator: 'HYG vs LQD — HY vs IG (200d basis)',
-      value: hyg?.vs200 != null && lqd?.vs200 != null ? `HYG ${pct(hyg.vs200)} | LQD ${pct(lqd.vs200)}` : '—',
-      condition: spreadTightening == null ? '—' : spreadTightening ? 'HY Outperforming IG — Tightening' : 'IG Outperforming HY — Widening',
+      value: hyg?.vs200 != null && lqd?.vs200 != null
+        ? `HYG&nbsp;${pct(hyg.vs200)}<br>LQD&nbsp;${pct(lqd.vs200)}`
+        : '—',
+      condition: spreadTightening == null ? '—' : spreadTightening ? 'HY Outperforming IG — Spreads Tightening' : 'IG Outperforming HY — Spreads Widening',
       status: spreadTightening == null ? 'neutral' : spreadTightening ? 'bullish' : 'bearish',
     },
     {
       label: 'IG Demand',
       indicator: 'LQD — Investment Grade Bond ETF',
-      value: lqd ? usd(lqd.price) : '—',
-      condition: lqdBull == null ? '—' : lqdBull ? `${pct(lqd.vs200)} above 200d — Bullish` : `${pct(lqd.vs200)} below 200d — Bearish`,
+      value: lqd
+        ? (lqd.vs200 != null ? `${usd(lqd.price)}<br>vs200&nbsp;${pct(lqd.vs200)}` : usd(lqd.price))
+        : '—',
+      condition: lqdBull == null ? '—' : lqdBull ? 'Above 200d — IG Demand Firm' : 'Below 200d — IG Demand Weak',
       status: lqdBull == null ? 'neutral' : lqdBull ? 'bullish' : 'bearish',
     },
     {
       label: 'Global Credit',
       indicator: 'EMB — EM USD Bond ETF (JP Morgan)',
-      value: emb ? usd(emb.price) : '—',
+      value: emb
+        ? (emb.vs200 != null ? `${usd(emb.price)}<br>vs200&nbsp;${pct(emb.vs200)}` : usd(emb.price))
+        : '—',
       condition: embBull == null ? '—' : embBull
-        ? `${pct(emb.vs200)} above 200d — Contained`
+        ? 'Above 200d — EM Credit Stable'
         : emb.vs200 >= -2
-          ? `${pct(emb.vs200)} below 200d — Watch`
+          ? 'Below 200d — Monitor EM Risk'
           : emb.vs200 >= -5
-            ? `${pct(emb.vs200)} below 200d — Stress Spreading`
-            : `${pct(emb.vs200)} below 200d — Contagion Risk`,
+            ? 'Below 200d — Stress Spreading'
+            : 'Below 200d — Contagion Risk',
       status: embBull == null ? 'neutral' : embBull ? 'bullish' : 'bearish',
     },
   ];

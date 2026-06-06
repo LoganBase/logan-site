@@ -24,11 +24,11 @@ Every card return object in `scores.js` must satisfy:
 | 03 | Breadth | ✅ | ✅ | ❌ | ❌ | — | ⏸ parked |
 | 04 | Valuations | ✅ | ✅ | ❌ | partial | — | 🔄 in progress |
 | 05 | Yield | ✅ | ✅ | ❌ | ❌ | — | ❌ |
-| 06 | Global Flows | ✅ | ✅* | ❌ | ❌ | — | ❌ |
-| 07 | Sectors | ✅ | ✅* | ❌ | ❌ | — | ❌ |
-| 08 | Commodities | ✅ | ✅* | ❌ | ❌ | — | ❌ |
-| 09 | Equities | ✅ | ✅* | ❌ | ❌ | — | ❌ |
-| 10 | Credit | ✅ | ✅* | ❌ | ❌ | — | ❌ |
+| 06 | Credit | ✅ | ✅* | ✅ | ✅ | ✅ | ✅ |
+| 07 | Global Flows | ✅ | ✅* | ❌ | ❌ | — | ❌ |
+| 08 | Sectors | ✅ | ✅* | ❌ | ❌ | — | ❌ |
+| 09 | Commodities | ✅ | ✅* | ❌ | ❌ | — | ❌ |
+| 10 | Equities | ✅ | ✅* | ❌ | ❌ | — | ❌ |
 
 ✅* = custom scoring logic (intentional, not hardcoded neutral)
 
