@@ -670,7 +670,29 @@ function openModal(card) {
 
   if (card.id === 'breadth') {
     const ranges = ['10y','5y','1y','6mo','3mo','1mo','1wk'];
+    const sectorRows = (card.sectorTable || [])
+      .sort((a, b) => b.vs200 - a.vs200)
+      .map(s => {
+        const color  = s.bull ? 'var(--green)' : 'var(--red)';
+        const sign   = s.vs200 >= 0 ? '+' : '';
+        const dot    = `<span style="color:${color};font-size:14px">●</span>`;
+        return `<tr>
+          <td class="mt-label" style="font-family:var(--font-mono);font-size:11px">${s.ticker}</td>
+          <td class="mt-indicator">${s.name}</td>
+          <td class="mt-value" style="color:${color}">${sign}${s.vs200.toFixed(1)}%</td>
+          <td style="text-align:center">${dot}</td>
+        </tr>`;
+      }).join('');
+    const sectorTableHtml = sectorRows ? `
+      <div class="modal-section-title" style="margin-top:20px">Sector ETF Breakdown</div>
+      <table class="modal-table">
+        <thead><tr>
+          <th>Ticker</th><th>Sector</th><th>vs 200d SMA</th><th>Status</th>
+        </tr></thead>
+        <tbody>${sectorRows}</tbody>
+      </table>` : '';
     extra = `
+      ${sectorTableHtml}
       <div class="modal-section-title" style="margin-top:20px">Historical Context — RSPD vs 200d SMA</div>
       <div class="regime-stats">
         <div class="rstat-box">

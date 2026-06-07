@@ -308,6 +308,11 @@ function buildBreadth(q, breadthData) {
 
   // Validation: coarser sector ETF breadth
   const SECTORS = ['XLK','XLV','XLF','XLI','XLC','XLY','XLP','XLE','XLU','XLRE','XLB'];
+  const SECTOR_NAMES = {
+    XLK: 'Technology', XLV: 'Health Care', XLF: 'Financials', XLI: 'Industrials',
+    XLC: 'Comm. Services', XLY: 'Consumer Disc.', XLP: 'Consumer Staples',
+    XLE: 'Energy', XLU: 'Utilities', XLRE: 'Real Estate', XLB: 'Materials',
+  };
   const valid200 = SECTORS.filter(s => q[s]?.price && q[s]?.sma200);
   const bull200  = valid200.filter(s => q[s].price > q[s].sma200).length;
   const n200     = valid200.length;
@@ -383,7 +388,14 @@ function buildBreadth(q, breadthData) {
     return `${bull200} of ${n200} S&P 500 sectors above 200d SMA — ${signal}`;
   })();
 
-  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true, note: breadthNote };
+  const sectorTable = SECTORS.map(s => {
+    const d = q[s];
+    if (!d?.price || !d?.sma200) return null;
+    const vs200 = d.vs200 ?? ((d.price - d.sma200) / d.sma200 * 100);
+    return { ticker: s, name: SECTOR_NAMES[s], vs200: +vs200.toFixed(2), bull: d.price > d.sma200 };
+  }).filter(Boolean);
+
+  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true, note: breadthNote, sectorTable };
 }
 
 // ── SHILLER D1 SOURCE ─────────────────────────────────────────────────────────
