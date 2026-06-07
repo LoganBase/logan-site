@@ -875,7 +875,9 @@ export async function onRequest(context) {
     db ? loadJapanPeLatest(db) : Promise.resolve(null),
   ]);
   const today = new Date().toISOString().slice(0, 10);
-  const missing = ALL_SYMBOLS.filter(s => !d1[s] || d1[s].latestDate < today);
+  // Treat D1 data as stale only if >3 calendar days old — handles weekends + pre-seeder Monday
+  const staleDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const missing = ALL_SYMBOLS.filter(s => !d1[s] || d1[s].latestDate < staleDate);
 
   const q = { ...d1 };
   if (missing.length > 0) {
@@ -884,7 +886,22 @@ export async function onRequest(context) {
       batches.push(missing.slice(i, i + 20));
     for (const batch of batches) {
       const batchData = await fetchAll(batch);
-      Object.assign(q, batchData);
+      for (const [sym, yfData] of Object.entries(batchData)) {
+        const prior = d1[sym];
+        if (prior?.sma200) {
+          // Blend: live price from YF, SMA anchor from D1, recompute vs
+          q[sym] = {
+            ...prior,
+            price:    yfData.price,
+            changePct: yfData.changePct,
+            price20d: yfData.price20d ?? prior.price20d,
+            vs50:  prior.sma50  ? ((yfData.price - prior.sma50)  / prior.sma50)  * 100 : yfData.vs50,
+            vs200: prior.sma200 ? ((yfData.price - prior.sma200) / prior.sma200) * 100 : yfData.vs200,
+          };
+        } else {
+          q[sym] = yfData;
+        }
+      }
     }
   }
 
