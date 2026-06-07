@@ -2386,18 +2386,17 @@ async function loadCreditChart(range, symbol) {
           {
             label: symbol,
             data: closes,
-            borderColor: '#3b82f6',
+            borderColor: '#22c55e',
             borderWidth: 1.5,
             pointRadius: 0,
             fill: false,
             tension: 0,
             segment: {
               borderColor: ctx => {
-                const v = vs200?.[ctx.p1DataIndex];
-                if (v == null) return '#3b82f6';
-                if (v > 12)    return '#ef4444';
-                if (v < 0)     return '#f97316';
-                return '#3b82f6';
+                const price = closes[ctx.p1DataIndex];
+                const sma   = sma200[ctx.p1DataIndex];
+                if (price == null || sma == null) return '#3b82f6';
+                return price < sma ? '#ef4444' : '#22c55e';
               },
             },
           },
