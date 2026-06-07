@@ -301,47 +301,62 @@ function buildLeadership(q) {
   return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, hideIndicator: true, note: leaderNote };
 }
 
-function buildBreadth(q) {
-  const SECTORS = ['XLK','XLV','XLF','XLI','XLC','XLY','XLP','XLE','XLU','XLRE','XLB'];
+function buildBreadth(q, breadthData) {
+  // Primary signals: $MMTH (200d) and $MMFI (50d) from D1 market_breadth table
+  const mmth = breadthData?.pct_above_200d;
+  const mmfi = breadthData?.pct_above_50d;
 
+  // Validation: coarser sector ETF breadth
+  const SECTORS = ['XLK','XLV','XLF','XLI','XLC','XLY','XLP','XLE','XLU','XLRE','XLB'];
   const valid200 = SECTORS.filter(s => q[s]?.price && q[s]?.sma200);
   const bull200  = valid200.filter(s => q[s].price > q[s].sma200).length;
   const n200     = valid200.length;
 
-  const valid50  = SECTORS.filter(s => q[s]?.price && q[s]?.sma50);
-  const bull50   = valid50.filter(s => q[s].price > q[s].sma50).length;
-  const n50      = valid50.length;
-
   const rspd     = q['RSPD'];
   const rspdBull = rspd?.price && rspd?.sma200 ? rspd.price > rspd.sma200 : null;
 
-  const b200status = n200 < 7 ? 'neutral' : bull200 >= 8 ? 'bullish' : bull200 >= 5 ? 'neutral' : 'bearish';
-  const b50status  = n50  < 7 ? 'neutral' : bull50  >= 8 ? 'bullish' : bull50  >= 5 ? 'neutral' : 'bearish';
+  // Row 1: NYSE 200d ($MMTH)
+  const mmthStatus = mmth == null ? 'neutral' : mmth >= 70 ? 'bullish' : mmth >= 40 ? 'neutral' : 'bearish';
+  const mmthCond   = mmth == null ? 'Awaiting Data'
+    : mmth >= 70 ? 'Broad Participation — Rally Has Legs'
+    : mmth >= 40 ? 'Mixed Breadth — Bifurcated Market'
+    :               'Breadth Breakdown — Risk Off';
 
-  const b200cond = n200 < 7       ? 'Insufficient Data'
-    : bull200 >= 8                 ? 'Broad Participation — Stay Long'
-    : bull200 >= 5                 ? 'Mixed Breadth — Be Selective'
-    :                                'Sector Breakdown — Reduce Risk';
+  // Row 2: NYSE 50d ($MMFI)
+  const mmfiStatus = mmfi == null ? 'neutral' : mmfi >= 70 ? 'bullish' : mmfi >= 40 ? 'neutral' : 'bearish';
+  const mmfiCond   = mmfi == null ? 'Awaiting Data'
+    : mmfi >= 70 ? 'Momentum Expanding — Add Risk'
+    : mmfi >= 40 ? 'Mixed Momentum — Watch Leaders'
+    :               'Momentum Fading — Tighten Stops';
 
-  const b50cond = n50 < 7         ? 'Insufficient Data'
-    : bull50 >= 8                  ? 'Momentum Expanding — Add Risk'
-    : bull50 >= 5                  ? 'Mixed Momentum — Watch Leaders'
-    :                                'Momentum Fading — Tighten Stops';
+  // Row 3: Sector Check (coarser validation)
+  const sectStatus = n200 < 7 ? 'neutral' : bull200 >= 8 ? 'bullish' : bull200 >= 5 ? 'neutral' : 'bearish';
+  const sectCond   = n200 < 7 ? 'Insufficient Data'
+    : bull200 >= 8 ? 'Broad Participation — Stay Long'
+    : bull200 >= 5 ? 'Mixed Breadth — Be Selective'
+    :                'Sector Breakdown — Reduce Risk';
 
   const rows = [
     {
-      label: 'Sector Breadth',
-      indicator: 'SPDR Sectors Above 200d SMA (11)',
-      value: n200 > 0 ? `${bull200} / ${n200}` : '—',
-      condition: b200cond,
-      status: b200status,
+      label: 'NYSE 200d Breadth',
+      indicator: '$MMTH — % NYSE Stocks Above 200d SMA',
+      value: mmth != null ? `${mmth.toFixed(1)}%` : '—',
+      condition: mmthCond,
+      status: mmthStatus,
     },
     {
-      label: 'ST Momentum',
-      indicator: 'SPDR Sectors Above 50d SMA (11)',
-      value: n50 > 0 ? `${bull50} / ${n50}` : '—',
-      condition: b50cond,
-      status: b50status,
+      label: 'NYSE 50d Breadth',
+      indicator: '$MMFI — % NYSE Stocks Above 50d SMA',
+      value: mmfi != null ? `${mmfi.toFixed(1)}%` : '—',
+      condition: mmfiCond,
+      status: mmfiStatus,
+    },
+    {
+      label: 'Sector Check',
+      indicator: 'SPDR Sectors Above 200d SMA (11)',
+      value: n200 > 0 ? `${bull200} / ${n200}` : '—',
+      condition: sectCond,
+      status: sectStatus,
     },
     {
       label: 'Consumer Signal',
@@ -353,15 +368,19 @@ function buildBreadth(q) {
   ];
 
   const breadthNote = (() => {
-    if (n200 < 7) return 'Sector breadth data loading — check back shortly.';
+    if (mmth != null) {
+      const signal = mmth >= 70 ? 'broad participation across NYSE — rally is healthy.'
+        : mmth >= 40 ? 'mixed breadth — market bifurcating, stay with leaders.'
+        : 'breadth breaking down — reduce broad exposure.';
+      const moStr  = mmfi != null ? ` Short-term: ${mmfi.toFixed(1)}% of NYSE above 50d.` : '';
+      const sectStr = n200 >= 7 ? ` Sector check: ${bull200}/${n200}.` : '';
+      return `${mmth.toFixed(1)}% of NYSE stocks above 200d SMA — ${signal}${moStr}${sectStr}`;
+    }
+    if (n200 < 7) return 'Breadth data loading — check back shortly.';
     const signal = bull200 >= 8 ? 'broad support across sectors — rally is healthy.'
       : bull200 >= 5 ? 'mixed sector participation — rally narrowing, stay with leaders.'
       : 'sector breadth breaking down — reduce broad exposure.';
-    const moStr  = n50 >= 7 ? ` Short-term: ${bull50} of ${n50} sectors above 50d.` : '';
-    const rspdStr = rspdBull != null
-      ? (rspdBull ? ' Consumer Disc. healthy.' : ' Consumer Disc. weak — watch for broadening selloff.')
-      : '';
-    return `${bull200} of ${n200} S&P 500 sectors above their 200d SMA — ${signal}${moStr}${rspdStr}`;
+    return `${bull200} of ${n200} S&P 500 sectors above 200d SMA — ${signal}`;
   })();
 
   return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true, note: breadthNote };
@@ -402,6 +421,16 @@ async function loadJapanPeLatest(db) {
   try {
     const { results } = await db.prepare(
       `SELECT date, pe FROM japan_pe_data ORDER BY date DESC LIMIT 1`
+    ).all();
+    return results?.[0] ?? null;
+  } catch { return null; }
+}
+
+// ── BREADTH D1 SOURCE ─────────────────────────────────────────────────────────
+async function loadBreadthLatest(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, pct_above_200d, pct_above_50d FROM market_breadth ORDER BY date DESC LIMIT 1`
     ).all();
     return results?.[0] ?? null;
   } catch { return null; }
@@ -889,12 +918,13 @@ export async function onRequest(context) {
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1 or stale
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
-  const [d1, shiller, buffett, forwardPe, japanPe] = await Promise.all([
+  const [d1, shiller, buffett, forwardPe, japanPe, breadthData] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
     db ? loadBuffettLatest(db) : Promise.resolve(null),
     db ? loadForwardPeLatest(db) : Promise.resolve(null),
     db ? loadJapanPeLatest(db) : Promise.resolve(null),
+    db ? loadBreadthLatest(db) : Promise.resolve(null),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   // Treat D1 data as stale only if >3 calendar days old — handles weekends + pre-seeder Monday
@@ -930,7 +960,7 @@ export async function onRequest(context) {
   const cards = [
     buildRegime(q),
     buildLeadership(q),
-    buildBreadth(q),
+    buildBreadth(q, breadthData),
     buildValuations(shiller, buffett, forwardPe, japanPe),
     buildYield(q),
     buildGlobalFlows(q),
