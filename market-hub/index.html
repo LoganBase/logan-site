@@ -1758,7 +1758,7 @@ async function loadYieldChart(range, symbol) {
                 label: ctx => {
                   const v = ctx.parsed.y;
                   if (v == null) return null;
-                  const zone = v < 0 ? 'Inverted — Recession Risk' : v < 1 ? 'Flat — Transitioning' : 'Steepening — Growth Signal';
+                  const zone = v < 0 ? 'Inverted — Recession Risk' : v < 1 ? 'Flat — Watch for Steepening' : 'Steepening — Growth Signal';
                   return ` ${(v >= 0 ? '+' : '') + v.toFixed(2)}% — ${zone}`;
                 },
               },
