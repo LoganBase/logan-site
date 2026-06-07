@@ -24,7 +24,8 @@ const ALL_SYMBOLS = [
   'HYG','LQD','EMB',                               // Credit
   '^GSPTSE','SPDW','EWT','EWY','AIA','EZU',       // Global Flows
   'VEU','EEM','EWJ','EWW','EWZ','ILF',
-  'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors
+  'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors (7 existing)
+  'XLV','XLC','XLY','XLB',                        // Sectors (4 added for breadth)
   'XME','GDX','COPX','KBE',
   'USCI','HG=F','GLD','IXC','XES','DBA','SLX',   // Commodities
   'GEV','CAT','GRID','SU','TVE.TO',               // Equities
@@ -301,47 +302,68 @@ function buildLeadership(q) {
 }
 
 function buildBreadth(q) {
-  const rspd = q['RSPD'];
-  const rspdBull = rspd && rspd.price && rspd.sma200 && rspd.price > rspd.sma200;
+  const SECTORS = ['XLK','XLV','XLF','XLI','XLC','XLY','XLP','XLE','XLU','XLRE','XLB'];
+
+  const valid200 = SECTORS.filter(s => q[s]?.price && q[s]?.sma200);
+  const bull200  = valid200.filter(s => q[s].price > q[s].sma200).length;
+  const n200     = valid200.length;
+
+  const valid50  = SECTORS.filter(s => q[s]?.price && q[s]?.sma50);
+  const bull50   = valid50.filter(s => q[s].price > q[s].sma50).length;
+  const n50      = valid50.length;
+
+  const rspd     = q['RSPD'];
+  const rspdBull = rspd?.price && rspd?.sma200 ? rspd.price > rspd.sma200 : null;
+
+  const b200status = n200 < 7 ? 'neutral' : bull200 >= 8 ? 'bullish' : bull200 >= 5 ? 'neutral' : 'bearish';
+  const b50status  = n50  < 7 ? 'neutral' : bull50  >= 8 ? 'bullish' : bull50  >= 5 ? 'neutral' : 'bearish';
+
+  const b200cond = n200 < 7       ? 'Insufficient Data'
+    : bull200 >= 8                 ? 'Broad Participation — Stay Long'
+    : bull200 >= 5                 ? 'Mixed Breadth — Be Selective'
+    :                                'Sector Breakdown — Reduce Risk';
+
+  const b50cond = n50 < 7         ? 'Insufficient Data'
+    : bull50 >= 8                  ? 'Momentum Expanding — Add Risk'
+    : bull50 >= 5                  ? 'Mixed Momentum — Watch Leaders'
+    :                                'Momentum Fading — Tighten Stops';
 
   const rows = [
     {
-      label: 'NYSE Participation',
-      indicator: '% Stocks above 200d SMA ($NYA200R)',
-      value: 'StockCharts',
-      condition: 'Manual Check Required',
-      status: 'neutral',
-      link: 'https://stockcharts.com/h-sc/ui?s=%24NYA200R',
+      label: 'Sector Breadth',
+      indicator: 'SPDR Sectors Above 200d SMA (11)',
+      value: n200 > 0 ? `${bull200} / ${n200}` : '—',
+      condition: b200cond,
+      status: b200status,
     },
     {
-      label: 'Short-Term Momentum',
-      indicator: '% Stocks above 50d SMA ($NYA50R)',
-      value: 'StockCharts',
-      condition: 'Manual Check Required',
-      status: 'neutral',
-      link: 'https://stockcharts.com/h-sc/ui?s=%24NYA50R',
-    },
-    {
-      label: 'New Highs Expansion',
-      indicator: '% Stocks making 52-week highs ($NYHGH)',
-      value: 'StockCharts',
-      condition: 'Manual Check Required',
-      status: 'neutral',
-      link: 'https://stockcharts.com/h-sc/ui?s=%24NYHGH',
+      label: 'ST Momentum',
+      indicator: 'SPDR Sectors Above 50d SMA (11)',
+      value: n50 > 0 ? `${bull50} / ${n50}` : '—',
+      condition: b50cond,
+      status: b50status,
     },
     {
       label: 'Consumer Signal',
       indicator: 'RSPD (Equal-Weight Consumer Disc.)',
       value: rspd ? usd(rspd.price) : '—',
       condition: rspdBull == null ? '—' : (rspdBull ? 'Above 200d — Consumer Healthy' : 'Below 200d — Risk Rising'),
-      status: rspdBull ? 'bullish' : (rspd ? 'bearish' : 'neutral'),
+      status: rspdBull == null ? 'neutral' : (rspdBull ? 'bullish' : 'bearish'),
     },
   ];
-  const breadthNote = rspd
-    ? (rspdBull
-      ? 'Consumer Disc. (RSPD) above 200d — discretionary spending healthy, consumer-led growth intact.'
-      : 'Consumer Disc. (RSPD) below 200d — consumer weakness; watch for broadening selloff into other sectors.')
-    : 'NYSE breadth data requires manual check via the StockCharts links above.';
+
+  const breadthNote = (() => {
+    if (n200 < 7) return 'Sector breadth data loading — check back shortly.';
+    const signal = bull200 >= 8 ? 'broad support across sectors — rally is healthy.'
+      : bull200 >= 5 ? 'mixed sector participation — rally narrowing, stay with leaders.'
+      : 'sector breadth breaking down — reduce broad exposure.';
+    const moStr  = n50 >= 7 ? ` Short-term: ${bull50} of ${n50} sectors above 50d.` : '';
+    const rspdStr = rspdBull != null
+      ? (rspdBull ? ' Consumer Disc. healthy.' : ' Consumer Disc. weak — watch for broadening selloff.')
+      : '';
+    return `${bull200} of ${n200} S&P 500 sectors above their 200d SMA — ${signal}${moStr}${rspdStr}`;
+  })();
+
   return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true, note: breadthNote };
 }
 

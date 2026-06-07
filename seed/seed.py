@@ -49,6 +49,7 @@ SYMBOLS = [
     '^N225', 'EWW', 'EWZ', 'ILF',
     # Sectors
     'XLI', 'XLK', 'XLF', 'XLE', 'XLU', 'XLRE', 'XLP',
+    'XLV', 'XLC', 'XLY', 'XLB',
     'XME', 'GDX', 'COPX', 'KBE',
     # Commodities
     'USCI', 'HG=F', 'GLD', 'IXC', 'XES', 'DBA', 'SLX',
