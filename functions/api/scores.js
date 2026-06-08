@@ -626,27 +626,27 @@ function buildGlobalFlows(q) {
     { sym: 'EEM',     label: 'Emerging Mkts',   region: 'Emerging' },
   ];
 
-  // ── Country deep-dive (flag emojis, geographic order) ────────────────────
+  // ── Country deep-dive (geographic order, flags rendered in frontend) ───────
   const countrySyms = [
-    { sym: 'SPY',     label: 'S&P 500',     region: '🇺🇸 USA',         group: 'North America' },
-    { sym: '^GSPTSE', label: 'S&P/TSX',     region: '🇨🇦 Canada',      group: 'North America' },
-    { sym: 'EWU',     label: 'UK',          region: '🇬🇧 UK',          group: 'Europe'        },
-    { sym: 'EWG',     label: 'Germany',     region: '🇩🇪 Germany',     group: 'Europe'        },
-    { sym: 'EWQ',     label: 'France',      region: '🇫🇷 France',      group: 'Europe'        },
-    { sym: 'EWL',     label: 'Switzerland', region: '🇨🇭 Switzerland', group: 'Europe'        },
-    { sym: 'EWN',     label: 'Netherlands', region: '🇳🇱 Netherlands', group: 'Europe'        },
-    { sym: 'EWI',     label: 'Italy',       region: '🇮🇹 Italy',       group: 'Europe'        },
-    { sym: 'EWP',     label: 'Spain',       region: '🇪🇸 Spain',       group: 'Europe'        },
-    { sym: 'EWJ',     label: 'Japan',       region: '🇯🇵 Japan',       group: 'Asia Pacific'  },
-    { sym: 'MCHI',    label: 'China',       region: '🇨🇳 China',       group: 'Asia Pacific'  },
-    { sym: 'EWT',     label: 'Taiwan',      region: '🇹🇼 Taiwan',      group: 'Asia Pacific'  },
-    { sym: 'EWY',     label: 'S. Korea',    region: '🇰🇷 S. Korea',    group: 'Asia Pacific'  },
-    { sym: 'INDA',    label: 'India',       region: '🇮🇳 India',       group: 'Asia Pacific'  },
-    { sym: 'EWA',     label: 'Australia',   region: '🇦🇺 Australia',   group: 'Asia Pacific'  },
-    { sym: 'EWH',     label: 'Hong Kong',   region: '🇭🇰 Hong Kong',   group: 'Asia Pacific'  },
-    { sym: 'EWZ',     label: 'Brazil',      region: '🇧🇷 Brazil',      group: 'Latin America' },
-    { sym: 'EWW',     label: 'Mexico',      region: '🇲🇽 Mexico',      group: 'Latin America' },
-    { sym: 'ECH',     label: 'Chile',       region: '🇨🇱 Chile',       group: 'Latin America' },
+    { sym: 'SPY',     label: 'S&P 500',     group: 'North America' },
+    { sym: '^GSPTSE', label: 'Canada',       group: 'North America' },
+    { sym: 'EWU',     label: 'UK',           group: 'Europe'        },
+    { sym: 'EWG',     label: 'Germany',      group: 'Europe'        },
+    { sym: 'EWQ',     label: 'France',       group: 'Europe'        },
+    { sym: 'EWL',     label: 'Switzerland',  group: 'Europe'        },
+    { sym: 'EWN',     label: 'Netherlands',  group: 'Europe'        },
+    { sym: 'EWI',     label: 'Italy',        group: 'Europe'        },
+    { sym: 'EWP',     label: 'Spain',        group: 'Europe'        },
+    { sym: 'EWJ',     label: 'Japan',        group: 'Asia Pacific'  },
+    { sym: 'MCHI',    label: 'China',        group: 'Asia Pacific'  },
+    { sym: 'EWT',     label: 'Taiwan',       group: 'Asia Pacific'  },
+    { sym: 'EWY',     label: 'S. Korea',     group: 'Asia Pacific'  },
+    { sym: 'INDA',    label: 'India',        group: 'Asia Pacific'  },
+    { sym: 'EWA',     label: 'Australia',    group: 'Asia Pacific'  },
+    { sym: 'EWH',     label: 'Hong Kong',    group: 'Asia Pacific'  },
+    { sym: 'EWZ',     label: 'Brazil',       group: 'Latin America' },
+    { sym: 'EWW',     label: 'Mexico',       group: 'Latin America' },
+    { sym: 'ECH',     label: 'Chile',        group: 'Latin America' },
   ];
 
   // legacy alias so the rest of the function compiles unchanged during transition
@@ -674,11 +674,11 @@ function buildGlobalFlows(q) {
   });
 
   // ── Country deep-dive details ──────────────────────────────────────────────
-  const details = countrySyms.map(({ sym, label, region, group }) => {
+  const details = countrySyms.map(({ sym, label, group }) => {
     const d = q[sym];
     const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
     const vs200 = d?.vs200;
-    return { group, region, label, sym, value: d ? usd(d.price) : '—', vs200: vs200 != null ? pct(vs200) : '—', above };
+    return { group, label, sym, value: d ? usd(d.price) : '—', vs200: vs200 != null ? pct(vs200) : '—', above };
   });
 
   // ── Note ──────────────────────────────────────────────────────────────────
