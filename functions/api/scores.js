@@ -764,12 +764,13 @@ function buildSectors(q) {
   const seen   = new Set();
   const curated = [...top3, ...bot3].filter(r => r && !seen.has(r.sym) && seen.add(r.sym));
 
+  const top3Syms = new Set(top3.map(r => r.sym));
   const rows = curated.map(r => ({
     label: r.name,
     indicator: r.sym,
     value: r.value,
     condition: r.condition,
-    status: r.status,
+    status: top3Syms.has(r.sym) ? 'bullish' : 'bearish',
   }));
 
   const sectNote = offenseLeading
