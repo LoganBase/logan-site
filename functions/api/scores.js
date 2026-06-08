@@ -752,10 +752,12 @@ function buildSectors(q) {
   const defRows  = allSectors.filter(r => r.type === 'defensive');
   const cycBull  = cycRows.filter(r => r.abv200).length;
   const defBull  = defRows.filter(r => r.abv200).length;
-  const cycRatio = cycRows.length ? cycBull / cycRows.length : 0;
-  const defRatio = defRows.length ? defBull / defRows.length : 0;
   const offenseLeading = cycBull > defBull;
-  const sectStatus = cycRatio > defRatio ? 'bullish' : cycRatio < defRatio ? 'bearish' : 'neutral';
+
+  // Card status: avg 20d relative performance (vs SPY) — cyclicals vs defensives
+  const avg   = arr => arr.length ? arr.reduce((s, r) => s + r.relPerf, 0) / arr.length : 0;
+  const spread = avg(cycRows) - avg(defRows);   // positive = cyclicals leading
+  const sectStatus = spread > 1 ? 'bullish' : spread < -1 ? 'bearish' : 'neutral';
 
   // Top 3 leaders + bottom 3 laggards, best→worst order, no duplicates
   const sortedAll = [...allSectors].sort((a, b) => b.relPerf - a.relPerf);
@@ -773,9 +775,12 @@ function buildSectors(q) {
     status: top3Syms.has(r.sym) ? 'bullish' : 'bearish',
   }));
 
-  const sectNote = offenseLeading
-    ? `${cycBull}/${cycRows.length} cyclicals above 200d — offense leading; growth-oriented positioning supported.`
-    : `Defensives leading cyclicals (${defBull}/${defRows.length} defensive above 200d) — rotation to safety underway; reduce cyclical exposure.`;
+  const spreadStr = (spread >= 0 ? '+' : '') + spread.toFixed(1) + '%';
+  const sectNote = spread > 1
+    ? `Cyclicals outpacing defensives by ${spreadStr} (20d avg vs SPY) — risk-on rotation; favour cyclical exposure.`
+    : spread < -1
+    ? `Defensives outpacing cyclicals by ${Math.abs(spread).toFixed(1)}% (20d avg vs SPY) — flight to safety underway; reduce cyclical exposure.`
+    : `Cyclicals and defensives near parity (${spreadStr} spread, 20d avg vs SPY) — no clear rotation signal; stay diversified.`;
 
   return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, hideIndicator: true, note: sectNote };
 }
