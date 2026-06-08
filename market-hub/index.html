@@ -699,7 +699,7 @@ function openModal(card) {
           `<button class="sbr-btn${r==='5y'?' active':''}" onclick="loadSectorBreadthChart('${r}')">${r.toUpperCase()}</button>`
         ).join('')}
       </div>
-      <div class="chart-wrap">
+      <div class="chart-wrap" style="height:40vh;min-height:220px">
         <div class="chart-loading" id="sectBreadthLoading"><div class="spinner"></div> Loading chart…</div>
         <canvas id="sectBreadthCanvas" style="display:none"></canvas>
       </div>` : '';
@@ -729,7 +729,7 @@ function openModal(card) {
           `<button class="range-btn${r==='5y'?' active':''}" onclick="loadBreadthChart('${r}')">${r.toUpperCase()}</button>`
         ).join('')}
       </div>
-      <div class="chart-wrap">
+      <div class="chart-wrap" style="height:40vh;min-height:220px">
         <div class="chart-loading" id="breadthLoading"><div class="spinner"></div> Loading chart…</div>
         <canvas id="breadthChartCanvas" style="display:none"></canvas>
       </div>
