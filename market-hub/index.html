@@ -554,7 +554,7 @@ function renderGrid(cards) {
 }
 
 function renderCard(card) {
-  const rows = (card.rows || []).slice(0, 4).map(row =>
+  const rows = (card.rows || []).slice(0, 7).map(row =>
     `<tr>
       <td class="col-label status-${row.status}">${row.label}</td>
       ${card.hideIndicator ? '' : `<td class="col-indicator">${row.indicator}</td>`}
