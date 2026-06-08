@@ -748,11 +748,14 @@ function buildSectors(q) {
     return { sym, ...meta, abv200, relPerf, condition, status, value: usd(d.price) };
   }).filter(Boolean);
 
-  const cycRows = allSectors.filter(r => r.type === 'cyclical');
-  const defRows = allSectors.filter(r => r.type === 'defensive');
-  const cycBull = cycRows.filter(r => r.abv200).length;
-  const defBull = defRows.filter(r => r.abv200).length;
+  const cycRows  = allSectors.filter(r => r.type === 'cyclical');
+  const defRows  = allSectors.filter(r => r.type === 'defensive');
+  const cycBull  = cycRows.filter(r => r.abv200).length;
+  const defBull  = defRows.filter(r => r.abv200).length;
+  const cycRatio = cycRows.length ? cycBull / cycRows.length : 0;
+  const defRatio = defRows.length ? defBull / defRows.length : 0;
   const offenseLeading = cycBull > defBull;
+  const sectStatus = cycRatio > defRatio ? 'bullish' : cycRatio < defRatio ? 'bearish' : 'neutral';
 
   // Top 3 leaders + bottom 3 laggards, best→worst order, no duplicates
   const sortedAll = [...allSectors].sort((a, b) => b.relPerf - a.relPerf);
@@ -773,7 +776,7 @@ function buildSectors(q) {
     ? `${cycBull}/${cycRows.length} cyclicals above 200d — offense leading; growth-oriented positioning supported.`
     : `Defensives leading cyclicals (${defBull}/${defRows.length} defensive above 200d) — rotation to safety underway; reduce cyclical exposure.`;
 
-  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows, hideIndicator: true, note: sectNote };
+  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, hideIndicator: true, note: sectNote };
 }
 
 function buildCommodities(q) {

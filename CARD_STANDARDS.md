@@ -13,6 +13,7 @@ Every card return object in `scores.js` must satisfy:
 | Stacked values | `<br>` + `&nbsp;` between ticker and value | When showing two related numbers e.g. `RSP&nbsp;+3.0%<br>SPY&nbsp;+4.2%` |
 | No `US$` prefix | Use `$` prefix directly | `$759.57` not `US$759.57` in card face values |
 | Dynamic note | `note:` built from live card data | One or two sentences; references actual current values, not generic text |
+| Row label color | `row.status` drives label color automatically | CSS maps `status-bullish` → green, `status-neutral` → yellow, `status-bearish` → red on `.col-label`; always set `row.status` to one of the three values |
 
 ---
 
@@ -26,8 +27,8 @@ Every card return object in `scores.js` must satisfy:
 | 04 | Valuations | ✅ | ✅* | ✅ | ✅ | — | ✅ | ✅ |
 | 05 | Yield | ✅ | ✅* | ✅ | ✅ | — | ✅ | ✅ |
 | 06 | Credit | ✅ | ✅* | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 07 | Global Flows | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
-| 08 | Sectors | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
+| 07 | Global Flows | ✅ | ✅* | ✅ | ✅ | — | ✅ | ✅ |
+| 08 | Sectors | ✅ | ✅* | ✅ | ✅ | — | ✅ | ✅ |
 | 09 | Commodities | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
 | 10 | Equities | ✅ | ✅* | ❌ | ❌ | — | ✅ | ❌ |
 
