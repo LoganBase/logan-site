@@ -694,14 +694,19 @@ function buildGlobalFlows(q) {
 }
 
 function buildSectors(q) {
+  // Full 11-sector GICS universe (SPDR ETFs)
   const SECTOR_META = {
-    XLI:  { name: 'Industrials',      type: 'cyclical'  },
-    XLK:  { name: 'Technology',       type: 'cyclical'  },
-    XME:  { name: 'Metals & Mining',  type: 'cyclical'  },
-    XLF:  { name: 'Financials',       type: 'cyclical'  },
-    XLU:  { name: 'Utilities',        type: 'defensive' },
-    XLRE: { name: 'Real Estate',      type: 'defensive' },
-    XLP:  { name: 'Consumer Staples', type: 'defensive' },
+    XLK:  { name: 'Technology',            type: 'cyclical'  },
+    XLY:  { name: 'Consumer Disc.',        type: 'cyclical'  },
+    XLC:  { name: 'Comm. Services',        type: 'cyclical'  },
+    XLI:  { name: 'Industrials',           type: 'cyclical'  },
+    XLF:  { name: 'Financials',            type: 'cyclical'  },
+    XLE:  { name: 'Energy',                type: 'cyclical'  },
+    XLB:  { name: 'Materials',             type: 'cyclical'  },
+    XLV:  { name: 'Health Care',           type: 'defensive' },
+    XLP:  { name: 'Consumer Staples',      type: 'defensive' },
+    XLU:  { name: 'Utilities',             type: 'defensive' },
+    XLRE: { name: 'Real Estate',           type: 'defensive' },
   };
 
   const spy   = q['SPY'];
@@ -716,11 +721,14 @@ function buildSectors(q) {
     let condition, status;
     if (meta.type === 'cyclical') {
       if (abv200 && relPerf > 0) {
-        condition = `Cyclical Leader (${pct(relPerf, 1)} vs SPY) — Overweight`;
+        condition = `Leader (${pct(relPerf, 1)} vs SPY) — Overweight`;
         status    = 'bullish';
       } else if (abv200) {
         condition = `In Trend, Lagging (${pct(relPerf, 1)} vs SPY) — Hold`;
         status    = 'neutral';
+      } else if (relPerf > 0) {
+        condition = `Below 200d, Outpacing SPY (${pct(relPerf, 1)}) — Reduce`;
+        status    = 'bearish';
       } else {
         condition = `Trend Broken (${pct(relPerf, 1)} vs SPY) — Underweight`;
         status    = 'bearish';
@@ -730,7 +738,7 @@ function buildSectors(q) {
         condition = `Safe Haven Bid (${pct(relPerf, 1)} vs SPY) — Risk-Off Signal`;
         status    = 'bearish';
       } else if (abv200) {
-        condition = `In Trend, Lagging (${pct(relPerf, 1)} vs SPY) — Neutral`;
+        condition = `Quiet Defensive (${pct(relPerf, 1)} vs SPY) — Risk-On Lean`;
         status    = 'neutral';
       } else {
         condition = `No Safe Haven Bid (${pct(relPerf, 1)} vs SPY) — Risk-On`;
@@ -746,11 +754,11 @@ function buildSectors(q) {
   const defBull = defRows.filter(r => r.abv200).length;
   const offenseLeading = cycBull > defBull;
 
-  // Curate: top 2 cyclicals (leaders) + worst cyclical (canary) + strongest defensive signal
+  // Curate: top 3 cyclicals (leaders) + worst cyclical (canary) + top defensive signal
   const sortedCyc = [...cycRows].sort((a, b) => b.relPerf - a.relPerf);
   const sortedDef = [...defRows].sort((a, b) => b.relPerf - a.relPerf);
   const seen = new Set();
-  const curated = [sortedCyc[0], sortedCyc[1], sortedCyc[sortedCyc.length - 1], sortedDef[0]]
+  const curated = [sortedCyc[0], sortedCyc[1], sortedCyc[2], sortedCyc[sortedCyc.length - 1], sortedDef[0]]
     .filter(r => r && !seen.has(r.sym) && seen.add(r.sym));
 
   const rows = [
