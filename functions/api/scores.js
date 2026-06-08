@@ -650,22 +650,51 @@ function buildGlobalFlows(q) {
   const seen = new Set();
   const curated = featured.filter(d => !seen.has(d.sym) && seen.add(d.sym));
 
+  const [usaRow, ...exUsRows] = curated;
+  const topRows     = exUsRows.slice(0, exUsRows.length - 1);
+  const weakestRow  = exUsRows.length > 0 ? exUsRows[exUsRows.length - 1] : null;
+
   const rows = [
     {
       label: 'Global Breadth',
       indicator: `${bull}/${total} markets above 200d SMA`,
       value: `${bull}/${total}`,
-      condition: bull >= 10 ? 'Synchronized Expansion' : bull >= 7 ? 'Partial Expansion' : 'Global Divergence',
+      condition: bull >= 10 ? 'Synchronized Expansion — Broad Risk-On'
+               : bull >= 7  ? 'Partial Expansion — Favour Strongest Regions'
+               :               'Global Divergence — Reduce International Exposure',
       status: gStatus,
     },
-    ...curated.map(d => ({
-      label: d.region,
-      indicator: `${d.label} (${d.sym})`,
-      value: d.value,
-      condition: d.above ? `Above 200d (${d.vs200}) — Bull` : `Below 200d (${d.vs200}) — Bear`,
-      status: d.above ? 'bullish' : 'bearish',
-    })),
   ];
+
+  if (usaRow) rows.push({
+    label: usaRow.region,
+    indicator: `${usaRow.label} (${usaRow.sym})`,
+    value: usaRow.value,
+    condition: usaRow.above
+      ? `Trend Intact (${usaRow.vs200}) — Maintain Core Exposure`
+      : `Trend Broken (${usaRow.vs200}) — Reduce US Allocation`,
+    status: usaRow.above ? 'bullish' : 'bearish',
+  });
+
+  topRows.forEach(d => rows.push({
+    label: d.region,
+    indicator: `${d.label} (${d.sym})`,
+    value: d.value,
+    condition: d.above
+      ? `Leading ex-US (${d.vs200}) — Add Exposure`
+      : `Lagging ex-US (${d.vs200}) — Underweight`,
+    status: d.above ? 'bullish' : 'bearish',
+  }));
+
+  if (weakestRow) rows.push({
+    label: weakestRow.region,
+    indicator: `${weakestRow.label} (${weakestRow.sym})`,
+    value: weakestRow.value,
+    condition: weakestRow.above
+      ? `Weakest Market (${weakestRow.vs200}) — Monitor`
+      : `Weakest Market (${weakestRow.vs200}) — Avoid`,
+    status: weakestRow.above ? 'neutral' : 'bearish',
+  });
   const weakest = exUS[exUS.length - 1];
   const flowNote = (bull >= 10
     ? `${bull}/${total} markets above 200d — synchronized global expansion; broad risk-on.`
