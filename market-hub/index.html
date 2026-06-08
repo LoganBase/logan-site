@@ -2327,7 +2327,7 @@ const GF_CHART_OPTIONS = (dates, labelFn) => ({
   responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
   interaction: { mode: 'index', intersect: false },
   plugins: {
-    legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 10 } },
+    legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, boxHeight: 12, padding: 10, usePointStyle: false } },
     tooltip: {
       backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
       titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
@@ -2587,7 +2587,7 @@ async function loadSectorsHistoryChart(range) {
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
-            labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 10 },
+            labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, boxHeight: 12, padding: 10, usePointStyle: false },
           },
           tooltip: {
             backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,

@@ -25,8 +25,10 @@ datasets: items.map(s => ({
 
 And in chart options:
 ```js
-legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 10 } }
+legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, boxHeight: 12, padding: 10, usePointStyle: false } }
 ```
+
+`usePointStyle: false` is required to prevent dashed-line datasets from rendering a non-square legend marker. `boxHeight: 12` forces a perfect square (without it, Chart.js may render a wide rectangle).
 
 Do **not** use a custom `generateLabels` for legend styling — it is fragile (called before datasets are populated on first render) and harder to maintain.
 
