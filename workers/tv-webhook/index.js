@@ -4,12 +4,14 @@
  * Receives alert POSTs from TradingView and upserts values into D1.
  *
  * Supported tickers (set in TradingView alert message body):
- *   MMTH  — NYSE % stocks above 200-day SMA  → market_breadth.pct_above_200d
- *   MMFI  — NYSE % stocks above 50-day SMA   → market_breadth.pct_above_50d
- *   CAPE  — Shiller CAPE ratio (monthly)      → shiller_data.cape
+ *   MMTH    — NYSE % stocks above 200-day SMA  → market_breadth.pct_above_200d
+ *   MMFI    — NYSE % stocks above 50-day SMA   → market_breadth.pct_above_50d
+ *   CAPE    — Shiller CAPE ratio (monthly)      → shiller_data.cape
+ *   BUFFETT — Total Mkt Cap / GDP ratio (qtrly) → buffett_data.ratio
  *
  * TradingView alert message body (JSON):
  *   {"ticker": "MMTH", "value": {{close}}, "time": {{time}}}
+ *   BUFFETT uses alert() in Pine Script with the computed ratio embedded.
  *
  * Webhook URL format:
  *   https://market-hub-tv-webhook.<subdomain>.workers.dev/webhook?secret=<TV_SECRET>
@@ -31,6 +33,13 @@ function toMonthStart(date) {
   // Normalise to YYYY-MM-01 — TradingView monthly bars open on the first
   // trading day of the month, which may not be the 1st calendar day.
   return date.slice(0, 7) + '-01';
+}
+
+function toQuarterStart(date) {
+  // Normalise to YYYY-QQ-01 (first month of the quarter: 01, 04, 07, 10)
+  const [year, month] = date.split('-').map(Number);
+  const qMonth = Math.floor((month - 1) / 3) * 3 + 1;
+  return `${String(year)}-${String(qMonth).padStart(2, '0')}-01`;
 }
 
 
@@ -101,6 +110,14 @@ export default {
           ON CONFLICT(date) DO UPDATE SET cape = excluded.cape
         `).bind(monthDate, Math.round(value * 100) / 100).run();
 
+      } else if (ticker === 'BUFFETT') {
+        const quarterDate = toQuarterStart(date);
+        await env.DB.prepare(`
+          INSERT INTO buffett_data (date, ratio)
+          VALUES (?, ?)
+          ON CONFLICT(date) DO UPDATE SET ratio = excluded.ratio
+        `).bind(quarterDate, Math.round(value * 100) / 100).run();
+
       } else {
         return new Response(`Unknown ticker: ${ticker}`, { status: 400 });
       }
@@ -109,7 +126,9 @@ export default {
       return new Response('Internal Error', { status: 500 });
     }
 
-    const storedDate = ticker === 'CAPE' ? toMonthStart(date) : date;
+    const storedDate = ticker === 'CAPE'    ? toMonthStart(date)
+                     : ticker === 'BUFFETT' ? toQuarterStart(date)
+                     : date;
     return new Response(JSON.stringify({ ok: true, date: storedDate, ticker, value }), {
       headers: { 'Content-Type': 'application/json' },
     });

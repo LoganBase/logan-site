@@ -694,60 +694,86 @@ function buildGlobalFlows(q) {
 }
 
 function buildSectors(q) {
-  const cyclicals  = ['XLI', 'XLK', 'XME', 'XLF'];
-  const defensives = ['XLU', 'XLRE', 'XLP'];
-  const spy = q['SPY'];
+  const SECTOR_META = {
+    XLI:  { name: 'Industrials',      type: 'cyclical'  },
+    XLK:  { name: 'Technology',       type: 'cyclical'  },
+    XME:  { name: 'Metals & Mining',  type: 'cyclical'  },
+    XLF:  { name: 'Financials',       type: 'cyclical'  },
+    XLU:  { name: 'Utilities',        type: 'defensive' },
+    XLRE: { name: 'Real Estate',      type: 'defensive' },
+    XLP:  { name: 'Consumer Staples', type: 'defensive' },
+  };
 
-  // 20-day return — consistent with Leadership card; falls back to daily changePct
+  const spy   = q['SPY'];
   const ret20 = s => s?.price20d ? (s.price / s.price20d - 1) * 100 : s?.changePct ?? null;
   const spy20 = ret20(spy);
 
-  let cycBull = 0, defBull = 0;
-  const sectRows = [];
-
-  cyclicals.forEach(sym => {
+  const allSectors = Object.entries(SECTOR_META).map(([sym, meta]) => {
     const d = q[sym];
-    if (!d || !spy) return;
+    if (!d || !spy) return null;
     const relPerf = (ret20(d) ?? 0) - (spy20 ?? 0);
-    const abv200  = d.price > d.sma200;
-    if (abv200) cycBull++;
-    sectRows.push({
-      label: 'Cyclical',
-      indicator: sym,
-      value: usd(d.price),
-      condition: abv200 ? `${pct(relPerf, 1)} vs SPY (20d) — Bull` : `${pct(relPerf, 1)} vs SPY (20d) — Watch`,
-      status: abv200 ? 'bullish' : 'neutral',
-    });
-  });
-  defensives.forEach(sym => {
-    const d = q[sym];
-    if (!d || !spy) return;
-    const relPerf = (ret20(d) ?? 0) - (spy20 ?? 0);
-    const abv200  = d.price > d.sma200;
-    if (abv200) defBull++;
-    sectRows.push({
-      label: 'Defensive',
-      indicator: sym,
-      value: usd(d.price),
-      condition: abv200 ? `${pct(relPerf, 1)} vs SPY (20d)` : `${pct(relPerf, 1)} vs SPY (20d)`,
-      status: abv200 && relPerf > 0 ? 'bearish' : 'neutral', // defensives leading = bearish signal
-    });
-  });
+    const abv200  = !!(d.price && d.sma200 && d.price > d.sma200);
+    let condition, status;
+    if (meta.type === 'cyclical') {
+      if (abv200 && relPerf > 0) {
+        condition = `Cyclical Leader (${pct(relPerf, 1)} vs SPY) — Overweight`;
+        status    = 'bullish';
+      } else if (abv200) {
+        condition = `In Trend, Lagging (${pct(relPerf, 1)} vs SPY) — Hold`;
+        status    = 'neutral';
+      } else {
+        condition = `Trend Broken (${pct(relPerf, 1)} vs SPY) — Underweight`;
+        status    = 'bearish';
+      }
+    } else {
+      if (abv200 && relPerf > 0) {
+        condition = `Safe Haven Bid (${pct(relPerf, 1)} vs SPY) — Risk-Off Signal`;
+        status    = 'bearish';
+      } else if (abv200) {
+        condition = `In Trend, Lagging (${pct(relPerf, 1)} vs SPY) — Neutral`;
+        status    = 'neutral';
+      } else {
+        condition = `No Safe Haven Bid (${pct(relPerf, 1)} vs SPY) — Risk-On`;
+        status    = 'bullish';
+      }
+    }
+    return { sym, ...meta, abv200, relPerf, condition, status, value: usd(d.price) };
+  }).filter(Boolean);
 
+  const cycRows = allSectors.filter(r => r.type === 'cyclical');
+  const defRows = allSectors.filter(r => r.type === 'defensive');
+  const cycBull = cycRows.filter(r => r.abv200).length;
+  const defBull = defRows.filter(r => r.abv200).length;
   const offenseLeading = cycBull > defBull;
+
+  // Curate: top 2 cyclicals (leaders) + worst cyclical (canary) + strongest defensive signal
+  const sortedCyc = [...cycRows].sort((a, b) => b.relPerf - a.relPerf);
+  const sortedDef = [...defRows].sort((a, b) => b.relPerf - a.relPerf);
+  const seen = new Set();
+  const curated = [sortedCyc[0], sortedCyc[1], sortedCyc[sortedCyc.length - 1], sortedDef[0]]
+    .filter(r => r && !seen.has(r.sym) && seen.add(r.sym));
+
   const rows = [
     {
       label: 'Rotation Mode',
       indicator: 'Cyclicals vs Defensives (vs 200d SMA)',
-      value: `${cycBull}/${cyclicals.length} cyc bull`,
+      value: `${cycBull}/${cycRows.length} cyc`,
       condition: offenseLeading ? 'Offense Leading — Risk-On' : 'Defense Leading — Risk-Off',
       status: offenseLeading ? 'bullish' : 'bearish',
     },
-    ...sectRows.slice(0, 4),
+    ...curated.map(r => ({
+      label: r.name,
+      indicator: r.sym,
+      value: r.value,
+      condition: r.condition,
+      status: r.status,
+    })),
   ];
+
   const sectNote = offenseLeading
-    ? `${cycBull}/${cyclicals.length} cyclicals above 200d — offense leading; growth-oriented positioning supported.`
-    : `Defensives leading cyclicals (${defBull}/${defensives.length} defensive above 200d) — rotation to safety underway; reduce cyclical exposure.`;
+    ? `${cycBull}/${cycRows.length} cyclicals above 200d — offense leading; growth-oriented positioning supported.`
+    : `Defensives leading cyclicals (${defBull}/${defRows.length} defensive above 200d) — rotation to safety underway; reduce cyclical exposure.`;
+
   return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: offenseLeading ? 'bullish' : 'neutral', rows, hideIndicator: true, note: sectNote };
 }
 

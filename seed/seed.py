@@ -34,28 +34,7 @@ CF_API_TOKEN  = os.environ.get('CF_API_TOKEN',  '').strip()
 CF_D1_DB_ID   = os.environ.get('CF_D1_DB_ID',   '').strip()
 
 SYMBOLS = [
-    # Regime
-    'SPY',
-    # Leadership
-    'QQQ', 'RSP', 'QQEW', 'IVW', 'IVE',
-    # Breadth proxy
-    'RSPD',
-    # Yields
-    '^TYX', '^TNX', 'TLT', 'UUP',
-    # Credit
-    'HYG', 'LQD', 'JNK',
-    # Global Flows
-    '^GSPTSE', 'SPDW', 'EWT', 'EWY', 'AIA', 'EZU', 'VEU', 'EEM',
-    '^N225', 'EWW', 'EWZ', 'ILF',
-    # Sectors
-    'XLI', 'XLK', 'XLF', 'XLE', 'XLU', 'XLRE', 'XLP',
-    'XLV', 'XLC', 'XLY', 'XLB',
-    'XME', 'GDX', 'COPX', 'KBE',
-    # Commodities
-    'USCI', 'HG=F', 'GLD', 'IXC', 'XES', 'DBA', 'SLX',
-    # Equities
-    'GEV', 'CAT', 'GRID', 'SU', 'TVE.TO', 'RIO', 'CCO.TO',
-    'AEM', 'LRCX', 'SITM', 'SOXX', 'ZEB.TO',
+    # Add symbols to seed here — already seeded symbols are safe to skip
 ]
 
 # ── D1 REST API ───────────────────────────────────────────────────────────────
