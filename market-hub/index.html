@@ -270,14 +270,14 @@ body {
 .rstat-sub { font-size: 10px; color: var(--muted); margin-top: 5px; }
 
 .range-selector { display: flex; gap: 4px; margin-bottom: 10px; flex-wrap: wrap; }
-.range-btn, .uup-range-btn, .diag-range-btn, .sym-btn, .sbr-btn {
+.range-btn, .uup-range-btn, .diag-range-btn, .sym-btn, .sbr-btn, .gf-btn {
   background: var(--surface); border: 1px solid var(--border);
   color: var(--muted); padding: 4px 10px; border-radius: 4px;
   font-size: 10px; font-weight: 600; cursor: pointer;
   font-family: inherit; letter-spacing: .05em; transition: all .15s;
 }
-.range-btn:hover, .uup-range-btn:hover, .diag-range-btn:hover, .sym-btn:hover, .sbr-btn:hover { background: var(--border); color: var(--text); }
-.range-btn.active, .uup-range-btn.active, .diag-range-btn.active, .sym-btn.active, .sbr-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.range-btn:hover, .uup-range-btn:hover, .diag-range-btn:hover, .sym-btn:hover, .sbr-btn:hover, .gf-btn:hover { background: var(--border); color: var(--text); }
+.range-btn.active, .uup-range-btn.active, .diag-range-btn.active, .sym-btn.active, .sbr-btn.active, .gf-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 .chart-wrap { position: relative; height: 210px; }
 .rsi-wrap   { position: relative; height: 90px; margin-top: 6px; }
@@ -493,6 +493,9 @@ let creditRange      = '5y';
 let creditSymbol     = 'HYG';
 let creditStressChart = null;
 let creditStressRange = '2y';
+let gfRegionalChart   = null;
+let gfCountriesChart  = null;
+let gfRange           = '5y';
 let currentDeepDive = {};
 
 // ── STATUS HELPERS ────────────────────────────────────────────────────────────
@@ -1101,8 +1104,22 @@ function openModal(card) {
         </tr>`
       ).join('')
     ).join('');
+    const gfRanges = ['1y','3y','5y','10y'];
     extra = `
-      <div class="modal-section-title" style="margin-top:20px">Country Breakdown — vs 200d SMA</div>
+      <div class="modal-section-title" style="margin-top:20px">Regional Performance — Normalized (100 = period start)</div>
+      <div class="range-selector">
+        ${gfRanges.map(r => `<button class="gf-btn${r==='5y'?' active':''}" onclick="loadGFCharts('${r}')">${r.toUpperCase()}</button>`).join('')}
+      </div>
+      <div class="chart-wrap" style="height:40vh;min-height:220px;position:relative">
+        <canvas id="gfRegionalCanvas"></canvas>
+        <div id="gfRegionalLoading" class="chart-loading" style="display:flex">Loading…</div>
+      </div>
+      <div class="modal-section-title" style="margin-top:24px">Country Performance — Normalized (100 = period start)</div>
+      <div class="chart-wrap" style="height:40vh;min-height:220px;position:relative">
+        <canvas id="gfCountriesCanvas"></canvas>
+        <div id="gfCountriesLoading" class="chart-loading" style="display:flex">Loading…</div>
+      </div>
+      <div class="modal-section-title" style="margin-top:24px">Country Breakdown — vs 200d SMA</div>
       <table class="modal-table">
         <thead><tr><th>Country</th><th>ETF</th><th>Price</th><th>vs 200d</th><th>Signal</th></tr></thead>
         <tbody>${detRows}</tbody>
@@ -1124,6 +1141,7 @@ function openModal(card) {
   document.getElementById('modal').classList.add('open');
   document.body.style.overflow = 'hidden';
 
+  if (card.id === 'globalflows') loadGFCharts('5y');
   if (card.id === 'regime')      loadRegimeChart('5y');
   if (card.id === 'leadership')  loadLeadershipChart('5y');
   if (card.id === 'breadth')     { loadBreadthChart('5y'); loadSectorBreadthChart('5y'); }
@@ -1147,6 +1165,8 @@ function closeModal(e) {
   if (commoditiesChart) { commoditiesChart.destroy(); commoditiesChart = null; }
   if (creditChart)       { creditChart.destroy();       creditChart       = null; }
   if (creditStressChart) { creditStressChart.destroy(); creditStressChart = null; }
+  if (gfRegionalChart)  { gfRegionalChart.destroy();  gfRegionalChart  = null; }
+  if (gfCountriesChart) { gfCountriesChart.destroy(); gfCountriesChart = null; }
   if (valuationsChart)  { valuationsChart.destroy();  valuationsChart  = null; }
   if (buffettChart)     { buffettChart.destroy();     buffettChart     = null; }
   if (peChart)          { peChart.destroy();          peChart          = null; }
@@ -2279,6 +2299,122 @@ async function loadUUPChart(range) {
     });
   } catch (err) {
     if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── GLOBAL FLOWS CHARTS ───────────────────────────────────────────────────────
+const GF_REGIONAL_COLORS = {
+  'ACWI':'#94a3b8', 'SPY':'#3b82f6', '^GSPTSE':'#60a5fa',
+  'FEZ':'#f59e0b',  'AIA':'#10b981', 'ILF':'#f97316', 'EEM':'#a78bfa',
+};
+const GF_COUNTRY_COLORS = {
+  'SPY':'#3b82f6',  '^GSPTSE':'#93c5fd',
+  'EWU':'#f59e0b',  'EWG':'#fbbf24', 'EWQ':'#d97706', 'EWL':'#a16207',
+  'EWN':'#f97316',  'EWI':'#84cc16', 'EWP':'#ec4899',
+  'EWJ':'#10b981',  'MCHI':'#ef4444','EWT':'#34d399', 'EWY':'#6ee7b7',
+  'INDA':'#22d3ee', 'EWA':'#a3e635', 'EWH':'#06b6d4',
+  'EWZ':'#fb923c',  'EWW':'#f87171', 'ECH':'#fca5a5',
+};
+
+const GF_CHART_OPTIONS = (dates, labelFn) => ({
+  responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 20, padding: 10 } },
+    tooltip: {
+      backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
+      titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
+      callbacks: {
+        title: ctx => dates[ctx[0].dataIndex],
+        label: ctx => { const v = ctx.parsed.y; return v != null ? ` ${ctx.dataset.label}: ${v.toFixed(1)}` : null; },
+      },
+    },
+  },
+  scales: {
+    x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
+    y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => v.toFixed(0) }, grid: { color: 'rgba(30,45,61,.4)' } },
+  },
+});
+
+async function loadGFCharts(range) {
+  gfRange = range;
+  document.querySelectorAll('.gf-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.toLowerCase() === range);
+  });
+
+  ['gfRegionalLoading','gfCountriesLoading'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display = 'flex'; el.textContent = 'Loading…'; }
+  });
+  ['gfRegionalCanvas','gfCountriesCanvas'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+
+  try {
+    await loadChartJS();
+    const res = await fetch(`/api/global-flows-history?range=${range}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+    const { dates, regional, countries } = data;
+
+    // Chart 1 — Regional
+    if (gfRegionalChart) { gfRegionalChart.destroy(); gfRegionalChart = null; }
+    const rCanvas = document.getElementById('gfRegionalCanvas');
+    const rLoad   = document.getElementById('gfRegionalLoading');
+    if (rCanvas) {
+      rCanvas.style.display = 'block';
+      if (rLoad) rLoad.style.display = 'none';
+      gfRegionalChart = new Chart(rCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: regional.map(s => ({
+            label: s.label,
+            data: s.prices,
+            borderColor: GF_REGIONAL_COLORS[s.sym] || '#94a3b8',
+            borderWidth: s.sym === 'ACWI' ? 2 : 1.5,
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+            spanGaps: true,
+          })),
+        },
+        options: GF_CHART_OPTIONS(dates),
+      });
+    }
+
+    // Chart 2 — Countries
+    if (gfCountriesChart) { gfCountriesChart.destroy(); gfCountriesChart = null; }
+    const cCanvas = document.getElementById('gfCountriesCanvas');
+    const cLoad   = document.getElementById('gfCountriesLoading');
+    if (cCanvas) {
+      cCanvas.style.display = 'block';
+      if (cLoad) cLoad.style.display = 'none';
+      gfCountriesChart = new Chart(cCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: dates,
+          datasets: countries.map(s => ({
+            label: s.label,
+            data: s.prices,
+            borderColor: GF_COUNTRY_COLORS[s.sym] || '#94a3b8',
+            borderWidth: 1.5,
+            pointRadius: 0,
+            fill: false,
+            tension: 0,
+            spanGaps: true,
+          })),
+        },
+        options: GF_CHART_OPTIONS(dates),
+      });
+    }
+  } catch (err) {
+    ['gfRegionalLoading','gfCountriesLoading'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+    });
   }
 }
 
