@@ -754,29 +754,20 @@ function buildSectors(q) {
   const defBull = defRows.filter(r => r.abv200).length;
   const offenseLeading = cycBull > defBull;
 
-  // Curate: top 3 leaders + bottom 3 laggards across all 11 sectors (deduped)
+  // Top 3 leaders + bottom 3 laggards, best→worst order, no duplicates
   const sortedAll = [...allSectors].sort((a, b) => b.relPerf - a.relPerf);
-  const top3  = sortedAll.slice(0, 3);
-  const bot3  = sortedAll.slice(-3).reverse();
-  const seen  = new Set();
+  const top3   = sortedAll.slice(0, 3);
+  const bot3   = sortedAll.slice(-3);
+  const seen   = new Set();
   const curated = [...top3, ...bot3].filter(r => r && !seen.has(r.sym) && seen.add(r.sym));
 
-  const rows = [
-    {
-      label: 'Rotation Mode',
-      indicator: 'Cyclicals vs Defensives (vs 200d SMA)',
-      value: `${cycBull}/${cycRows.length} cyc`,
-      condition: offenseLeading ? 'Offense Leading — Risk-On' : 'Defense Leading — Risk-Off',
-      status: offenseLeading ? 'bullish' : 'bearish',
-    },
-    ...curated.map(r => ({
-      label: r.name,
-      indicator: r.sym,
-      value: r.value,
-      condition: r.condition,
-      status: r.status,
-    })),
-  ];
+  const rows = curated.map(r => ({
+    label: r.name,
+    indicator: r.sym,
+    value: r.value,
+    condition: r.condition,
+    status: r.status,
+  }));
 
   const sectNote = offenseLeading
     ? `${cycBull}/${cycRows.length} cyclicals above 200d — offense leading; growth-oriented positioning supported.`
