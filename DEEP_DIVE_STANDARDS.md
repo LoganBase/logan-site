@@ -10,23 +10,25 @@ All multi-line charts must use **solid filled square** legend markers — no out
 
 | Property | Value | Reason |
 |---|---|---|
-| `fillStyle` | `ds.borderColor` | Square fills with the line color |
-| `strokeStyle` | `ds.borderColor` | Matches fill — no visible border |
-| `lineWidth` | `0` | Suppresses the outline ring around the square |
+| `backgroundColor` | same as `borderColor` | Chart.js uses `backgroundColor` to fill the legend box |
 | `boxWidth` | `12` | Compact; consistent across all charts |
 
-Implementation — add to every multi-dataset chart's `plugins.legend.labels`:
+Implementation — set `backgroundColor` on **every dataset** to match its `borderColor`:
 
 ```js
-generateLabels: chart => chart.data.datasets.map((ds, i) => ({
-  text: ds.label,
-  fillStyle: ds.borderColor,
-  strokeStyle: ds.borderColor,
-  lineWidth: 0,
-  hidden: !chart.isDatasetVisible(i),
-  datasetIndex: i,
-})),
+datasets: items.map(s => ({
+  borderColor: COLORS[s.sym],
+  backgroundColor: COLORS[s.sym],   // ← makes the legend box solid-filled
+  ...
+}))
 ```
+
+And in chart options:
+```js
+legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 10 } }
+```
+
+Do **not** use a custom `generateLabels` for legend styling — it is fragile (called before datasets are populated on first render) and harder to maintain.
 
 ---
 

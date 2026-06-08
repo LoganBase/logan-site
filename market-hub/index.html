@@ -2327,12 +2327,7 @@ const GF_CHART_OPTIONS = (dates, labelFn) => ({
   responsive: true, maintainAspectRatio: false, animation: { duration: 250 },
   interaction: { mode: 'index', intersect: false },
   plugins: {
-    legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 10,
-      generateLabels: chart => chart.data.datasets.map((ds, i) => ({
-        text: ds.label, fillStyle: ds.borderColor, strokeStyle: ds.borderColor,
-        lineWidth: 0, hidden: !chart.isDatasetVisible(i), datasetIndex: i,
-      })),
-    }},
+    legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 10 } },
     tooltip: {
       backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
       titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
@@ -2386,6 +2381,7 @@ async function loadGFCharts(range) {
             label: s.label,
             data: s.prices,
             borderColor: GF_REGIONAL_COLORS[s.sym] || '#94a3b8',
+            backgroundColor: GF_REGIONAL_COLORS[s.sym] || '#94a3b8',
             borderWidth: s.sym === 'ACWI' ? 2 : 1.5,
             pointRadius: 0,
             fill: false,
@@ -2412,6 +2408,7 @@ async function loadGFCharts(range) {
             label: s.label,
             data: s.prices,
             borderColor: GF_COUNTRY_COLORS[s.sym] || '#94a3b8',
+            backgroundColor: GF_COUNTRY_COLORS[s.sym] || '#94a3b8',
             borderWidth: 1.5,
             pointRadius: 0,
             fill: false,
@@ -2574,6 +2571,7 @@ async function loadSectorsHistoryChart(range) {
           label: s.label,
           data: s.prices,
           borderColor: SECT_COLORS[s.sym] || '#64748b',
+          backgroundColor: SECT_COLORS[s.sym] || '#64748b',
           borderWidth: s.type === 'cyclical' ? 1.5 : 1.5,
           borderDash: s.type === 'defensive' ? [4, 3] : [],
           pointRadius: 0,
@@ -2589,17 +2587,7 @@ async function loadSectorsHistoryChart(range) {
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
-            labels: {
-              color: '#94a3b8', font: { size: 10 }, boxWidth: 20, padding: 10,
-              generateLabels: chart => chart.data.datasets.map((ds, i) => ({
-                text: ds.label,
-                fillStyle: ds.borderColor,
-                strokeStyle: ds.borderColor,
-                lineWidth: 0,
-                hidden: !chart.isDatasetVisible(i),
-                datasetIndex: i,
-              })),
-            },
+            labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, padding: 10 },
           },
           tooltip: {
             backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
