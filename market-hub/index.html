@@ -1079,14 +1079,22 @@ function openModal(card) {
   }
 
   if (card.id === 'globalflows' && card.details) {
+    const FLAG = {
+      'SPY':'us','^GSPTSE':'ca','EWU':'gb','EWG':'de','EWQ':'fr','EWL':'ch',
+      'EWN':'nl','EWI':'it','EWP':'es','EWJ':'jp','MCHI':'cn','EWT':'tw',
+      'EWY':'kr','INDA':'in','EWA':'au','EWH':'hk','EWZ':'br','EWW':'mx','ECH':'cl',
+    };
+    const flagImg = sym => FLAG[sym]
+      ? `<img src="/market-hub/assets/flags/${FLAG[sym]}.svg" style="width:18px;height:13px;border-radius:2px;margin-right:6px;vertical-align:middle">`
+      : '';
     const grouped = {};
     card.details.forEach(d => { (grouped[d.group] = grouped[d.group] || []).push(d); });
     const detRows = Object.entries(grouped).map(([grp, items]) =>
       `<tr><td colspan="5" class="mt-group-header">${grp}</td></tr>` +
       items.map(d =>
         `<tr>
-          <td class="mt-label">${d.region}</td>
-          <td class="mt-indicator">${d.label} (${d.sym})</td>
+          <td class="mt-label">${flagImg(d.sym)}${d.label}</td>
+          <td class="mt-indicator">${d.sym}</td>
           <td class="mt-value">${d.value}</td>
           <td class="mt-condition">${d.vs200} vs 200d</td>
           <td>${jewel(d.above ? 'bullish' : 'bearish')}</td>
@@ -1096,7 +1104,7 @@ function openModal(card) {
     extra = `
       <div class="modal-section-title" style="margin-top:20px">Country Breakdown — vs 200d SMA</div>
       <table class="modal-table">
-        <thead><tr><th>Country</th><th>Market</th><th>Price</th><th>vs 200d</th><th>Signal</th></tr></thead>
+        <thead><tr><th>Country</th><th>ETF</th><th>Price</th><th>vs 200d</th><th>Signal</th></tr></thead>
         <tbody>${detRows}</tbody>
       </table>`;
   }
