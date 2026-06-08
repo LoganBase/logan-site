@@ -242,6 +242,7 @@ body {
   vertical-align: middle; font-size: 12px;
 }
 .modal-table tr:last-child td { border-bottom: none; }
+.modal-table .mt-group-header { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim); background: rgba(255,255,255,0.03); padding: 6px 10px; }
 .modal-table .mt-label { font-weight: 600; color: var(--text); }
 .modal-table .mt-indicator { color: var(--dim); font-size: 11px; }
 .modal-table .mt-value { font-family: var(--font-mono); font-weight: 600; color: var(--text); white-space: nowrap; }
@@ -1078,19 +1079,24 @@ function openModal(card) {
   }
 
   if (card.id === 'globalflows' && card.details) {
-    const detRows = card.details.map(d =>
-      `<tr>
-        <td class="mt-label">${d.region}</td>
-        <td class="mt-indicator">${d.label} (${d.sym})</td>
-        <td class="mt-value">${d.value}</td>
-        <td class="mt-condition">${d.vs200} vs 200d</td>
-        <td>${jewel(d.above ? 'bullish' : 'bearish')}</td>
-      </tr>`
+    const grouped = {};
+    card.details.forEach(d => { (grouped[d.group] = grouped[d.group] || []).push(d); });
+    const detRows = Object.entries(grouped).map(([grp, items]) =>
+      `<tr><td colspan="5" class="mt-group-header">${grp}</td></tr>` +
+      items.map(d =>
+        `<tr>
+          <td class="mt-label">${d.region}</td>
+          <td class="mt-indicator">${d.label} (${d.sym})</td>
+          <td class="mt-value">${d.value}</td>
+          <td class="mt-condition">${d.vs200} vs 200d</td>
+          <td>${jewel(d.above ? 'bullish' : 'bearish')}</td>
+        </tr>`
+      ).join('')
     ).join('');
     extra = `
-      <div class="modal-section-title" style="margin-top:20px">All Markets — vs 200d SMA</div>
+      <div class="modal-section-title" style="margin-top:20px">Country Breakdown — vs 200d SMA</div>
       <table class="modal-table">
-        <thead><tr><th>Region</th><th>Market</th><th>Price</th><th>vs 200d</th><th>Signal</th></tr></thead>
+        <thead><tr><th>Country</th><th>Market</th><th>Price</th><th>vs 200d</th><th>Signal</th></tr></thead>
         <tbody>${detRows}</tbody>
       </table>`;
   }

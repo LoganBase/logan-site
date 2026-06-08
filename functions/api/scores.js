@@ -22,8 +22,10 @@ const ALL_SYMBOLS = [
   'RSPD',                                          // Breadth proxy
   '^TYX','^TNX','^IRX','TLT','UUP',               // Yield
   'HYG','LQD','EMB',                               // Credit
-  '^GSPTSE','SPDW','EWT','EWY','AIA','EZU',       // Global Flows
-  'VEU','EEM','EWJ','EWW','EWZ','ILF',
+  'ACWI','FEZ','AIA','ILF','EEM',                  // Global Flows — regional
+  '^GSPTSE','EWU','EWG','EWQ','EWL','EWN','EWI','EWP',  // Global Flows — Europe countries
+  'EWJ','MCHI','EWT','EWY','INDA','EWA','EWH',   // Global Flows — Asia countries
+  'EWW','EWZ','ECH',                              // Global Flows — LatAm countries
   'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors (7 existing)
   'XLV','XLC','XLY','XLB',                        // Sectors (4 added for breadth)
   'XME','GDX','COPX','KBE',
@@ -613,95 +615,81 @@ function buildYield(q) {
 }
 
 function buildGlobalFlows(q) {
-  const globalSyms = [
-    { sym: 'SPY',      label: 'S&P 500',       region: '🇺🇸 USA' },
-    { sym: '^GSPTSE',  label: 'S&P/TSX',        region: '🇨🇦 Canada' },
-    { sym: 'SPDW',     label: 'Dev. ex-US',     region: '🌍 Developed' },
-    { sym: 'EZU',      label: 'Eurozone',        region: '🇪🇺 Europe' },
-    { sym: 'EWJ',      label: 'Japan',            region: '🇯🇵 Japan' },
-    { sym: 'EWT',      label: 'Taiwan',          region: '🇹🇼 Taiwan' },
-    { sym: 'EWY',      label: 'S. Korea',        region: '🇰🇷 Korea' },
-    { sym: 'AIA',      label: 'Asia 50',         region: '🌏 Asia' },
-    { sym: 'VEU',      label: 'All World ex-US', region: '🌐 Global' },
-    { sym: 'EEM',      label: 'Emerging Mkts',   region: '🌏 EM' },
-    { sym: 'EWW',      label: 'Mexico',          region: '🇲🇽 Mexico' },
-    { sym: 'EWZ',      label: 'Brazil',          region: '🇧🇷 Brazil' },
-    { sym: 'ILF',      label: 'Latin America',   region: '🌎 LatAm' },
+  // ── Card-level regional ETFs (no flag emojis) ─────────────────────────────
+  const cardSyms = [
+    { sym: 'ACWI',    label: 'MSCI ACWI',      region: 'Global'   },
+    { sym: 'SPY',     label: 'S&P 500',         region: 'USA'      },
+    { sym: '^GSPTSE', label: 'S&P/TSX',         region: 'Canada'   },
+    { sym: 'FEZ',     label: 'Euro STOXX 50',   region: 'Europe'   },
+    { sym: 'AIA',     label: 'Asia 50',         region: 'Asia'     },
+    { sym: 'ILF',     label: 'LatAm 40',        region: 'LatAm'    },
+    { sym: 'EEM',     label: 'Emerging Mkts',   region: 'Emerging' },
   ];
+
+  // ── Country deep-dive (flag emojis, geographic order) ────────────────────
+  const countrySyms = [
+    { sym: 'SPY',     label: 'S&P 500',     region: '🇺🇸 USA',         group: 'North America' },
+    { sym: '^GSPTSE', label: 'S&P/TSX',     region: '🇨🇦 Canada',      group: 'North America' },
+    { sym: 'EWU',     label: 'UK',          region: '🇬🇧 UK',          group: 'Europe'        },
+    { sym: 'EWG',     label: 'Germany',     region: '🇩🇪 Germany',     group: 'Europe'        },
+    { sym: 'EWQ',     label: 'France',      region: '🇫🇷 France',      group: 'Europe'        },
+    { sym: 'EWL',     label: 'Switzerland', region: '🇨🇭 Switzerland', group: 'Europe'        },
+    { sym: 'EWN',     label: 'Netherlands', region: '🇳🇱 Netherlands', group: 'Europe'        },
+    { sym: 'EWI',     label: 'Italy',       region: '🇮🇹 Italy',       group: 'Europe'        },
+    { sym: 'EWP',     label: 'Spain',       region: '🇪🇸 Spain',       group: 'Europe'        },
+    { sym: 'EWJ',     label: 'Japan',       region: '🇯🇵 Japan',       group: 'Asia Pacific'  },
+    { sym: 'MCHI',    label: 'China',       region: '🇨🇳 China',       group: 'Asia Pacific'  },
+    { sym: 'EWT',     label: 'Taiwan',      region: '🇹🇼 Taiwan',      group: 'Asia Pacific'  },
+    { sym: 'EWY',     label: 'S. Korea',    region: '🇰🇷 S. Korea',    group: 'Asia Pacific'  },
+    { sym: 'INDA',    label: 'India',       region: '🇮🇳 India',       group: 'Asia Pacific'  },
+    { sym: 'EWA',     label: 'Australia',   region: '🇦🇺 Australia',   group: 'Asia Pacific'  },
+    { sym: 'EWH',     label: 'Hong Kong',   region: '🇭🇰 Hong Kong',   group: 'Asia Pacific'  },
+    { sym: 'EWZ',     label: 'Brazil',      region: '🇧🇷 Brazil',      group: 'Latin America' },
+    { sym: 'EWW',     label: 'Mexico',      region: '🇲🇽 Mexico',      group: 'Latin America' },
+    { sym: 'ECH',     label: 'Chile',       region: '🇨🇱 Chile',       group: 'Latin America' },
+  ];
+
+  // legacy alias so the rest of the function compiles unchanged during transition
+  const globalSyms = [];
+  // ── Build card rows ────────────────────────────────────────────────────────
   let bull = 0;
-  const details = globalSyms.map(({ sym, label, region }) => {
+  const cardDetails = cardSyms.map(({ sym, label, region }) => {
     const d = q[sym];
-    const above = d && d.price && d.sma200 && d.price > d.sma200;
+    const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
     if (above) bull++;
-    const v200 = d?.vs200;
-    return { region, label, sym, value: d ? usd(d.price) : '—', vs200: v200 != null ? pct(v200) : '—', vs200Raw: v200 ?? -Infinity, above: !!above };
-  });
-  const total = globalSyms.length;
-  const gStatus = bull >= 10 ? 'bullish' : bull >= 7 ? 'neutral' : 'bearish';
-
-  // Curate 4 rows: USA anchor + top 2 ex-US by vs200 + weakest market
-  const exUS   = details.filter(d => d.sym !== 'SPY').sort((a, b) => b.vs200Raw - a.vs200Raw);
-  const featured = [
-    details.find(d => d.sym === 'SPY'),
-    exUS[0],
-    exUS[1],
-    exUS[exUS.length - 1],
-  ].filter(Boolean);
-  const seen = new Set();
-  const curated = featured.filter(d => !seen.has(d.sym) && seen.add(d.sym));
-
-  const [usaRow, ...exUsRows] = curated;
-  const topRows     = exUsRows.slice(0, exUsRows.length - 1);
-  const weakestRow  = exUsRows.length > 0 ? exUsRows[exUsRows.length - 1] : null;
-
-  const rows = [
-    {
-      label: 'Global Breadth',
-      indicator: `${bull}/${total} markets above 200d SMA`,
-      value: `${bull}/${total}`,
-      condition: bull >= 10 ? 'Synchronized Expansion — Broad Risk-On'
-               : bull >= 7  ? 'Partial Expansion — Favour Strongest Regions'
-               :               'Global Divergence — Reduce International Exposure',
-      status: gStatus,
-    },
-  ];
-
-  if (usaRow) rows.push({
-    label: usaRow.region,
-    indicator: `${usaRow.label} (${usaRow.sym})`,
-    value: usaRow.value,
-    condition: usaRow.above
-      ? `Trend Intact (${usaRow.vs200}) — Maintain Core Exposure`
-      : `Trend Broken (${usaRow.vs200}) — Reduce US Allocation`,
-    status: usaRow.above ? 'bullish' : 'bearish',
+    const vs200 = d?.vs200;
+    return { sym, label, region, above, vs200Str: vs200 != null ? pct(vs200) : '—', value: d ? usd(d.price) : '—' };
   });
 
-  topRows.forEach(d => rows.push({
-    label: d.region,
-    indicator: `${d.label} (${d.sym})`,
-    value: d.value,
-    condition: d.above
-      ? `Leading ex-US (${d.vs200}) — Add Exposure`
-      : `Lagging ex-US (${d.vs200}) — Underweight`,
-    status: d.above ? 'bullish' : 'bearish',
-  }));
+  const total = cardSyms.length;
+  const gStatus = bull >= 6 ? 'bullish' : bull >= 4 ? 'neutral' : 'bearish';
 
-  if (weakestRow) rows.push({
-    label: weakestRow.region,
-    indicator: `${weakestRow.label} (${weakestRow.sym})`,
-    value: weakestRow.value,
-    condition: weakestRow.above
-      ? `Weakest Market (${weakestRow.vs200}) — Monitor`
-      : `Weakest Market (${weakestRow.vs200}) — Avoid`,
-    status: weakestRow.above ? 'neutral' : 'bearish',
+  const rows = cardDetails.map(({ sym, label, region, above, vs200Str, value }) => {
+    const condition = sym === 'ACWI'
+      ? (above ? `Bull Market Intact (${vs200Str}) — Stay Invested`  : `Bear Market Signal (${vs200Str}) — Raise Cash`)
+      : sym === 'EEM'
+      ? (above ? `EM Risk-On (${vs200Str}) — Add EM Exposure`        : `EM Risk-Off (${vs200Str}) — Reduce EM`)
+      : (above ? `Uptrend (${vs200Str}) — Overweight`                : `Downtrend (${vs200Str}) — Underweight`);
+    return { label: region, indicator: `${label} (${sym})`, value, condition, status: above ? 'bullish' : 'bearish' };
   });
-  const weakest = exUS[exUS.length - 1];
-  const flowNote = (bull >= 10
-    ? `${bull}/${total} markets above 200d — synchronized global expansion; broad risk-on.`
-    : bull >= 7
-    ? `${bull}/${total} markets above 200d — partial expansion; favour the strongest markets.`
-    : `${bull}/${total} markets above 200d — broad global weakness; defensive positioning warranted.`)
-    + (weakest ? ` Weakest market: ${weakest.label} (${weakest.vs200} vs 200d).` : '');
+
+  // ── Country deep-dive details ──────────────────────────────────────────────
+  const details = countrySyms.map(({ sym, label, region, group }) => {
+    const d = q[sym];
+    const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
+    const vs200 = d?.vs200;
+    return { group, region, label, sym, value: d ? usd(d.price) : '—', vs200: vs200 != null ? pct(vs200) : '—', above };
+  });
+
+  // ── Note ──────────────────────────────────────────────────────────────────
+  const acwi = cardDetails.find(d => d.sym === 'ACWI');
+  const flowNote = (bull >= 6
+    ? `${bull}/${total} regional indexes above 200d — synchronized global expansion; broad risk-on.`
+    : bull >= 4
+    ? `${bull}/${total} regional indexes above 200d — partial expansion; favour the strongest regions.`
+    : `${bull}/${total} regional indexes above 200d — broad global weakness; defensive positioning warranted.`)
+    + (acwi ? ` ACWI ${acwi.above ? 'above' : 'below'} 200d (${acwi.vs200Str}).` : '');
+
   return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details, hideIndicator: true, note: flowNote };
 }
 
