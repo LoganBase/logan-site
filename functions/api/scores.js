@@ -754,12 +754,12 @@ function buildSectors(q) {
   const defBull = defRows.filter(r => r.abv200).length;
   const offenseLeading = cycBull > defBull;
 
-  // Curate: top 3 cyclicals (leaders) + worst cyclical (canary) + top defensive signal
-  const sortedCyc = [...cycRows].sort((a, b) => b.relPerf - a.relPerf);
-  const sortedDef = [...defRows].sort((a, b) => b.relPerf - a.relPerf);
-  const seen = new Set();
-  const curated = [sortedCyc[0], sortedCyc[1], sortedCyc[2], sortedCyc[sortedCyc.length - 1], sortedDef[0]]
-    .filter(r => r && !seen.has(r.sym) && seen.add(r.sym));
+  // Curate: top 3 leaders + bottom 3 laggards across all 11 sectors (deduped)
+  const sortedAll = [...allSectors].sort((a, b) => b.relPerf - a.relPerf);
+  const top3  = sortedAll.slice(0, 3);
+  const bot3  = sortedAll.slice(-3).reverse();
+  const seen  = new Set();
+  const curated = [...top3, ...bot3].filter(r => r && !seen.has(r.sym) && seen.add(r.sym));
 
   const rows = [
     {
