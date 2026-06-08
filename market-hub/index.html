@@ -1682,12 +1682,9 @@ async function loadBreadthChart(range) {
             grid:  { color: 'rgba(30,45,61,.4)' },
           },
           y: {
-            min: 0,
-            max: 100,
             ticks: {
               color: '#64748b',
               font: { size: 10 },
-              stepSize: 20,
               callback: v => v + '%',
             },
             grid: { color: 'rgba(30,45,61,.4)' },
@@ -1795,8 +1792,6 @@ async function loadSectorBreadthChart(range) {
             grid:  { color: 'rgba(30,45,61,.4)' },
           },
           y: {
-            min: 0,
-            max: 11,
             ticks: {
               color: '#64748b',
               font: { size: 10 },
