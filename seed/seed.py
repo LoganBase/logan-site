@@ -34,7 +34,7 @@ CF_API_TOKEN  = os.environ.get('CF_API_TOKEN',  '').strip()
 CF_D1_DB_ID   = os.environ.get('CF_D1_DB_ID',   '').strip()
 
 SYMBOLS = [
-    # Add symbols to seed here — already seeded symbols are safe to skip
+    'SLV',
 ]
 
 # ── D1 REST API ───────────────────────────────────────────────────────────────

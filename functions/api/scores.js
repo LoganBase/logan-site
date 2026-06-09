@@ -29,7 +29,7 @@ const ALL_SYMBOLS = [
   'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors (7 existing)
   'XLV','XLC','XLY','XLB',                        // Sectors (4 added for breadth)
   'XME','GDX','COPX','KBE',
-  'USCI','HG=F','GLD','IXC','XES','DBA','SLX',   // Commodities
+  'USCI','HG=F','GLD','SLV','IXC','DBA','SLX',   // Commodities
   'GEV','CAT','GRID','SU','TVE.TO',               // Equities
   'RIO','CCO.TO','AEM','LRCX','SITM','SOXX','ZEB.TO',
 ];
@@ -790,6 +790,7 @@ function buildCommodities(q) {
     { sym: 'USCI',  label: 'Commodities',  role: 'benchmark'   },
     { sym: 'HG=F',  label: 'Copper',       role: 'growth'      },
     { sym: 'GLD',   label: 'Gold',         role: 'safehaven'   },
+    { sym: 'SLV',   label: 'Silver',       role: 'silver'      },
     { sym: 'IXC',   label: 'Energy',       role: 'energy'      },
     { sym: 'DBA',   label: 'Agriculture',  role: 'agriculture' },
     { sym: 'SLX',   label: 'Steel',        role: 'industrial'  },
@@ -799,46 +800,85 @@ function buildCommodities(q) {
   const rows = COM_META.map(({ sym, label, role }) => {
     const d = q[sym];
     const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
-    if (above) bull++;
-    const v200 = d?.vs200 != null ? pct(d.vs200, 1) : null;
-    const val  = d ? (sym === 'HG=F' ? `$${d.price.toFixed(3)}/lb` : usd(d.price)) : '—';
-    let condition;
-    if (!d || v200 == null) {
-      condition = '—';
+    const v200  = d?.vs200 ?? null;
+    const v200s = v200 != null ? pct(v200, 1) : null;
+    const val   = d ? (sym === 'HG=F' ? `$${d.price.toFixed(3)}/lb` : usd(d.price)) : '—';
+    let condition, rowStatus;
+
+    if (!d || v200s == null) {
+      condition = '—'; rowStatus = 'neutral';
+    } else if (role === 'safehaven') {
+      // Gold: macro signal is INVERTED — leading = risk-off warning, fading = risk-on confirmed
+      if (above && v200 > 5) {
+        condition  = `Safe Haven Bid (${v200s} vs 200d) — Risk-Off Warning`;
+        rowStatus  = 'bearish';
+      } else if (above) {
+        condition  = `Gold Holding (${v200s} vs 200d) — Watch`;
+        rowStatus  = 'neutral';
+      } else {
+        condition  = `Safe Haven Fading (${v200s} vs 200d) — Risk-On Confirmed`;
+        rowStatus  = 'bullish';
+      }
+    } else if (role === 'silver') {
+      // Silver: leads copper when industrial demand > fear; leads gold when growth > safety
+      const gold = q['GLD'], copper = q['HG=F'];
+      const silverVsGold = (d.price && gold?.price) ? (d.price / gold.price) : null;
+      if (above && v200 > 0) {
+        condition = `Industrial Metals Bid (${v200s} vs 200d) — Growth > Fear`;
+        rowStatus = 'bullish';
+      } else if (above) {
+        condition = `Silver Holding (${v200s} vs 200d) — Neutral`;
+        rowStatus = 'neutral';
+      } else {
+        condition = `Silver Weak (${v200s} vs 200d) — Fear > Growth`;
+        rowStatus = 'bearish';
+      }
     } else if (role === 'growth') {
       condition = above
-        ? `Growth Confirmed (${v200} vs 200d) — Risk-On`
-        : `Growth Warning (${v200} vs 200d) — Caution`;
-    } else if (role === 'safehaven') {
-      condition = above
-        ? `Safe Haven Bid (${v200} vs 200d) — Inflation Hedge Active`
-        : `Safe Haven Fading (${v200} vs 200d) — Risk Appetite Healthy`;
+        ? `Growth Confirmed (${v200s} vs 200d) — Risk-On`
+        : `Growth Warning (${v200s} vs 200d) — Caution`;
+      rowStatus = above ? 'bullish' : 'bearish';
     } else if (role === 'energy') {
       condition = above
-        ? `Energy Trending (${v200} vs 200d) — Overweight Energy`
-        : `Energy Weak (${v200} vs 200d) — Underweight Energy`;
+        ? `Energy Trending (${v200s} vs 200d) — Overweight Energy`
+        : `Energy Weak (${v200s} vs 200d) — Underweight Energy`;
+      rowStatus = above ? 'bullish' : 'bearish';
     } else if (role === 'agriculture') {
-      condition = above
-        ? `Ag Trending (${v200} vs 200d) — Food Inflation Watch`
-        : `Ag Weak (${v200} vs 200d) — Benign Food Prices`;
+      // Needs >2% above 200d to qualify as trending
+      if (above && v200 > 2) {
+        condition = `Ag Trending (${v200s} vs 200d) — Food Inflation Watch`;
+        rowStatus = 'bullish';
+      } else if (above) {
+        condition = `Ag At 200d (${v200s} vs 200d) — Neutral`;
+        rowStatus = 'neutral';
+      } else {
+        condition = `Ag Weak (${v200s} vs 200d) — Benign Food Prices`;
+        rowStatus = 'bearish';
+      }
     } else if (role === 'industrial') {
       condition = above
-        ? `Capex Cycle Active (${v200} vs 200d) — Overweight Industrials`
-        : `Capex Weak (${v200} vs 200d) — Reduce Industrial Exposure`;
+        ? `Capex Cycle Active (${v200s} vs 200d) — Overweight Industrials`
+        : `Capex Weak (${v200s} vs 200d) — Reduce Industrial Exposure`;
+      rowStatus = above ? 'bullish' : 'bearish';
     } else {
       condition = above
-        ? `Above 200d (${v200}) — Real Assets Favourable`
-        : `Below 200d (${v200}) — Real Assets Under Pressure`;
+        ? `Above 200d (${v200s}) — Real Assets Favourable`
+        : `Below 200d (${v200s}) — Real Assets Under Pressure`;
+      rowStatus = above ? 'bullish' : 'bearish';
     }
-    return { label, indicator: sym, value: val, condition, status: above ? 'bullish' : 'bearish' };
+
+    // Count bullish signals — gold/silver use macro-signal status
+    if (rowStatus === 'bullish') bull++;
+    return { label, indicator: sym, value: val, condition, status: rowStatus };
   });
 
-  const status = bull >= 4 ? 'bullish' : bull >= 2 ? 'neutral' : 'bearish';
-  const copper = q['HG=F'], gold = q['GLD'];
+  const status = bull >= 5 ? 'bullish' : bull >= 3 ? 'neutral' : 'bearish';
+  const copper = q['HG=F'], gold = q['GLD'], silver = q['SLV'];
   const copperAbove = !!(copper?.price && copper?.sma200 && copper.price > copper.sma200);
   const goldAbove   = !!(gold?.price   && gold?.sma200   && gold.price   > gold.sma200);
-  const commNote = `${bull}/${COM_META.length} commodities above 200d SMA.`
+  const commNote = `${bull}/${COM_META.length} macro-positive commodity signals.`
     + (copper ? (copperAbove ? ' Copper above 200d — industrial growth confirmed.' : ' Copper below 200d — growth warning.') : '')
+    + (copperAbove && !goldAbove ? ' Gold fading — safe haven demand absent, risk-on confirmed.' : '')
     + (!copperAbove && goldAbove ? ' Gold leading copper — safe haven demand with growth caution.' : '');
 
   return { id: 'commodities', number: 9, title: 'Commodities', subtitle: 'The Growth Engine',
