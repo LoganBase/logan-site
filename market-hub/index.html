@@ -592,7 +592,8 @@ function openModal(card) {
   document.getElementById('mSubtitle').textContent = card.subtitle;
   document.getElementById('mBadge').innerHTML      = badge(card.status, card.delta);
 
-  const tableRows = (card.rows || []).map(row =>
+  const modalRows = (card.id === 'sectors' ? card.allRows : null) || card.rows || [];
+  const tableRows = modalRows.map(row =>
     `<tr>
       <td class="mt-label">${row.label}</td>
       <td class="mt-indicator">${row.indicator}</td>

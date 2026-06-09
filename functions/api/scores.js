@@ -767,13 +767,18 @@ function buildSectors(q) {
   const curated = [...top3, ...bot3].filter(r => r && !seen.has(r.sym) && seen.add(r.sym));
 
   const top3Syms = new Set(top3.map(r => r.sym));
-  const rows = curated.map(r => ({
+  const bot3Syms = new Set(bot3.map(r => r.sym));
+
+  const mapRow = r => ({
     label: r.name,
     indicator: r.sym,
     value: r.value,
     condition: r.condition,
-    status: top3Syms.has(r.sym) ? 'bullish' : 'bearish',
-  }));
+    status: top3Syms.has(r.sym) ? 'bullish' : bot3Syms.has(r.sym) ? 'bearish' : 'neutral',
+  });
+
+  const rows    = curated.map(mapRow);
+  const allRows = sortedAll.map(mapRow);
 
   const spreadStr = (spread >= 0 ? '+' : '') + spread.toFixed(1) + '%';
   const sectNote = spread > 1
@@ -782,7 +787,7 @@ function buildSectors(q) {
     ? `Defensives outpacing cyclicals by ${Math.abs(spread).toFixed(1)}% (20d avg vs SPY) — flight to safety underway; reduce cyclical exposure.`
     : `Cyclicals and defensives near parity (${spreadStr} spread, 20d avg vs SPY) — no clear rotation signal; stay diversified.`;
 
-  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, hideIndicator: true, note: sectNote };
+  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, allRows, hideIndicator: true, note: sectNote };
 }
 
 function buildCommodities(q) {
