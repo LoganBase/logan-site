@@ -480,6 +480,7 @@ let uupRange         = '5y';
 let sectorsChart        = null;
 let sectorsHistoryChart = null;
 let commoditiesChart = null;
+let commoditiesHistoryChart = null;
 let creditChart      = null;
 let valuationsChart  = null;
 let valuationsRange  = '30y';
@@ -977,6 +978,11 @@ function openModal(card) {
         <div class="chart-loading" id="commoditiesLoading"><div class="spinner"></div> Loading chart…</div>
         <canvas id="commoditiesChartCanvas" style="display:none"></canvas>
       </div>
+      <div class="modal-section-title" style="margin-top:24px">Commodity Performance — Normalized (100 = period start)</div>
+      <div class="chart-wrap" style="height:40vh;min-height:220px;position:relative">
+        <canvas id="commoditiesHistoryCanvas"></canvas>
+        <div id="commoditiesHistoryLoading" class="chart-loading" style="display:flex"><div class="spinner"></div> Loading chart…</div>
+      </div>
       <button class="summary-btn" id="summaryBtn" onclick="generateSummary('commodities')">✦ Generate AI Summary</button>
       <div class="summary-box" id="summaryBox"></div>`;
   }
@@ -1168,8 +1174,9 @@ function closeModal(e) {
   if (yieldChart)       { yieldChart.destroy();       yieldChart       = null; }
   if (uupChart)         { uupChart.destroy();         uupChart         = null; }
   if (sectorsChart)        { sectorsChart.destroy();        sectorsChart        = null; }
-  if (sectorsHistoryChart) { sectorsHistoryChart.destroy(); sectorsHistoryChart = null; }
-  if (commoditiesChart) { commoditiesChart.destroy(); commoditiesChart = null; }
+  if (sectorsHistoryChart)     { sectorsHistoryChart.destroy();     sectorsHistoryChart     = null; }
+  if (commoditiesChart)        { commoditiesChart.destroy();        commoditiesChart        = null; }
+  if (commoditiesHistoryChart) { commoditiesHistoryChart.destroy(); commoditiesHistoryChart = null; }
   if (creditChart)       { creditChart.destroy();       creditChart       = null; }
   if (creditStressChart) { creditStressChart.destroy(); creditStressChart = null; }
   if (gfRegionalChart)  { gfRegionalChart.destroy();  gfRegionalChart  = null; }
@@ -2619,6 +2626,7 @@ async function loadSectorsHistoryChart(range) {
 
 // ── COMMODITIES CHART ─────────────────────────────────────────────────────────
 async function loadCommoditiesChart(range) {
+  loadCommoditiesHistoryChart(range);
   document.querySelectorAll('.range-btn').forEach(b => {
     b.classList.toggle('active', b.textContent.toLowerCase() === range);
   });
@@ -2727,6 +2735,84 @@ async function loadCommoditiesChart(range) {
         scales: {
           x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
           y: { ticks: { color: '#64748b', font: { size: 10 }, callback: v => '$' + v.toFixed(0) }, grid: { color: 'rgba(30,45,61,.4)' } },
+        },
+      },
+    });
+  } catch (err) {
+    if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
+  }
+}
+
+// ── COMMODITIES HISTORY CHART ─────────────────────────────────────────────────
+const COMM_COLORS = {
+  USCI: '#64748b', 'HG=F': '#f97316', GLD: '#f59e0b',
+  SLV:  '#94a3b8', IXC:   '#ef4444', DBA: '#22c55e', SLX: '#8b5cf6',
+};
+
+async function loadCommoditiesHistoryChart(range) {
+  const loadingEl = document.getElementById('commoditiesHistoryLoading');
+  const canvasEl  = document.getElementById('commoditiesHistoryCanvas');
+  if (!canvasEl) return;
+  if (loadingEl) loadingEl.style.display = 'flex';
+  canvasEl.style.display = 'none';
+  try {
+    await loadChartJS();
+    const today = new Date().toISOString().slice(0, 10);
+    const res   = await fetch(`/api/commodities-history?range=${range}&d=${today}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const { dates, commodities } = await res.json();
+    if (!dates || !commodities) throw new Error('No data');
+    const step = Math.max(1, Math.floor(dates.length / 8));
+    const labelDates = dates.map((d, i) => i % step === 0 ? d.slice(0, 7) : '');
+    if (commoditiesHistoryChart) { commoditiesHistoryChart.destroy(); commoditiesHistoryChart = null; }
+    if (loadingEl) loadingEl.style.display = 'none';
+    canvasEl.style.display = 'block';
+    commoditiesHistoryChart = new Chart(canvasEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labelDates,
+        datasets: commodities.map(c => ({
+          label: c.label,
+          data: c.prices,
+          borderColor: COMM_COLORS[c.sym] || '#64748b',
+          backgroundColor: COMM_COLORS[c.sym] || '#64748b',
+          borderWidth: c.sym === 'USCI' ? 2 : 1.5,
+          borderDash: c.sym === 'USCI' ? [5, 3] : [],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+          spanGaps: true,
+        })),
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 250 },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, boxHeight: 12, padding: 10, usePointStyle: false },
+          },
+          tooltip: {
+            backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
+            titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
+            callbacks: {
+              title: ctx => dates[ctx[0].dataIndex],
+              label: ctx => {
+                const v = ctx.parsed.y;
+                if (v == null) return null;
+                const chg = (v - 100).toFixed(1);
+                return ` ${ctx.dataset.label}: ${v.toFixed(1)} (${chg >= 0 ? '+' : ''}${chg}%)`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: '#64748b', font: { size: 10 }, maxRotation: 0 }, grid: { color: 'rgba(30,45,61,.4)' } },
+          y: {
+            ticks: { color: '#64748b', font: { size: 10 }, callback: v => v.toFixed(0) },
+            grid: { color: ctx => ctx.tick.value === 100 ? 'rgba(148,163,184,0.35)' : 'rgba(30,45,61,.4)' },
+          },
         },
       },
     });
