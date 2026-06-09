@@ -786,38 +786,63 @@ function buildSectors(q) {
 }
 
 function buildCommodities(q) {
-  const comSyms = ['USCI', 'HG=F', 'GLD', 'IXC', 'XES', 'DBA', 'SLX'];
-  const labels  = {
-    USCI: 'USCI — Commodities Benchmark',
-    'HG=F': 'Copper (Growth Barometer)',
-    GLD: 'Gold (Safe Haven)',
-    IXC: 'Global Energy ETF',
-    XES: 'E&P Oil Services',
-    DBA: 'Agriculture (DBA)',
-    SLX: 'Steel ETF (SLX)',
-  };
+  const COM_META = [
+    { sym: 'USCI',  label: 'Commodities',  role: 'benchmark'   },
+    { sym: 'HG=F',  label: 'Copper',       role: 'growth'      },
+    { sym: 'GLD',   label: 'Gold',         role: 'safehaven'   },
+    { sym: 'IXC',   label: 'Energy',       role: 'energy'      },
+    { sym: 'DBA',   label: 'Agriculture',  role: 'agriculture' },
+    { sym: 'SLX',   label: 'Steel',        role: 'industrial'  },
+  ];
+
   let bull = 0;
-  const rows = comSyms.map(sym => {
+  const rows = COM_META.map(({ sym, label, role }) => {
     const d = q[sym];
-    const above = d && d.price && d.sma200 && d.price > d.sma200;
+    const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
     if (above) bull++;
-    return {
-      label: sym === 'HG=F' ? '⚙ Growth Signal' : sym === 'GLD' ? '🛡 Safe Haven' : '📦 Real Asset',
-      indicator: labels[sym] || sym,
-      value: d ? (sym === 'HG=F' ? `$${d.price.toFixed(3)}/lb` : usd(d.price)) : '—',
-      condition: above ? `${pct(d.vs200)} above 200d` : (d ? `${pct(d?.vs200)} vs 200d` : '—'),
-      status: above ? 'bullish' : (d ? 'bearish' : 'neutral'),
-    };
+    const v200 = d?.vs200 != null ? pct(d.vs200, 1) : null;
+    const val  = d ? (sym === 'HG=F' ? `$${d.price.toFixed(3)}/lb` : usd(d.price)) : '—';
+    let condition;
+    if (!d || v200 == null) {
+      condition = '—';
+    } else if (role === 'growth') {
+      condition = above
+        ? `Growth Confirmed (${v200} vs 200d) — Risk-On`
+        : `Growth Warning (${v200} vs 200d) — Caution`;
+    } else if (role === 'safehaven') {
+      condition = above
+        ? `Safe Haven Bid (${v200} vs 200d) — Inflation Hedge Active`
+        : `Safe Haven Fading (${v200} vs 200d) — Risk Appetite Healthy`;
+    } else if (role === 'energy') {
+      condition = above
+        ? `Energy Trending (${v200} vs 200d) — Overweight Energy`
+        : `Energy Weak (${v200} vs 200d) — Underweight Energy`;
+    } else if (role === 'agriculture') {
+      condition = above
+        ? `Ag Trending (${v200} vs 200d) — Food Inflation Watch`
+        : `Ag Weak (${v200} vs 200d) — Benign Food Prices`;
+    } else if (role === 'industrial') {
+      condition = above
+        ? `Capex Cycle Active (${v200} vs 200d) — Overweight Industrials`
+        : `Capex Weak (${v200} vs 200d) — Reduce Industrial Exposure`;
+    } else {
+      condition = above
+        ? `Above 200d (${v200}) — Real Assets Favourable`
+        : `Below 200d (${v200}) — Real Assets Under Pressure`;
+    }
+    return { label, indicator: sym, value: val, condition, status: above ? 'bullish' : 'bearish' };
   });
-  const status = bull >= 5 ? 'bullish' : bull >= 3 ? 'neutral' : 'bearish';
+
+  const status = bull >= 4 ? 'bullish' : bull >= 2 ? 'neutral' : 'bearish';
   const copper = q['HG=F'], gold = q['GLD'];
-  const copperAbove = copper?.price && copper?.sma200 && copper.price > copper.sma200;
-  const goldAbove   = gold?.price   && gold?.sma200   && gold.price   > gold.sma200;
-  const commNote = `${bull}/${comSyms.length} commodities above 200d SMA.`
+  const copperAbove = !!(copper?.price && copper?.sma200 && copper.price > copper.sma200);
+  const goldAbove   = !!(gold?.price   && gold?.sma200   && gold.price   > gold.sma200);
+  const commNote = `${bull}/${COM_META.length} commodities above 200d SMA.`
     + (copper ? (copperAbove ? ' Copper above 200d — industrial growth confirmed.' : ' Copper below 200d — growth warning.') : '')
-    + (copperAbove === false && goldAbove ? ' Gold up, copper down — safe haven demand with growth caution.' : '');
-  return { id: 'commodities', number: 9, title: 'Commodities', subtitle: 'The Growth Engine', status, rows, hideIndicator: true,
-    summary: `${bull}/${comSyms.length} commodities above 200d SMA`, note: commNote };
+    + (!copperAbove && goldAbove ? ' Gold leading copper — safe haven demand with growth caution.' : '');
+
+  return { id: 'commodities', number: 9, title: 'Commodities', subtitle: 'The Growth Engine',
+    status, rows, hideIndicator: true, note: commNote };
 }
 
 function buildEquities(q) {
