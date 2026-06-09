@@ -821,9 +821,8 @@ function buildCommodities(q) {
       }
     } else if (role === 'silver') {
       // Silver: leads copper when industrial demand > fear; leads gold when growth > safety
-      const gold = q['GLD'], copper = q['HG=F'];
-      const silverVsGold = (d.price && gold?.price) ? (d.price / gold.price) : null;
-      if (above && v200 > 0) {
+      // Needs >2% above 200d to confirm industrial bid (same threshold as agriculture)
+      if (above && v200 > 2) {
         condition = `Industrial Metals Bid (${v200s} vs 200d) — Growth > Fear`;
         rowStatus = 'bullish';
       } else if (above) {
