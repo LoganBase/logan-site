@@ -6,31 +6,41 @@ Standards for all chart modals across the 10 cards.
 
 ## Chart Legend
 
-All multi-line charts must use **solid filled square** legend markers — no outline borders.
+All multi-line charts must use **solid filled square** legend markers — no outline borders, no dashes.
 
 | Property | Value | Reason |
 |---|---|---|
-| `backgroundColor` | same as `borderColor` | Chart.js uses `backgroundColor` to fill the legend box |
+| `backgroundColor` | same as `borderColor` | Chart.js fills the legend box with `backgroundColor` |
 | `boxWidth` | `12` | Compact; consistent across all charts |
+| `boxHeight` | `12` | Forces a perfect square (without it Chart.js renders a wide rectangle) |
+| `usePointStyle` | `false` | Prevents point-style shapes overriding the box |
+| `generateLabels` | strip `lineDash` | Datasets with `borderDash` cause Chart.js to draw a dashed stroke through the legend box even with `usePointStyle: false`; must be cleared explicitly |
 
-Implementation — set `backgroundColor` on **every dataset** to match its `borderColor`:
+**Full standard legend config (copy-paste):**
+
+```js
+legend: {
+  labels: {
+    color: '#94a3b8', font: { size: 10 }, boxWidth: 12, boxHeight: 12, padding: 10,
+    usePointStyle: false,
+    generateLabels: chart =>
+      Chart.defaults.plugins.legend.labels.generateLabels(chart)
+        .map(item => ({ ...item, lineDash: [] })),
+  },
+}
+```
+
+Set `backgroundColor: borderColor` on **every dataset**:
 
 ```js
 datasets: items.map(s => ({
   borderColor: COLORS[s.sym],
-  backgroundColor: COLORS[s.sym],   // ← makes the legend box solid-filled
+  backgroundColor: COLORS[s.sym],   // ← fills the legend box
   ...
 }))
 ```
 
-And in chart options:
-```js
-legend: { labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 12, boxHeight: 12, padding: 10, usePointStyle: false } }
-```
-
-`usePointStyle: false` is required to prevent dashed-line datasets from rendering a non-square legend marker. `boxHeight: 12` forces a perfect square (without it, Chart.js may render a wide rectangle).
-
-Do **not** use a custom `generateLabels` for legend styling — it is fragile (called before datasets are populated on first render) and harder to maintain.
+**Why `generateLabels`?** When a dataset has `borderDash` (dashed line), Chart.js propagates that dash pattern to the legend item's `lineDash` property. This renders as a dashed stroke *through* the box, making it look like a non-square shape. The override strips `lineDash` to `[]` on every item, guaranteeing solid filled squares regardless of line style. This approach is safe — it delegates to the default generator and only clears one property.
 
 ---
 
@@ -89,5 +99,5 @@ Modal section headings use the `.modal-section-title` CSS class:
 | 06 | Credit | ✅ | ✅ | ✅ | ✅ |
 | 07 | Global Flows | ✅ | ✅ | ✅ | ✅ |
 | 08 | Sectors | ✅ | ✅ | ✅ | ✅ |
-| 09 | Commodities | ⏸ | ⏸ | ⏸ | ⏸ |
+| 09 | Commodities | ✅ | ✅ | ✅ | ✅ |
 | 10 | Equities | ⏸ | ⏸ | ⏸ | ⏸ |
