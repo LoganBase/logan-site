@@ -416,6 +416,8 @@ body {
 }
 .pm-chip-change.up   { color: var(--green); }
 .pm-chip-change.down { color: var(--red); }
+.pm-chip-base { font-size: 9px; color: var(--muted); margin-top: 3px; white-space: nowrap; opacity: .8; }
+.pm-chip-base.elevated { color: var(--yellow); opacity: 1; }
 
 /* ── KALSHI EVENT TICKER ── */
 .kalshi-ticker {
@@ -3966,6 +3968,15 @@ async function loadTrailingPeChart(range) {
 }
 
 // ── POLYMARKET CROWD SIGNALS ─────────────────────────────────────────────────
+// Historical base rates for tail-risk signals — context for what's "elevated"
+function getBaseRate(label) {
+  const q = label.toLowerCase();
+  if (q.includes('recession'))                         return { rate: 0.15, name: '~15% hist.' };
+  if (q.includes('negative gdp'))                      return { rate: 0.12, name: '~12% hist.' };
+  if (q.includes('inflation') && !q.includes('rate'))  return { rate: 0.10, name: '~10% hist.' };
+  return null;
+}
+
 function shortLabel(question) {
   const q = question.toLowerCase();
   if (q.includes('fed') && q.includes('rate hike'))  return 'Fed Hike';
@@ -3994,11 +4005,20 @@ function renderPolymarket(data) {
       const cls   = change >= 0 ? 'up' : 'down';
       changeHtml  = `<div class="pm-chip-change ${cls}">${sign}${Math.abs(change).toFixed(1)}pp ${period}</div>`;
     }
+    const base = getBaseRate(s.label);
+    let baseHtml = '';
+    if (base) {
+      const diff     = Math.round((s.probability - base.rate) * 100);
+      const sign     = diff >= 0 ? '+' : '';
+      const elevated = s.probability >= base.rate * 2;
+      baseHtml = `<div class="pm-chip-base${elevated ? ' elevated' : ''}">${sign}${diff}pp vs ${base.name}</div>`;
+    }
     return `
       <div class="pm-chip ${s.sentiment}" title="${s.label.replace(/"/g, '&quot;')}">
         <div class="pm-chip-label">${shortLabel(s.label)}</div>
         <div class="pm-chip-value">${pct}</div>
         ${changeHtml}
+        ${baseHtml}
       </div>`;
   }).join('');
 
