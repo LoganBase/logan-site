@@ -903,38 +903,66 @@ function buildCommodities(q) {
 
 function buildEquities(q) {
   const watchList = [
-    { sym: 'GEV',     group: 'Power/Grid' },
-    { sym: 'CAT',     group: 'Industrials' },
-    { sym: 'GRID',    group: 'Power/Grid' },
-    { sym: 'SU',      group: 'Energy (CA)' },
-    { sym: 'TVE.TO',  group: 'Energy (CA)' },
-    { sym: 'RIO',     group: 'Mining' },
-    { sym: 'CCO.TO',  group: 'Uranium' },
-    { sym: 'AEM',     group: 'Gold' },
-    { sym: 'LRCX',    group: 'Semis' },
-    { sym: 'SITM',    group: 'Semis' },
+    { sym: 'GEV',    label: 'GE Vernova',      theme: 'power'    },
+    { sym: 'GRID',   label: 'Power Grid ETF',   theme: 'power'    },
+    { sym: 'CAT',    label: 'Caterpillar',       theme: 'capex'    },
+    { sym: 'SU',     label: 'Suncor',            theme: 'energy'   },
+    { sym: 'TVE.TO', label: 'Tamarack Valley',   theme: 'energy'   },
+    { sym: 'RIO',    label: 'Rio Tinto',         theme: 'mining'   },
+    { sym: 'CCO.TO', label: 'Cameco',            theme: 'uranium'  },
+    { sym: 'AEM',    label: 'Agnico Eagle',      theme: 'gold'     },
+    { sym: 'LRCX',   label: 'Lam Research',      theme: 'semis'    },
+    { sym: 'SITM',   label: 'SiTime',            theme: 'semis'    },
   ];
+
   let bull = 0;
-  const rows = watchList.map(({ sym, group }) => {
+  const rows = watchList.map(({ sym, label, theme }) => {
     const d = q[sym];
-    const abvBoth = d && d.price && d.sma50 && d.sma200 && d.price > d.sma50 && d.price > d.sma200;
-    if (abvBoth) bull++;
-    return {
-      label: group,
-      indicator: sym,
-      value: d ? usd(d.price) : '—',
-      condition: abvBoth ? 'Above 50d & 200d' : (d ? (d.price > d.sma200 ? 'Above 200d, below 50d' : 'Below 200d — Watch') : '—'),
-      status: abvBoth ? 'bullish' : (d && d.price > d.sma200 ? 'neutral' : (d ? 'bearish' : 'neutral')),
-    };
+    const abv200  = !!(d?.price && d?.sma200 && d.price > d.sma200);
+    const abv50   = !!(d?.price && d?.sma50  && d.price > d.sma50);
+    const abvBoth = abv200 && abv50;
+    const v200s   = d?.vs200 != null ? pct(d.vs200, 1) : null;
+
+    let condition, status;
+    if (!d || v200s == null) {
+      condition = '—'; status = 'neutral';
+    } else if (abvBoth) {
+      condition = `Trend Intact (${v200s} vs 200d) — Execute Long`;
+      status = 'bullish';
+      bull++;
+    } else if (abv200) {
+      condition = `Pulling Back (${v200s} vs 200d) — Wait for 50d Recapture`;
+      status = 'neutral';
+    } else {
+      condition = `Below 200d (${v200s} vs 200d) — Step Aside`;
+      status = 'bearish';
+    }
+
+    return { label, indicator: sym, value: d ? usd(d.price) : '—', condition, status };
   });
+
   const total = watchList.length;
   const status = bull >= 7 ? 'bullish' : bull >= 5 ? 'neutral' : 'bearish';
-  const equityNote = `${bull}/${total} watchlist names above both 50d & 200d. `
-    + (bull >= 7 ? 'Strong momentum — execution environment favourable.'
-    : bull >= 5 ? 'Mixed signals — be selective; focus on confirmed breakouts above both MAs.'
-    : 'Broad weakness — wait for MA recapture before adding positions.');
-  return { id: 'equities', number: 10, title: 'Equities', subtitle: 'The Execution Layer', status, rows, hideIndicator: true,
-    summary: `${bull}/${total} above both 50d & 200d SMA`, note: equityNote };
+
+  // Thematic read for note
+  const themeCount = {};
+  watchList.forEach(({ sym, theme }) => {
+    const d = q[sym];
+    const abvBoth = !!(d?.price && d?.sma50 && d?.sma200 && d.price > d.sma50 && d.price > d.sma200);
+    if (abvBoth) themeCount[theme] = (themeCount[theme] || 0) + 1;
+  });
+  const themeSizes = { power: 2, capex: 1, energy: 2, mining: 1, uranium: 1, gold: 1, semis: 2 };
+  const firingThemes  = Object.entries(themeCount).filter(([t, n]) => n === themeSizes[t]).map(([t]) => t);
+  const stalledThemes = Object.keys(themeSizes).filter(t => !themeCount[t]);
+
+  const equityNote = `${bull}/${total} names above both 50d & 200d. `
+    + (firingThemes.length  ? `Themes firing: ${firingThemes.join(', ')}. ` : '')
+    + (stalledThemes.length ? `Themes stalled: ${stalledThemes.join(', ')}.` : '')
+    || (bull >= 7 ? 'All themes active — execution environment favourable.'
+      : 'Broad weakness — wait for MA recapture before adding positions.');
+
+  return { id: 'equities', number: 10, title: 'Equities', subtitle: 'The Execution Layer',
+    status, rows, hideIndicator: true, note: equityNote };
 }
 
 function buildCredit(q) {
