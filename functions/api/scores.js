@@ -30,8 +30,7 @@ const ALL_SYMBOLS = [
   'XLV','XLC','XLY','XLB',                        // Sectors (4 added for breadth)
   'XME','GDX','COPX','KBE',
   'USCI','HG=F','GLD','SLV','IXC','DBA','SLX','URA',   // Commodities
-  'GEV','CAT','GRID','SU','TVE.TO',               // Equities
-  'RIO','CCO.TO','AEM','LRCX','SITM','SOXX','ZEB.TO',
+  'SPY','IWM','NVDA','JPM','CAT','XOM','FCX','GDX','CCJ','EEM',  // Equities
 ];
 
 // ── MATH ─────────────────────────────────────────────────────────────────────
@@ -903,16 +902,16 @@ function buildCommodities(q) {
 
 function buildEquities(q) {
   const watchList = [
-    { sym: 'GEV',    label: 'GE Vernova',      theme: 'power'    },
-    { sym: 'GRID',   label: 'Power Grid ETF',   theme: 'power'    },
-    { sym: 'CAT',    label: 'Caterpillar',       theme: 'capex'    },
-    { sym: 'SU',     label: 'Suncor',            theme: 'energy'   },
-    { sym: 'TVE.TO', label: 'Tamarack Valley',   theme: 'energy'   },
-    { sym: 'RIO',    label: 'Rio Tinto',         theme: 'mining'   },
-    { sym: 'CCO.TO', label: 'Cameco',            theme: 'uranium'  },
-    { sym: 'AEM',    label: 'Agnico Eagle',      theme: 'gold'     },
-    { sym: 'LRCX',   label: 'Lam Research',      theme: 'semis'    },
-    { sym: 'SITM',   label: 'SiTime',            theme: 'semis'    },
+    { sym: 'SPY',  label: 'S&P 500',       theme: 'market'     },
+    { sym: 'IWM',  label: 'Russell 2000',  theme: 'risk'       },
+    { sym: 'NVDA', label: 'Nvidia',        theme: 'tech'       },
+    { sym: 'JPM',  label: 'JPMorgan',      theme: 'financials' },
+    { sym: 'CAT',  label: 'Caterpillar',   theme: 'capex'      },
+    { sym: 'XOM',  label: 'Exxon Mobil',   theme: 'energy'     },
+    { sym: 'FCX',  label: 'Freeport-Mc.',  theme: 'copper'     },
+    { sym: 'GDX',  label: 'Gold Miners',   theme: 'gold'       },
+    { sym: 'CCJ',  label: 'Cameco',        theme: 'uranium'    },
+    { sym: 'EEM',  label: 'Emerg. Markets',theme: 'global'     },
   ];
 
   let bull = 0;
@@ -951,7 +950,7 @@ function buildEquities(q) {
     const abvBoth = !!(d?.price && d?.sma50 && d?.sma200 && d.price > d.sma50 && d.price > d.sma200);
     if (abvBoth) themeCount[theme] = (themeCount[theme] || 0) + 1;
   });
-  const themeSizes = { power: 2, capex: 1, energy: 2, mining: 1, uranium: 1, gold: 1, semis: 2 };
+  const themeSizes = { market: 1, risk: 1, tech: 1, financials: 1, capex: 1, energy: 1, copper: 1, gold: 1, uranium: 1, global: 1 };
   const firingThemes  = Object.entries(themeCount).filter(([t, n]) => n === themeSizes[t]).map(([t]) => t);
   const stalledThemes = Object.keys(themeSizes).filter(t => !themeCount[t]);
 
