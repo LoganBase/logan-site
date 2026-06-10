@@ -1107,8 +1107,10 @@ function buildAggregate(cards) {
   const label = weightedPct >= 0.75 ? 'Risk-On — Broad Participation' : weightedPct >= 0.55 ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
   const posture = weightedPct >= 0.75 ? 'Risk-On, Not Complacent' : weightedPct >= 0.55 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
 
+  const regimeBearish = byId['regime']?.status === 'bearish';
+
   return { bullish: counts.bullish, neutral: counts.neutral, bearish: counts.bearish,
-    score: `${(weightedPct * 10).toFixed(1)}/10`, label, posture, glow, categories };
+    score: `${(weightedPct * 10).toFixed(1)}/10`, label, posture, glow, categories, regimeBearish };
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────

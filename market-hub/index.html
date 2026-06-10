@@ -111,6 +111,19 @@ body {
 .exec-chip .dot.yellow { background: var(--yellow); box-shadow: 0 0 6px var(--yellow-glow); }
 .exec-chip .dot.red { background: var(--red); box-shadow: 0 0 6px var(--red-glow); }
 
+/* ── REGIME WARNING BANNER ── */
+.regime-warning {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: rgba(245,158,11,.07);
+  border: 1px solid rgba(245,158,11,.28);
+  border-radius: 6px;
+  font-size: 11px; line-height: 1.45;
+  color: var(--yellow);
+}
+.regime-warning-icon { font-size: 13px; flex-shrink: 0; margin-top: 1px; }
+
 /* ── CATEGORY BREAKDOWN ── */
 .cat-breakdown {
   margin-top: 14px;
@@ -553,6 +566,10 @@ body {
         </div>
       </div>
       <div class="exec-chips" id="execChips"></div>
+      <div class="regime-warning" id="regimeWarning" style="display:none">
+        <span class="regime-warning-icon">⚠</span>
+        <span>Primary trend (SPY / 200d MA) is bearish — weight all signals accordingly</span>
+      </div>
       <div class="cat-breakdown" id="execCategories" style="display:none"></div>
       <div class="exec-narrative" id="execNarrative" style="display:none"></div>
       <div class="pm-strip" id="pmStrip" style="display:none"></div>
@@ -679,6 +696,8 @@ function renderExec(agg) {
   document.getElementById('execChips').innerHTML = chips.map(c =>
     `<div class="exec-chip"><span class="dot ${c.color}"></span>${c.label}</div>`
   ).join('');
+  document.getElementById('regimeWarning').style.display = agg.regimeBearish ? '' : 'none';
+
   const catEl = document.getElementById('execCategories');
   if (agg.categories?.length) {
     const rows = agg.categories.map(cat => {
