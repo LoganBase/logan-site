@@ -328,6 +328,52 @@ body {
   padding: 8px 20px; border-radius: 6px; font-size: 12px;
   cursor: pointer; font-family: inherit;
 }
+
+/* ── POLYMARKET CROWD SIGNALS STRIP ── */
+.pm-strip {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.pm-strip-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.pm-strip-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.pm-strip-source {
+  font-size: 9px; color: var(--muted); font-family: var(--font-mono);
+  opacity: .7;
+}
+.pm-chips {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.pm-chip {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 14px; min-width: 130px;
+  flex: 0 0 auto; transition: border-color .2s;
+}
+.pm-chip.bearish { border-color: rgba(239,68,68,.3); }
+.pm-chip.neutral  { border-color: rgba(245,158,11,.25); }
+.pm-chip.bullish  { border-color: rgba(34,197,94,.3); }
+.pm-chip-label {
+  font-size: 9px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+  white-space: nowrap;
+}
+.pm-chip-value {
+  font-size: 22px; font-weight: 800; font-family: var(--font-mono); line-height: 1;
+}
+.pm-chip.bearish .pm-chip-value { color: var(--red); }
+.pm-chip.neutral  .pm-chip-value { color: var(--yellow); }
+.pm-chip.bullish  .pm-chip-value { color: var(--green); }
+.pm-chip-change {
+  font-size: 10px; margin-top: 4px; color: var(--muted); white-space: nowrap;
+}
+.pm-chip-change.up   { color: var(--green); }
+.pm-chip-change.down { color: var(--red); }
 </style>
 </head>
 <body>
@@ -435,6 +481,7 @@ body {
         </div>
       </div>
       <div class="exec-chips" id="execChips"></div>
+      <div class="pm-strip" id="pmStrip" style="display:none"></div>
       <button class="summary-btn" id="execSummaryBtn" style="margin-top:16px" onclick="generateAllSummary()">✦ Generate AI Summary — All 10 Cards</button>
       <div class="summary-box" id="execSummaryBox"></div>
     </div>
@@ -3701,6 +3748,56 @@ async function loadTrailingPeChart(range) {
   }
 }
 
+// ── POLYMARKET CROWD SIGNALS ─────────────────────────────────────────────────
+function shortLabel(question) {
+  const q = question.toLowerCase();
+  if (q.includes('fed') && q.includes('rate hike'))  return 'Fed Hike';
+  if (q.includes('ecb') && q.includes('rate hike'))  return 'ECB Hike';
+  if (q.includes('fed') && q.includes('rate cut'))   return 'Fed Cut';
+  if (q.includes('inflation') && q.includes('5%'))   return 'Inflation >5%';
+  if (q.includes('inflation') && q.includes('4%'))   return 'Inflation >4%';
+  if (q.includes('recession'))                       return 'Recession';
+  if (q.includes('negative gdp'))                    return 'Neg. GDP';
+  return question.replace(/\?$/, '').slice(0, 22);
+}
+
+function renderPolymarket(data) {
+  const strip = document.getElementById('pmStrip');
+  if (!data?.signals?.length) { strip.style.display = 'none'; return; }
+
+  const chips = data.signals.map(s => {
+    const pct    = (s.probability * 100).toFixed(1) + '%';
+    const wkPp   = s.weekChange != null ? (s.weekChange * 100) : null;
+    const dayPp  = s.dayChange  != null ? (s.dayChange  * 100) : null;
+    const change = wkPp != null ? wkPp : dayPp;
+    const period = wkPp != null ? 'wk' : '1d';
+    let changeHtml = '';
+    if (change != null) {
+      const sign  = change >= 0 ? '↑' : '↓';
+      const cls   = change >= 0 ? 'up' : 'down';
+      changeHtml  = `<div class="pm-chip-change ${cls}">${sign}${Math.abs(change).toFixed(1)}pp ${period}</div>`;
+    }
+    return `
+      <div class="pm-chip ${s.sentiment}" title="${s.label.replace(/"/g, '&quot;')}">
+        <div class="pm-chip-label">${shortLabel(s.label)}</div>
+        <div class="pm-chip-value">${pct}</div>
+        ${changeHtml}
+      </div>`;
+  }).join('');
+
+  const date = data.timestamp
+    ? new Date(data.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    : '';
+
+  strip.innerHTML = `
+    <div class="pm-strip-header">
+      <span class="pm-strip-label">Crowd Signals</span>
+      <span class="pm-strip-source">Polymarket${date ? ' · ' + date : ''}</span>
+    </div>
+    <div class="pm-chips">${chips}</div>`;
+  strip.style.display = '';
+}
+
 // ── DATA LOAD ─────────────────────────────────────────────────────────────────
 function showError(msg) {
   document.getElementById('execLoading').innerHTML = '';
@@ -3718,12 +3815,19 @@ async function loadData() {
   btn.textContent = '…';
   btn.disabled = true;
   try {
-    const res = await fetch('/api/scores');
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const [scoresRes, pmRes] = await Promise.all([
+      fetch('/api/scores'),
+      fetch('/api/polymarket').catch(() => null),
+    ]);
+    if (!scoresRes.ok) throw new Error(`HTTP ${scoresRes.status}`);
+    const data = await scoresRes.json();
     lastData = data;
     renderExec(data.aggregate);
     renderGrid(data.cards);
+    if (pmRes?.ok) {
+      const pmData = await pmRes.json();
+      renderPolymarket(pmData);
+    }
   } catch (err) {
     showError(`Could not reach /api/scores — ${err.message}`);
   } finally {
