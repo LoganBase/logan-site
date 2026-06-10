@@ -14,6 +14,9 @@
 const BASE    = 'https://api.elections.kalshi.com/trade-api/v2';
 const HEADERS = { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; MarketHub/1.0)' };
 
+// Current Fed funds rate upper bound target — update after each FOMC decision
+const CURRENT_FFTR = 4.50;
+
 // Kalshi prices can be 0–1 (decimal) or 0–100 (cents) — normalise to 0–1
 function norm(p) {
   const n = parseFloat(p);
@@ -72,12 +75,16 @@ function parseFed(markets) {
     ? Math.round((1 - ceilingRow.p) * 100)
     : Math.round(floor.p * 100);
 
+  const action = implied > CURRENT_FFTR + 0.01 ? 'Hike'
+               : implied < CURRENT_FFTR - 0.01 ? 'Cut'
+               : 'Hold';
+
   return {
     label:      'FOMC Rate',
     date:       fmtDate(rows[0].t),
     closeTime:  rows[0].t,
     consensus:  `${implied.toFixed(2)}%`,
-    action:     'Hold',
+    action,
     unit:       '',
     confidence: Math.min(confidence, 99),
     type:       'fomc',
