@@ -1069,15 +1069,18 @@ function computeDeltas(current, previous) {
 function buildAggregate(cards) {
   const counts = { bullish: 0, neutral: 0, bearish: 0 };
   cards.forEach(c => counts[c.status]++);
-  const score = counts.bullish;
+  // Neutral = 0.5 points (not zero): mixed signal ≠ risk-off
+  const score = counts.bullish + counts.neutral * 0.5;
   const total = cards.length;
-  const greenThresh  = Math.round(total * 0.75); // 7/9, 8/10
-  const yellowThresh = Math.round(total * 0.55); // 5/9, 6/10
+  // Thresholds based on weighted max (total = 10). Green: ≥7.5, Yellow: ≥5.5
+  const greenThresh  = total * 0.75;
+  const yellowThresh = total * 0.55;
   const glow  = score >= greenThresh  ? 'green' : score >= yellowThresh ? 'yellow' : 'red';
-  const label = score >= greenThresh  ? 'Secular Bull Intact' : score >= yellowThresh ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
+  const label = score >= greenThresh  ? 'Risk-On — Broad Participation' : score >= yellowThresh ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
   const posture = score >= greenThresh ? 'Risk-On, Not Complacent' : score >= yellowThresh ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
+  const scoreDisplay = Number.isInteger(score) ? `${score}/${total}` : `${score.toFixed(1)}/${total}`;
   return { bullish: counts.bullish, neutral: counts.neutral, bearish: counts.bearish,
-    score: `${score}/${total}`, label, posture, glow };
+    score: scoreDisplay, label, posture, glow };
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
