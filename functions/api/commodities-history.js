@@ -14,6 +14,7 @@ const COMMODITIES = [
   { sym: 'IXC',  label: 'Energy',      group: 'energy'    },
   { sym: 'DBA',  label: 'Agriculture', group: 'agri'      },
   { sym: 'SLX',  label: 'Steel',       group: 'industrial'},
+  { sym: 'URA',  label: 'Uranium',     group: 'uranium'   },
 ];
 
 const RANGE_DAYS = { '10y': 3650, '5y': 1825, '3y': 1095, '1y': 365, '6mo': 182, '3mo': 91 };

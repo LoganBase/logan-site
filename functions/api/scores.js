@@ -29,7 +29,7 @@ const ALL_SYMBOLS = [
   'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors (7 existing)
   'XLV','XLC','XLY','XLB',                        // Sectors (4 added for breadth)
   'XME','GDX','COPX','KBE',
-  'USCI','HG=F','GLD','SLV','IXC','DBA','SLX',   // Commodities
+  'USCI','HG=F','GLD','SLV','IXC','DBA','SLX','URA',   // Commodities
   'GEV','CAT','GRID','SU','TVE.TO',               // Equities
   'RIO','CCO.TO','AEM','LRCX','SITM','SOXX','ZEB.TO',
 ];
@@ -799,6 +799,7 @@ function buildCommodities(q) {
     { sym: 'IXC',   label: 'Energy',       role: 'energy'      },
     { sym: 'DBA',   label: 'Agriculture',  role: 'agriculture' },
     { sym: 'SLX',   label: 'Steel',        role: 'industrial'  },
+    { sym: 'URA',   label: 'Uranium',      role: 'uranium'     },
   ];
 
   let bull = 0;
@@ -864,6 +865,17 @@ function buildCommodities(q) {
         ? `Capex Cycle Active (${v200s} vs 200d) — Overweight Industrials`
         : `Capex Weak (${v200s} vs 200d) — Reduce Industrial Exposure`;
       rowStatus = above ? 'bullish' : 'bearish';
+    } else if (role === 'uranium') {
+      if (above && v200 > 5) {
+        condition = `Nuclear Demand Active (${v200s} vs 200d) — Energy Transition Bid`;
+        rowStatus = 'bullish';
+      } else if (above) {
+        condition = `Uranium Holding (${v200s} vs 200d) — Neutral`;
+        rowStatus = 'neutral';
+      } else {
+        condition = `Uranium Weak (${v200s} vs 200d) — Nuclear Demand Fading`;
+        rowStatus = 'bearish';
+      }
     } else {
       condition = above
         ? `Above 200d (${v200s}) — Real Assets Favourable`
@@ -876,7 +888,7 @@ function buildCommodities(q) {
     return { label, indicator: sym, value: val, condition, status: rowStatus };
   });
 
-  const status = bull >= 5 ? 'bullish' : bull >= 3 ? 'neutral' : 'bearish';
+  const status = bull >= 6 ? 'bullish' : bull >= 4 ? 'neutral' : 'bearish';
   const copper = q['HG=F'], gold = q['GLD'], silver = q['SLV'];
   const copperAbove = !!(copper?.price && copper?.sma200 && copper.price > copper.sma200);
   const goldAbove   = !!(gold?.price   && gold?.sma200   && gold.price   > gold.sma200);
