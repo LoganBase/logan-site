@@ -57,7 +57,7 @@ async function fetchNext(seriesTicker) {
 // Fed: find highest strike where P(above) ≥ 0.50 → implied rate = that + 0.25
 function parseFed(markets) {
   const rows = markets
-    .map(m => ({ s: strike(m.ticker), p: norm(m.last_price ?? (m.yes_bid + m.yes_ask) / 2), t: m.close_time, evt: m.event_ticker }))
+    .map(m => ({ s: strike(m.ticker), p: norm(m.last_price_dollars ?? (parseFloat(m.yes_bid_dollars) + parseFloat(m.yes_ask_dollars)) / 2), t: m.close_time, evt: m.event_ticker }))
     .filter(r => r.s !== null && r.p !== null)
     .sort((a, b) => a.s - b.s);
 
@@ -88,7 +88,7 @@ function parseFed(markets) {
 function parseCPI(markets) {
   const month = markets.length ? eventMonth(markets[0].event_ticker) : '';
   const rows = markets
-    .map(m => ({ s: strike(m.ticker), p: norm(m.last_price ?? (m.yes_bid + m.yes_ask) / 2), t: m.close_time }))
+    .map(m => ({ s: strike(m.ticker), p: norm(m.last_price_dollars ?? (parseFloat(m.yes_bid_dollars) + parseFloat(m.yes_ask_dollars)) / 2), t: m.close_time }))
     .filter(r => r.s !== null && r.p !== null)
     .sort((a, b) => b.s - a.s);
 
