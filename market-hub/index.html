@@ -374,6 +374,34 @@ body {
 }
 .pm-chip-change.up   { color: var(--green); }
 .pm-chip-change.down { color: var(--red); }
+
+/* ── KALSHI EVENT TICKER ── */
+.kalshi-ticker {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 10px; padding-top: 10px;
+  border-top: 1px dashed rgba(30,45,61,.9);
+}
+.kt-head {
+  font-size: 9px; font-weight: 700; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--muted); white-space: nowrap; flex-shrink: 0;
+}
+.kt-events { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex: 1; }
+.kt-event  { display: flex; align-items: center; gap: 7px; padding: 1px 0; }
+.kt-date {
+  font-size: 9px; font-weight: 700; letter-spacing: .05em;
+  color: var(--accent); font-family: var(--font-mono);
+  background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.18);
+  padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+}
+.kt-name  { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.kt-val   { font-size: 12px; font-weight: 700; font-family: var(--font-mono); color: var(--text); white-space: nowrap; }
+.kt-unit  { font-size: 9px; color: var(--muted); white-space: nowrap; }
+.kt-conf  { font-size: 9px; color: var(--muted); opacity: .65; white-space: nowrap; }
+.kt-sep   { width: 1px; height: 14px; background: var(--border); margin: 0 6px; flex-shrink: 0; }
+.kt-src   {
+  font-size: 9px; color: var(--muted); font-family: var(--font-mono);
+  opacity: .55; white-space: nowrap; margin-left: auto; flex-shrink: 0;
+}
 </style>
 </head>
 <body>
@@ -482,6 +510,7 @@ body {
       </div>
       <div class="exec-chips" id="execChips"></div>
       <div class="pm-strip" id="pmStrip" style="display:none"></div>
+      <div class="kalshi-ticker" id="kalshiTicker" style="display:none"></div>
       <button class="summary-btn" id="execSummaryBtn" style="margin-top:16px" onclick="generateAllSummary()">✦ Generate AI Summary — All 10 Cards</button>
       <div class="summary-box" id="execSummaryBox"></div>
     </div>
@@ -3896,6 +3925,31 @@ function renderPolymarket(data) {
   strip.style.display = '';
 }
 
+// ── KALSHI EVENT TICKER ───────────────────────────────────────────────────────
+function renderKalshi(data) {
+  const el = document.getElementById('kalshiTicker');
+  if (!data?.events?.length) { el.style.display = 'none'; return; }
+
+  const chips = data.events.map((e, i) => {
+    const sep = i < data.events.length - 1 ? '<div class="kt-sep"></div>' : '';
+    const unit = e.unit ? `<span class="kt-unit">${e.unit}</span>` : '';
+    return `
+      <div class="kt-event">
+        <span class="kt-date">${e.date}</span>
+        <span class="kt-name">${e.label}</span>
+        <span class="kt-val">${e.action ? e.action + ' ' : ''}${e.consensus}</span>
+        ${unit}
+        <span class="kt-conf">${e.confidence}%</span>
+      </div>${sep}`;
+  }).join('');
+
+  el.innerHTML = `
+    <span class="kt-head">Next Events</span>
+    <div class="kt-events">${chips}</div>
+    <span class="kt-src">Kalshi</span>`;
+  el.style.display = '';
+}
+
 // ── DATA LOAD ─────────────────────────────────────────────────────────────────
 function showError(msg) {
   document.getElementById('execLoading').innerHTML = '';
@@ -3913,9 +3967,10 @@ async function loadData() {
   btn.textContent = '…';
   btn.disabled = true;
   try {
-    const [scoresRes, pmRes] = await Promise.all([
+    const [scoresRes, pmRes, kalshiRes] = await Promise.all([
       fetch('/api/scores'),
       fetch('/api/polymarket').catch(() => null),
+      fetch('/api/kalshi').catch(() => null),
     ]);
     if (!scoresRes.ok) throw new Error(`HTTP ${scoresRes.status}`);
     const data = await scoresRes.json();
@@ -3925,6 +3980,10 @@ async function loadData() {
     if (pmRes?.ok) {
       const pmData = await pmRes.json();
       renderPolymarket(pmData);
+    }
+    if (kalshiRes?.ok) {
+      const kalshiData = await kalshiRes.json();
+      renderKalshi(kalshiData);
     }
   } catch (err) {
     showError(`Could not reach /api/scores — ${err.message}`);
