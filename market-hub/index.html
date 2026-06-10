@@ -142,6 +142,17 @@ body {
 .cat-score.yellow { color: var(--yellow); }
 .cat-score.red    { color: var(--red); }
 
+/* ── NARRATIVE SUMMARY LINE ── */
+.exec-narrative {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.exec-narrative strong { color: var(--text); font-weight: 600; }
+
 /* ── LOADING STATE ── */
 .loading-overlay {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -541,6 +552,7 @@ body {
       </div>
       <div class="exec-chips" id="execChips"></div>
       <div class="cat-breakdown" id="execCategories" style="display:none"></div>
+      <div class="exec-narrative" id="execNarrative" style="display:none"></div>
       <div class="pm-strip" id="pmStrip" style="display:none"></div>
       <div class="kalshi-ticker" id="kalshiTicker" style="display:none"></div>
       <button class="summary-btn" id="execSummaryBtn" style="margin-top:16px" onclick="generateAllSummary()">✦ Generate AI Summary — All 10 Cards</button>
@@ -628,6 +640,26 @@ function fmt(iso) {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
 }
 
+// ── NARRATIVE SUMMARY ─────────────────────────────────────────────────────────
+function buildNarrative(categories, glow) {
+  const adj = {
+    trend:         { green: 'intact',     yellow: 'mixed',  red: 'broken'    },
+    participation: { green: 'broad',      yellow: 'mixed',  red: 'thin'      },
+    macro:         { green: 'supportive', yellow: 'mixed',  red: 'headwinds' },
+  };
+  const action = {
+    green:  'conditions favor risk-on exposure',
+    yellow: 'selectivity is warranted',
+    red:    'capital preservation is the priority',
+  };
+  const byKey = {};
+  categories.forEach(c => { byKey[c.key] = c; });
+  const t = adj.trend        [byKey.trend?.glow]         ?? '—';
+  const p = adj.participation[byKey.participation?.glow] ?? '—';
+  const m = adj.macro        [byKey.macro?.glow]         ?? '—';
+  return `Trend ${t}, participation ${p}, macro ${m} — <strong>${action[glow]}</strong>.`;
+}
+
 // ── RENDER EXEC SUMMARY ───────────────────────────────────────────────────────
 function renderExec(agg) {
   const card = document.getElementById('execCard');
@@ -661,6 +693,14 @@ function renderExec(agg) {
     catEl.style.display = '';
   } else {
     catEl.style.display = 'none';
+  }
+
+  const narEl = document.getElementById('execNarrative');
+  if (agg.categories?.length) {
+    narEl.innerHTML = buildNarrative(agg.categories, agg.glow);
+    narEl.style.display = '';
+  } else {
+    narEl.style.display = 'none';
   }
 
   document.getElementById('execLoading').style.display = 'none';
