@@ -1066,6 +1066,12 @@ function computeDeltas(current, previous) {
 }
 
 // ── AGGREGATE SCORE ───────────────────────────────────────────────────────────
+const SIGNAL_CATEGORIES = [
+  { key: 'trend',         label: 'Trend / Momentum',  ids: ['regime', 'leadership', 'sectors', 'equities'] },
+  { key: 'participation', label: 'Participation',      ids: ['breadth', 'globalflows', 'commodities'] },
+  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit'] },
+];
+
 function buildAggregate(cards) {
   const counts = { bullish: 0, neutral: 0, bearish: 0 };
   cards.forEach(c => counts[c.status]++);
@@ -1079,8 +1085,27 @@ function buildAggregate(cards) {
   const label = score >= greenThresh  ? 'Risk-On — Broad Participation' : score >= yellowThresh ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
   const posture = score >= greenThresh ? 'Risk-On, Not Complacent' : score >= yellowThresh ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
   const scoreDisplay = Number.isInteger(score) ? `${score}/${total}` : `${score.toFixed(1)}/${total}`;
+
+  const byId = {};
+  cards.forEach(c => { byId[c.id] = c; });
+
+  const categories = SIGNAL_CATEGORIES.map(cat => {
+    const catCards = cat.ids.map(id => byId[id]).filter(Boolean);
+    const cc = { bullish: 0, neutral: 0, bearish: 0 };
+    catCards.forEach(c => cc[c.status]++);
+    const catScore   = cc.bullish + cc.neutral * 0.5;
+    const catTotal   = catCards.length;
+    const catGlow    = catScore >= catTotal * 0.75 ? 'green' : catScore >= catTotal * 0.55 ? 'yellow' : 'red';
+    const catDisplay = Number.isInteger(catScore) ? `${catScore}/${catTotal}` : `${catScore.toFixed(1)}/${catTotal}`;
+    return {
+      key: cat.key, label: cat.label, ...cc,
+      score: catDisplay, glow: catGlow,
+      cards: catCards.map(c => ({ id: c.id, status: c.status })),
+    };
+  });
+
   return { bullish: counts.bullish, neutral: counts.neutral, bearish: counts.bearish,
-    score: scoreDisplay, label, posture, glow };
+    score: scoreDisplay, label, posture, glow, categories };
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
