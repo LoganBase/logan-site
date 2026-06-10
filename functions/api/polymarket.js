@@ -34,10 +34,15 @@ function getSentiment(question, probability) {
   return 'neutral';
 }
 
+function parseField(val) {
+  if (Array.isArray(val)) return val;
+  try { return JSON.parse(val); } catch { return []; }
+}
+
 function formatSignal(market) {
-  const outcomes  = market.outcomes      || [];
-  const prices    = market.outcomePrices || [];
-  const yesIdx    = outcomes.findIndex(o => o.toLowerCase() === 'yes');
+  const outcomes  = parseField(market.outcomes);
+  const prices    = parseField(market.outcomePrices);
+  const yesIdx    = outcomes.findIndex(o => String(o).toLowerCase() === 'yes');
   const raw       = parseFloat(yesIdx >= 0 ? prices[yesIdx] : prices[0]);
   if (isNaN(raw)) return null;
 
