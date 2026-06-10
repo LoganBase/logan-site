@@ -536,7 +536,7 @@ body {
         </div>
         <div class="exec-score-block">
           <div class="exec-score" id="execScore">—</div>
-          <div class="exec-score-sub" id="execScoreSub">Score / 10 Cards</div>
+          <div class="exec-score-sub" id="execScoreSub">Weighted Score</div>
         </div>
       </div>
       <div class="exec-chips" id="execChips"></div>
@@ -649,9 +649,10 @@ function renderExec(agg) {
   if (agg.categories?.length) {
     const rows = agg.categories.map(cat => {
       const dots = cat.cards.map(c => `<span class="cat-dot ${c.status}"></span>`).join('');
+      const wtLabel = `<span style="font-size:10px;color:var(--muted);margin-left:4px">${Math.round(cat.weight * 100)}%</span>`;
       return `
         <div class="cat-row">
-          <span class="cat-label">${cat.label}</span>
+          <span class="cat-label">${cat.label}${wtLabel}</span>
           <div class="cat-dots">${dots}</div>
           <span class="cat-score ${cat.glow}">${cat.score}</span>
         </div>`;

@@ -1067,45 +1067,48 @@ function computeDeltas(current, previous) {
 
 // ── AGGREGATE SCORE ───────────────────────────────────────────────────────────
 const SIGNAL_CATEGORIES = [
-  { key: 'trend',         label: 'Trend / Momentum',  ids: ['regime', 'leadership', 'sectors', 'equities'] },
-  { key: 'participation', label: 'Participation',      ids: ['breadth', 'globalflows', 'commodities'] },
-  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit'] },
+  { key: 'trend',         label: 'Trend / Momentum',  ids: ['regime', 'leadership', 'sectors', 'equities'], weight: 0.4 },
+  { key: 'participation', label: 'Participation',      ids: ['breadth', 'globalflows', 'commodities'],       weight: 0.3 },
+  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit'],               weight: 0.3 },
 ];
 
 function buildAggregate(cards) {
   const counts = { bullish: 0, neutral: 0, bearish: 0 };
   cards.forEach(c => counts[c.status]++);
-  // Neutral = 0.5 points (not zero): mixed signal ≠ risk-off
-  const score = counts.bullish + counts.neutral * 0.5;
-  const total = cards.length;
-  // Thresholds based on weighted max (total = 10). Green: ≥7.5, Yellow: ≥5.5
-  const greenThresh  = total * 0.75;
-  const yellowThresh = total * 0.55;
-  const glow  = score >= greenThresh  ? 'green' : score >= yellowThresh ? 'yellow' : 'red';
-  const label = score >= greenThresh  ? 'Risk-On — Broad Participation' : score >= yellowThresh ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
-  const posture = score >= greenThresh ? 'Risk-On, Not Complacent' : score >= yellowThresh ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
-  const scoreDisplay = Number.isInteger(score) ? `${score}/${total}` : `${score.toFixed(1)}/${total}`;
 
   const byId = {};
   cards.forEach(c => { byId[c.id] = c; });
 
+  // Build per-category sub-scores (normalized to 0–1 within each category)
   const categories = SIGNAL_CATEGORIES.map(cat => {
     const catCards = cat.ids.map(id => byId[id]).filter(Boolean);
     const cc = { bullish: 0, neutral: 0, bearish: 0 };
     catCards.forEach(c => cc[c.status]++);
-    const catScore   = cc.bullish + cc.neutral * 0.5;
+    const catRaw     = cc.bullish + cc.neutral * 0.5;
     const catTotal   = catCards.length;
-    const catGlow    = catScore >= catTotal * 0.75 ? 'green' : catScore >= catTotal * 0.55 ? 'yellow' : 'red';
-    const catDisplay = Number.isInteger(catScore) ? `${catScore}/${catTotal}` : `${catScore.toFixed(1)}/${catTotal}`;
+    const catPct     = catTotal > 0 ? catRaw / catTotal : 0;          // 0–1
+    const catGlow    = catPct >= 0.75 ? 'green' : catPct >= 0.55 ? 'yellow' : 'red';
+    const catDisplay = Number.isInteger(catRaw) ? `${catRaw}/${catTotal}` : `${catRaw.toFixed(1)}/${catTotal}`;
     return {
-      key: cat.key, label: cat.label, ...cc,
-      score: catDisplay, glow: catGlow,
+      key: cat.key, label: cat.label, ...cc, weight: cat.weight,
+      score: catDisplay, glow: catGlow, pct: catPct,
       cards: catCards.map(c => ({ id: c.id, status: c.status })),
     };
   });
 
+  // Weighted composite: Trend 40% + Participation 30% + Macro 30%
+  const byKey = {};
+  categories.forEach(c => { byKey[c.key] = c; });
+  const weightedPct = (byKey.trend?.pct         ?? 0) * 0.4
+                    + (byKey.participation?.pct  ?? 0) * 0.3
+                    + (byKey.macro?.pct          ?? 0) * 0.3;
+
+  const glow  = weightedPct >= 0.75 ? 'green' : weightedPct >= 0.55 ? 'yellow' : 'red';
+  const label = weightedPct >= 0.75 ? 'Risk-On — Broad Participation' : weightedPct >= 0.55 ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
+  const posture = weightedPct >= 0.75 ? 'Risk-On, Not Complacent' : weightedPct >= 0.55 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
+
   return { bullish: counts.bullish, neutral: counts.neutral, bearish: counts.bearish,
-    score: scoreDisplay, label, posture, glow, categories };
+    score: `${(weightedPct * 10).toFixed(1)}/10`, label, posture, glow, categories };
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
