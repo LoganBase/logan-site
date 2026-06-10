@@ -984,6 +984,7 @@ function openModal(card) {
         <canvas id="commoditiesHistoryCanvas"></canvas>
         <div id="commoditiesHistoryLoading" class="chart-loading" style="display:flex"><div class="spinner"></div> Loading chart…</div>
       </div>
+      <div id="commoditiesHistorySummary" style="margin-top:14px;display:none"></div>
       <button class="summary-btn" id="summaryBtn" onclick="generateSummary('commodities')">✦ Generate AI Summary</button>
       <div class="summary-box" id="summaryBox"></div>`;
   }
@@ -2816,6 +2817,59 @@ async function loadCommoditiesHistoryChart(range) {
         },
       },
     });
+
+    // Build period-return summary
+    const periodReturn = sym => {
+      const c = commodities.find(x => x.sym === sym);
+      if (!c) return null;
+      const first = c.prices.find(p => p != null);
+      const last  = [...c.prices].reverse().find(p => p != null);
+      return (first && last) ? +(last - 100).toFixed(1) : null;
+    };
+    const fmt = v => (v >= 0 ? '+' : '') + v.toFixed(0) + '%';
+    const copper = periodReturn('HG=F'), gold = periodReturn('GLD'),
+          silver = periodReturn('SLV'),  steel = periodReturn('SLX'),
+          usci   = periodReturn('USCI'), ura   = periodReturn('URA'),
+          energy = periodReturn('IXC');
+
+    const bullets = [];
+
+    // Broad complex direction
+    if (usci != null) {
+      if (usci > 8)       bullets.push(`Broad commodities up ${fmt(usci)} for the period — real asset inflation in play.`);
+      else if (usci < -8) bullets.push(`Broad commodities down ${fmt(usci)} for the period — demand weakness or deflationary pressure.`);
+      else                bullets.push(`Broad commodities near flat (${fmt(usci)}) — no major directional move in the complex.`);
+    }
+
+    // Copper vs Gold (growth vs fear)
+    if (copper != null && gold != null) {
+      const spread = copper - gold;
+      if (spread > 15)       bullets.push(`Copper outpacing Gold by ${spread.toFixed(0)}pts — growth demand dominating, safe haven fading.`);
+      else if (spread < -15) bullets.push(`Gold outpacing Copper by ${Math.abs(spread).toFixed(0)}pts — safe haven bid active, growth signals weak.`);
+      else                   bullets.push(`Copper and Gold moving in tandem (${fmt(copper)} vs ${fmt(gold)}) — mixed growth/safety signals.`);
+    }
+
+    // Industrial metals conviction (Copper + Silver together)
+    if (copper != null && silver != null && steel != null) {
+      const allRising = copper > 5 && silver > 5 && steel > 5;
+      const allFalling = copper < -5 && silver < -5 && steel < -5;
+      if (allRising)        bullets.push(`Copper, Silver and Steel all advancing — broad industrial metals conviction, strong growth signal.`);
+      else if (allFalling)  bullets.push(`Copper, Silver and Steel all declining — industrial demand deteriorating across the complex.`);
+    }
+
+    // Uranium vs Energy (nuclear-specific vs broad energy)
+    if (ura != null && energy != null) {
+      const spread = ura - energy;
+      if (spread > 15)       bullets.push(`Uranium outpacing broad energy by ${spread.toFixed(0)}pts — nuclear-specific demand driver beyond oil/gas.`);
+      else if (spread < -15) bullets.push(`Uranium lagging broad energy by ${Math.abs(spread).toFixed(0)}pts — nuclear demand muted relative to fossil fuels.`);
+    }
+
+    const summaryEl = document.getElementById('commoditiesHistorySummary');
+    if (summaryEl && bullets.length) {
+      summaryEl.innerHTML = bullets.map(b => `<div style="color:var(--dim);font-size:12px;padding:4px 0 4px 14px;border-left:2px solid rgba(148,163,184,0.25);margin-bottom:6px">${b}</div>`).join('');
+      summaryEl.style.display = 'block';
+    }
+
   } catch (err) {
     if (loadingEl) loadingEl.innerHTML = `<span style="color:var(--red)">Chart unavailable — ${err.message}</span>`;
   }
