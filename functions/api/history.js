@@ -238,7 +238,14 @@ export async function onRequest(context) {
   }
 
   const url    = new URL(context.request.url);
-  const symbol = url.searchParams.get('symbol') || 'SPY';
+  const symbolRaw = url.searchParams.get('symbol') || 'SPY';
+  const symbol = symbolRaw.toUpperCase();
+  if (!/^[A-Z0-9^=.\-]{1,20}$/.test(symbol)) {
+    return new Response(JSON.stringify({ error: 'Invalid symbol' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
   const range  = url.searchParams.get('range')  || '5y';
   const cfg    = RANGE_MAP[range] || RANGE_MAP['5y'];
   const db     = context.env.DB;
@@ -249,7 +256,7 @@ export async function onRequest(context) {
         fromD1(db, symbol, cfg.days),
         computeRegimeDuration(db, symbol),
       ]);
-      if (rows.length >= 5) {
+      if (rows.length >= 5 && rows.some(r => r.sma200 != null)) {
         return new Response(JSON.stringify(buildFromD1Rows(symbol, range, rows, regimeDays)), {
           headers: {
             'Content-Type': 'application/json',
