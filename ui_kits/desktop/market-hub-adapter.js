@@ -36,13 +36,28 @@
   };
 
   // UI range labels (kit) -> API range tokens (live product)
-  const RANGE_MAP = { '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGE_MAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y', '20Y': '20y' };
 
   // Per-card history: which endpoint to call and how to extract { values, dates }.
   // Simple cards use `field` (a flat number[] on the response).
   // Complex cards (objects-in-array) use `extract(data)` to pick one series.
   const HISTORY = {
-    regime:      { url: (r) => `/api/history?symbol=SPY&range=${r}`,    field: 'vs200'     },
+    regime: {
+      url: (r) => `/api/history?symbol=SPY&range=${r}`,
+      extract: (data) => {
+        if (!Array.isArray(data.closes) || !data.closes.length) return null;
+        return {
+          values:   data.closes.map(Number),
+          dates:    data.dates || [],
+          overlays: [
+            { label: '50d SMA',  values: (data.sma50  || []).map(Number), color: '#06b6d4', dash: null },
+            { label: '200d SMA', values: (data.sma200 || []).map(Number), color: '#f59e0b', dash: [5, 3] },
+          ],
+          colorBy: (data.vs200  || []).map(Number),
+          rsi:     (data.rsi14  || []).map(Number),
+        };
+      },
+    },
     leadership:  { url: (r) => `/api/leadership?range=${r}`,            field: 'rspVsSpy'  },
     breadth:     { url: (r) => `/api/breadth-history?range=${r}`,       field: 'mmth'      },
     valuations:  { url: (r) => `/api/valuations-history?range=${r}`,    field: 'capes'     },
