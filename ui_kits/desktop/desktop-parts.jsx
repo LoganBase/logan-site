@@ -46,6 +46,8 @@ function DeepChartLg({ card, cardId, color, height = 230 }) {
   const [range, setRange] = useStateD('1Y');
   const [live, setLive] = useStateD(null);
   const [hidden, setHidden] = useStateD({});
+  const [hover, setHover] = useStateD(null);
+  const svgRef = useRefD(null);
 
   useEffectD(() => {
     let alive = true;
@@ -116,52 +118,106 @@ function DeepChartLg({ card, cardId, color, height = 230 }) {
     ...overlayArrs.map((o) => ({ label: o.label, color: o.color, dash: o.dash })),
   ] : null;
 
+  // ── Hover / tooltip ──
+  const isPrice = overlayArrs.length > 0;
+  const fmtVal = (v) => isPrice ? `$${v.toFixed(2)}` : v.toFixed(3);
+  const handleMouseMove = (e) => {
+    const el = svgRef.current;
+    if (!el || n < 2) return;
+    const rect = el.getBoundingClientRect();
+    setHover(Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left) / rect.width) * (n - 1)))));
+  };
+
   return (
     <div>
-      {/* ── Main chart ── */}
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height }}>
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={color} stopOpacity="0.22" /><stop offset="1" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        {[0.2, 0.4, 0.6, 0.8].map((g) => (<line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 5" />))}
-        <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
-        {!mainHidden && <path d={mainArea} fill={`url(#${gradId})`} />}
-        {overlayArrs.map((o) => !hidden[o.label] && (
-          <path key={o.label} d={buildPath(o.arr)} fill="none" stroke={o.color} strokeWidth="1.5"
-            strokeDasharray={o.dash ? o.dash.join(' ') : undefined}
-            strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-        ))}
-        {!mainHidden && (colorSegs
-          ? colorSegs.map((seg, si) => {
-              const pts = primaryArr.slice(seg.from, seg.to + 1);
-              const d = pts.map((p, i) => p == null ? '' : `${(i === 0 || pts[i - 1] == null) ? 'M' : 'L'}${((seg.from + i) * dx).toFixed(1)},${yy(p).toFixed(1)}`).join('');
-              return <path key={si} d={d} fill="none" stroke={seg.c} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
-            })
-          : <path d={mainLine} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-        )}
-        {!mainHidden && primaryArr[n - 1] != null && (() => {
-          const lx = ((n - 1) * dx).toFixed(1), ly = yy(primaryArr[n - 1]).toFixed(1);
-          const dc = colorSegs ? colorSegs[colorSegs.length - 1]?.c || color : color;
-          return (<><circle cx={lx} cy={ly} r="3.5" fill={dc} /><circle cx={lx} cy={ly} r="7" fill="none" stroke={dc} strokeOpacity="0.35" strokeWidth="2" /></>);
-        })()}
-      </svg>
-
-      {/* ── RSI panel ── */}
-      {rsiData && (
-        <svg width="100%" viewBox={`0 0 ${W} ${RSI_H}`} preserveAspectRatio="none" style={{ display: 'block', height: RSI_H, marginTop: 3 }}>
-          {[30, 70].map((v) => { const y = ((1 - v / 100) * RSI_H).toFixed(1); return <line key={v} x1="0" x2={W} y1={y} y2={y} stroke="rgba(245,158,11,.4)" strokeWidth="1" strokeDasharray="3 4" />; })}
-          {rsiData.map((v, i) => {
-            if (v == null || isNaN(v)) return null;
-            const bw = (W / rsiData.length).toFixed(2), bh = ((v / 100) * RSI_H).toFixed(2);
-            return <rect key={i} x={(i * W / rsiData.length).toFixed(2)} y={(RSI_H - Number(bh)).toFixed(2)} width={bw} height={bh} fill={rsiCol(v)} opacity="0.7" />;
-          })}
-          <text x="4" y="11" fill="#64748b" fontSize="9" fontFamily="monospace">RSI 14</text>
-          <text x={W - 4} y={((1 - 70 / 100) * RSI_H - 2).toFixed(1)} fill="#64748b" fontSize="8" fontFamily="monospace" textAnchor="end">70</text>
-          <text x={W - 4} y={((1 - 30 / 100) * RSI_H - 2).toFixed(1)} fill="#64748b" fontSize="8" fontFamily="monospace" textAnchor="end">30</text>
+      {/* ── Chart area (relative wrapper for tooltip) ── */}
+      <div style={{ position: 'relative' }} onMouseMove={handleMouseMove} onMouseLeave={() => setHover(null)}>
+        {/* ── Main chart ── */}
+        <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height }}>
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stopColor={color} stopOpacity="0.22" /><stop offset="1" stopColor={color} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {[0.2, 0.4, 0.6, 0.8].map((g) => (<line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 5" />))}
+          <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+          {!mainHidden && <path d={mainArea} fill={`url(#${gradId})`} />}
+          {overlayArrs.map((o) => !hidden[o.label] && (
+            <path key={o.label} d={buildPath(o.arr)} fill="none" stroke={o.color} strokeWidth="1.5"
+              strokeDasharray={o.dash ? o.dash.join(' ') : undefined}
+              strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          ))}
+          {!mainHidden && (colorSegs
+            ? colorSegs.map((seg, si) => {
+                const pts = primaryArr.slice(seg.from, seg.to + 1);
+                const d = pts.map((p, i) => p == null ? '' : `${(i === 0 || pts[i - 1] == null) ? 'M' : 'L'}${((seg.from + i) * dx).toFixed(1)},${yy(p).toFixed(1)}`).join('');
+                return <path key={si} d={d} fill="none" stroke={seg.c} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+              })
+            : <path d={mainLine} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          )}
+          {/* Crosshair + hover dots */}
+          {hover != null && (
+            <line x1={(hover * dx).toFixed(1)} x2={(hover * dx).toFixed(1)} y1={top} y2={H - bot}
+              stroke="#334155" strokeWidth="1" strokeDasharray="2 3" pointerEvents="none" />
+          )}
+          {hover != null && !mainHidden && primaryArr[hover] != null && (() => {
+            const hc = colorSegs ? (colorSegs.find((s) => hover >= s.from && hover <= s.to)?.c || color) : color;
+            return <circle cx={(hover * dx).toFixed(1)} cy={yy(primaryArr[hover]).toFixed(1)} r="4" fill={hc} stroke="#080c14" strokeWidth="1.5" pointerEvents="none" />;
+          })()}
+          {hover != null && overlayArrs.map((o) => !hidden[o.label] && o.arr[hover] != null && (
+            <circle key={o.label} cx={(hover * dx).toFixed(1)} cy={yy(o.arr[hover]).toFixed(1)}
+              r="3.5" fill={o.color} stroke="#080c14" strokeWidth="1.5" pointerEvents="none" />
+          ))}
+          {/* Latest-point dot (hidden while hovering) */}
+          {hover == null && !mainHidden && primaryArr[n - 1] != null && (() => {
+            const lx = ((n - 1) * dx).toFixed(1), ly = yy(primaryArr[n - 1]).toFixed(1);
+            const dc = colorSegs ? colorSegs[colorSegs.length - 1]?.c || color : color;
+            return (<><circle cx={lx} cy={ly} r="3.5" fill={dc} /><circle cx={lx} cy={ly} r="7" fill="none" stroke={dc} strokeOpacity="0.35" strokeWidth="2" /></>);
+          })()}
         </svg>
-      )}
+
+        {/* ── RSI panel ── */}
+        {rsiData && (
+          <svg width="100%" viewBox={`0 0 ${W} ${RSI_H}`} preserveAspectRatio="none" style={{ display: 'block', height: RSI_H, marginTop: 3 }}>
+            {[30, 70].map((v) => { const y = ((1 - v / 100) * RSI_H).toFixed(1); return <line key={v} x1="0" x2={W} y1={y} y2={y} stroke="rgba(245,158,11,.4)" strokeWidth="1" strokeDasharray="3 4" />; })}
+            {rsiData.map((v, i) => {
+              if (v == null || isNaN(v)) return null;
+              const bw = (W / rsiData.length).toFixed(2), bh = ((v / 100) * RSI_H).toFixed(2);
+              return <rect key={i} x={(i * W / rsiData.length).toFixed(2)} y={(RSI_H - Number(bh)).toFixed(2)} width={bw} height={bh} fill={rsiCol(v)} opacity="0.7" />;
+            })}
+            <text x="4" y="11" fill="#64748b" fontSize="9" fontFamily="monospace">RSI 14</text>
+            <text x={W - 4} y={((1 - 70 / 100) * RSI_H - 2).toFixed(1)} fill="#64748b" fontSize="8" fontFamily="monospace" textAnchor="end">70</text>
+            <text x={W - 4} y={((1 - 30 / 100) * RSI_H - 2).toFixed(1)} fill="#64748b" fontSize="8" fontFamily="monospace" textAnchor="end">30</text>
+          </svg>
+        )}
+
+        {/* ── Tooltip ── */}
+        {hover != null && live?.dates?.[hover] && (
+          <div style={{
+            position: 'absolute', top: 10, pointerEvents: 'none', zIndex: 10,
+            ...(hover / Math.max(n - 1, 1) > 0.55
+              ? { right: `calc(${(1 - hover / Math.max(n - 1, 1)) * 100}% + 14px)` }
+              : { left: `calc(${(hover / Math.max(n - 1, 1)) * 100}% + 14px)` }),
+            background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 10,
+            padding: '10px 14px', minWidth: 175,
+            boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          }}>
+            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 600 }}>{live.dates[hover]}</div>
+            {[
+              { label: 'SPY', value: live.values[hover], color },
+              ...(live.overlays || []).map((o) => ({ label: o.label, value: (o.values || [])[hover], color: o.color })),
+            ].filter(({ value }) => value != null && !isNaN(value)).map(({ label, value, color: tc }) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginBottom: 5 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: tc, flexShrink: 0 }} />
+                  <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>{label}</span>
+                </span>
+                <span style={{ fontFamily: DMONO, fontSize: 12.5, color: '#e8edf5', fontWeight: 600 }}>{fmtVal(value)}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── Range buttons + live indicator ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 12, flexWrap: 'wrap' }}>
