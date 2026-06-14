@@ -343,12 +343,11 @@ function ToggleShell() {
           <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
         </div>
         {/* the toggle */}
-        <div style={{ marginLeft: 22, position: 'relative', display: 'flex', padding: 4, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 11 }}>
+        <div style={{ marginLeft: 22, display: 'flex', padding: 3, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 8 }}>
           {TABS.map((t) => (
-            <button key={t.id} onClick={() => pick(t.id)} style={{ all: 'unset', cursor: 'pointer', position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 116, padding: '6px 16px', borderRadius: 8,
+            <button key={t.id} onClick={() => pick(t.id)} style={{ all: 'unset', cursor: 'pointer', padding: '4px 12px', borderRadius: 6,
               background: t.id === mode ? '#1b2736' : 'transparent', border: `1px solid ${t.id === mode ? '#28384a' : 'transparent'}`, transition: 'background .18s ease' }}>
-              <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: t.id === mode ? '#e8edf5' : '#94a3b8' }}>{t.label}</span>
-              <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569' }}>{t.sub}</span>
+              <span style={{ fontFamily: DSANS, fontSize: 12.5, fontWeight: 600, color: t.id === mode ? '#e8edf5' : '#64748b' }}>{t.label}</span>
             </button>
           ))}
         </div>
