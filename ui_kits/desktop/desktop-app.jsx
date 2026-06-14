@@ -145,7 +145,7 @@ function OptionWorkspace({ D }) {
     <div style={{ display: 'flex', height: 'calc(100vh - 58px)', overflow: 'hidden' }}>
       {/* left rail */}
       <div style={{ width: 340, flexShrink: 0, borderRight: '1px solid #16202e', background: '#0a0f17', overflowY: 'auto', padding: '20px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 8px 16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 8px 28px' }}>
           <span style={{ fontFamily: DSANS, fontSize: 20, fontWeight: 700, color: '#e8edf5' }}>{D.exec.bull}/{D.exec.bull + D.exec.neutral + D.exec.bear}</span>
           <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b' }}>bullish</span>
           <div style={{ marginLeft: 'auto' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: DSIG.bullish.fill, border: `1px solid ${DSIG.bullish.line}` }}>
