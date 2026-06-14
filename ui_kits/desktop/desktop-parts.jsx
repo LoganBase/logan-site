@@ -42,54 +42,130 @@ function monthLabels(endLabel, n) {
 
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
 function DeepChartLg({ card, cardId, color, height = 230 }) {
-  const ranges = ['1M', '3M', '6M', '1Y', '5Y'];
+  const ranges = ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'];
   const [range, setRange] = useStateD('1Y');
-  const [live, setLive] = useStateD(null); // { values:number[] } from the API, or null
+  const [live, setLive] = useStateD(null);
+  const [hidden, setHidden] = useStateD({});
+
   useEffectD(() => {
     let alive = true;
     setLive(null);
     if (window.MarketHubData && cardId) {
-      window.MarketHubData.loadHistory(cardId, range).then((r) => { if (alive && r && r.values.length > 1) setLive(r); });
+      window.MarketHubData.loadHistory(cardId, range).then((r) => { if (alive && r && r.values && r.values.length > 1) setLive(r); });
     }
     return () => { alive = false; };
   }, [cardId, range]);
 
   const W = 720, H = height, top = 12, bot = 26, padR = 4;
-  const conf = { '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082] };
-  let arr;
+  const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07], '20Y': [96, 0.06] };
+
+  // ── Normalise all series into the same 0..1 plot space ──
+  let primaryArr = [], overlayArrs = [];
   if (live && live.values.length > 1) {
-    // Normalize the real series to 0..1 for the same plot box.
-    const vals = live.values, lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
-    arr = vals.map((x) => 0.07 + ((x - lo) / span) * 0.86);
+    const allVals = [
+      ...live.values,
+      ...(live.overlays || []).flatMap((o) => o.values || []),
+    ].filter((v) => v != null && !isNaN(v));
+    const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+    const norm = (v) => (v != null && !isNaN(v)) ? 0.07 + ((v - lo) / span) * 0.86 : null;
+    primaryArr = live.values.map(norm);
+    overlayArrs = (live.overlays || []).map((o) => ({ ...o, arr: (o.values || []).map(norm) }));
   } else {
-    const [n, vol] = conf[range];
+    const [n, vol] = conf[range] || [64, 0.10];
     let s = card.seed * 9301 + 49297 + range.length * 1733;
     const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
-    let v = 0.4; arr = [];
-    for (let i = 0; i < n; i++) { v += (rnd() - 0.5) * vol + card.trend * 0.012; v = Math.max(0.07, Math.min(0.94, v)); arr.push(v); }
+    let v = 0.4;
+    for (let i = 0; i < n; i++) { v += (rnd() - 0.5) * vol + card.trend * 0.012; v = Math.max(0.07, Math.min(0.94, v)); primaryArr.push(v); }
   }
-  const n = arr.length;
-  const dx = (W - padR) / (n - 1), yy = (p) => top + (1 - p) * (H - top - bot);
-  const line = arr.map((p, i) => `${i ? 'L' : 'M'}${(i * dx).toFixed(1)},${yy(p).toFixed(1)}`).join(' ');
-  const area = `${line} L${(n - 1) * dx},${H - bot} L0,${H - bot} Z`;
-  const id = `dlg${card.seed}`;
+
+  const n = primaryArr.length;
+  const dx = (W - padR) / Math.max(n - 1, 1);
+  const yy = (p) => p != null ? top + (1 - p) * (H - top - bot) : null;
+  const buildPath = (arr) => {
+    let d = '';
+    arr.forEach((p, i) => { if (p != null) d += `${(i === 0 || arr[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${yy(p).toFixed(1)}`; });
+    return d;
+  };
+  const mainLine = buildPath(primaryArr);
+  const mainArea = `${mainLine} L${((n - 1) * dx).toFixed(1)},${H - bot} L0,${H - bot} Z`;
+  const gradId = `dlg${card.seed}`;
+
+  const hasLegend = overlayArrs.length > 0;
+  const mainHidden = hasLegend && hidden['SPY'];
+
+  // ── Colour-coded SPY segments (when colorBy present) ──
+  const colorSegs = (live?.colorBy && !mainHidden) ? (() => {
+    const segs = []; let start = 0, cur = null;
+    primaryArr.forEach((p, i) => {
+      const v = live.colorBy[i];
+      const c = (v == null || isNaN(v)) ? '#3b82f6' : v > 14 ? '#ef4444' : v < 0 ? '#f97316' : '#3b82f6';
+      if (c !== cur) { if (cur !== null) segs.push({ from: start, to: i, c: cur }); start = i; cur = c; }
+    });
+    if (cur) segs.push({ from: start, to: n - 1, c: cur });
+    return segs;
+  })() : null;
+
+  // ── RSI panel ──
+  const rsiData = live?.rsi?.length > 1 ? live.rsi : null;
+  const RSI_H = 64;
+  const rsiCol = (v) => v > 70 ? '#ef4444' : v > 50 ? '#22c55e' : v > 40 ? '#64748b' : v > 30 ? '#f97316' : '#a855f7';
+
+  // ── Legend items ──
+  const legendItems = hasLegend ? [
+    { label: 'SPY', color, dash: null },
+    ...overlayArrs.map((o) => ({ label: o.label, color: o.color, dash: o.dash })),
+  ] : null;
+
   return (
     <div>
+      {/* ── Main chart ── */}
       <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height }}>
-        <defs><linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.28" /><stop offset="1" stopColor={color} stopOpacity="0" />
-        </linearGradient></defs>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={color} stopOpacity="0.22" /><stop offset="1" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
         {[0.2, 0.4, 0.6, 0.8].map((g) => (<line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 5" />))}
         <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
-        <path d={area} fill={`url(#${id})`} />
-        <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-        <circle cx={(n - 1) * dx} cy={yy(arr[n - 1])} r="3.5" fill={color} />
-        <circle cx={(n - 1) * dx} cy={yy(arr[n - 1])} r="7" fill="none" stroke={color} strokeOpacity="0.35" strokeWidth="2" />
+        {!mainHidden && <path d={mainArea} fill={`url(#${gradId})`} />}
+        {overlayArrs.map((o) => !hidden[o.label] && (
+          <path key={o.label} d={buildPath(o.arr)} fill="none" stroke={o.color} strokeWidth="1.5"
+            strokeDasharray={o.dash ? o.dash.join(' ') : undefined}
+            strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        ))}
+        {!mainHidden && (colorSegs
+          ? colorSegs.map((seg, si) => {
+              const pts = primaryArr.slice(seg.from, seg.to + 1);
+              const d = pts.map((p, i) => p == null ? '' : `${(i === 0 || pts[i - 1] == null) ? 'M' : 'L'}${((seg.from + i) * dx).toFixed(1)},${yy(p).toFixed(1)}`).join('');
+              return <path key={si} d={d} fill="none" stroke={seg.c} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />;
+            })
+          : <path d={mainLine} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+        )}
+        {!mainHidden && primaryArr[n - 1] != null && (() => {
+          const lx = ((n - 1) * dx).toFixed(1), ly = yy(primaryArr[n - 1]).toFixed(1);
+          const dc = colorSegs ? colorSegs[colorSegs.length - 1]?.c || color : color;
+          return (<><circle cx={lx} cy={ly} r="3.5" fill={dc} /><circle cx={lx} cy={ly} r="7" fill="none" stroke={dc} strokeOpacity="0.35" strokeWidth="2" /></>);
+        })()}
       </svg>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 12 }}>
+
+      {/* ── RSI panel ── */}
+      {rsiData && (
+        <svg width="100%" viewBox={`0 0 ${W} ${RSI_H}`} preserveAspectRatio="none" style={{ display: 'block', height: RSI_H, marginTop: 3 }}>
+          {[30, 70].map((v) => { const y = ((1 - v / 100) * RSI_H).toFixed(1); return <line key={v} x1="0" x2={W} y1={y} y2={y} stroke="rgba(245,158,11,.4)" strokeWidth="1" strokeDasharray="3 4" />; })}
+          {rsiData.map((v, i) => {
+            if (v == null || isNaN(v)) return null;
+            const bw = (W / rsiData.length).toFixed(2), bh = ((v / 100) * RSI_H).toFixed(2);
+            return <rect key={i} x={(i * W / rsiData.length).toFixed(2)} y={(RSI_H - Number(bh)).toFixed(2)} width={bw} height={bh} fill={rsiCol(v)} opacity="0.7" />;
+          })}
+          <text x="4" y="10" fill="#475569" fontSize="9" fontFamily="monospace">RSI 14</text>
+        </svg>
+      )}
+
+      {/* ── Range buttons + live indicator ── */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 12, flexWrap: 'wrap' }}>
         {ranges.map((r) => (
-          <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', padding: '6px 16px', borderRadius: 8,
-            fontFamily: DMONO, fontSize: 12, fontWeight: 600, color: r === range ? '#e8edf5' : '#64748b',
+          <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', padding: '5px 10px', borderRadius: 7,
+            fontFamily: DMONO, fontSize: 11.5, fontWeight: 600, color: r === range ? '#e8edf5' : '#64748b',
             background: r === range ? '#1b2736' : 'transparent', border: `1px solid ${r === range ? '#243446' : 'transparent'}` }}>{r}</button>
         ))}
         <span title={live ? 'Live data from /api' : 'Sample data — connect /api for live history'} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontFamily: DSANS, fontSize: 10.5, color: '#475569' }}>
@@ -97,6 +173,24 @@ function DeepChartLg({ card, cardId, color, height = 230 }) {
           {live ? 'Live' : 'Sample'}
         </span>
       </div>
+
+      {/* ── Legend (regime card only — click to toggle series) ── */}
+      {legendItems && (
+        <div style={{ display: 'flex', gap: 18, marginTop: 10, flexWrap: 'wrap' }}>
+          {legendItems.map(({ label, color: lc, dash }) => {
+            const isHidden = hidden[label];
+            return (
+              <button key={label} onClick={() => setHidden((h) => ({ ...h, [label]: !h[label] }))}
+                style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, opacity: isHidden ? 0.3 : 1, transition: 'opacity .15s' }}>
+                <svg width="24" height="10" viewBox="0 0 24 10" style={{ flexShrink: 0 }}>
+                  <line x1="0" y1="5" x2="24" y2="5" stroke={lc} strokeWidth={dash ? 1.5 : 2.5} strokeDasharray={dash ? dash.join(' ') : undefined} />
+                </svg>
+                <span style={{ fontFamily: DSANS, fontSize: 11.5, color: isHidden ? '#475569' : '#94a3b8' }}>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
