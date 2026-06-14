@@ -14,9 +14,11 @@
  *   BUFFETT uses alert() in Pine Script with the computed ratio embedded.
  *
  * Webhook URL format:
- *   https://market-hub-tv-webhook.<subdomain>.workers.dev/webhook?secret=<TV_SECRET>
+ *   https://market-hub-tv-webhook.<subdomain>.workers.dev/webhook
  *
- * Security: secret is matched against TV_SECRET environment variable.
+ * Security: TV_SECRET matched against Authorization header or body "secret" field.
+ *   Header (preferred): Authorization: Bearer <TV_SECRET>
+ *   Body fallback:      {"ticker":..., "secret": "<TV_SECRET>", ...}
  */
 
 function parseDate(time) {
@@ -49,24 +51,30 @@ export default {
 
     // Health check
     if (request.method === 'GET') {
-      return new Response('TradingView Webhook Receiver — POST /webhook?secret=<token>', { status: 200 });
+      return new Response('TradingView Webhook Receiver — POST /webhook with Authorization: Bearer <token>', { status: 200 });
     }
 
     if (url.pathname !== '/webhook' || request.method !== 'POST') {
       return new Response('Not Found', { status: 404 });
     }
 
-    // Validate secret
-    const secret = url.searchParams.get('secret') ?? '';
-    if (env.TV_SECRET && secret !== env.TV_SECRET) {
+    // Validate secret — check Authorization header first, then body field
+    const headerSecret = (request.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '');
+    // body parsed below; pre-read raw text so we can check body.secret before full parse
+    let rawBody;
+    try { rawBody = await request.text(); } catch { rawBody = ''; }
+    let bodySecret = '';
+    try { bodySecret = JSON.parse(rawBody)?.secret ?? ''; } catch {}
+    const providedSecret = headerSecret || bodySecret;
+    if (env.TV_SECRET && providedSecret !== env.TV_SECRET) {
       console.warn('[tv-webhook] Rejected request — bad secret');
       return new Response('Unauthorized', { status: 401 });
     }
 
-    // Parse body
+    // Parse body (rawBody already read for secret check above)
     let body;
     try {
-      body = await request.json();
+      body = JSON.parse(rawBody);
     } catch {
       return new Response('Bad Request — expected JSON body', { status: 400 });
     }
@@ -75,7 +83,7 @@ export default {
     const value  = parseFloat(body.value);
     const date   = body.time != null ? parseDate(body.time) : null;
 
-    if (!date || isNaN(value) || value <= 0) {
+    if (!date || isNaN(value) || value < 0) {
       console.error('[tv-webhook] Invalid payload:', JSON.stringify(body));
       return new Response('Bad Request — invalid ticker, value, or time', { status: 400 });
     }
