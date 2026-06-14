@@ -178,7 +178,7 @@ function DeepChartLg({ card, cardId, color, height = 230 }) {
 
       {/* ── Legend (regime card only — click to toggle series) ── */}
       {legendItems && (
-        <div style={{ display: 'flex', gap: 18, marginTop: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 18, marginTop: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {legendItems.map(({ label, color: lc, dash }, li) => {
             const isHidden = hidden[label];
             return (
