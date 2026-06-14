@@ -177,6 +177,14 @@ export async function onRequest(context) {
     });
   }
 
+  const token = context.request.headers.get('X-Hub-Token');
+  if (!token || token !== context.env.HUB_TOKEN) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+    });
+  }
+
   const db = context.env.DB;
   if (!db) {
     return new Response(JSON.stringify({
