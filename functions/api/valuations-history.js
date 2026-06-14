@@ -27,7 +27,7 @@ export async function onRequest(context) {
 
   const url   = new URL(context.request.url);
   const range = url.searchParams.get('range') || '30y';
-  const days  = RANGE_DAYS[range] || RANGE_DAYS['30y'];
+  const days  = RANGE_DAYS[range] ?? RANGE_DAYS['30y'];
   const db    = context.env.DB;
 
   if (!db) {
