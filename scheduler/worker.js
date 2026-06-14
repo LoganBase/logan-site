@@ -19,7 +19,7 @@ export default {
   async scheduled(event, env, ctx) {
     // Step 1: refresh D1 with today's prices
     try {
-      const res  = await fetch(REFRESH_URL);
+      const res  = await fetch(REFRESH_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } });
       const data = await res.json();
       console.log(
         `[market-hub-scheduler] ${data.timestamp} -- ${data.totalAdded} rows added`
@@ -30,7 +30,7 @@ export default {
 
     // Step 2: write today's card signals + score any pending outcomes
     try {
-      const res  = await fetch(SIGNALS_URL);
+      const res  = await fetch(SIGNALS_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } });
       const data = await res.json();
       console.log(
         `[market-hub-scheduler] signals -- wrote: ${data.signalsWritten}, scored: ${data.outcomesScored}`
@@ -49,8 +49,8 @@ export default {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const refresh = await (await fetch(REFRESH_URL)).json();
-    const signals = await (await fetch(SIGNALS_URL)).json();
+    const refresh = await (await fetch(REFRESH_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } })).json();
+    const signals = await (await fetch(SIGNALS_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } })).json();
     return new Response(JSON.stringify({ refresh, signals }, null, 2), {
       headers: { 'Content-Type': 'application/json' },
     });
