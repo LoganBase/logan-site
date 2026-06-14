@@ -30,7 +30,7 @@ const ALL_SYMBOLS = [
   'XLV','XLC','XLY','XLB',                        // Sectors (4 added for breadth)
   'XME','GDX','COPX','KBE',
   'USCI','HG=F','GLD','SLV','IXC','DBA','SLX','URA',   // Commodities
-  'SPY','IWM','NVDA','JPM','CAT','XOM','FCX','GDX','CCJ','EEM',  // Equities
+  'IWM','NVDA','JPM','CAT','XOM','FCX','CCJ',                    // Equities
 ];
 
 // ── MATH ─────────────────────────────────────────────────────────────────────
