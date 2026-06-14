@@ -157,7 +157,9 @@ function DeepChartLg({ card, cardId, color, height = 230 }) {
             const bw = (W / rsiData.length).toFixed(2), bh = ((v / 100) * RSI_H).toFixed(2);
             return <rect key={i} x={(i * W / rsiData.length).toFixed(2)} y={(RSI_H - Number(bh)).toFixed(2)} width={bw} height={bh} fill={rsiCol(v)} opacity="0.7" />;
           })}
-          <text x="4" y="10" fill="#475569" fontSize="9" fontFamily="monospace">RSI 14</text>
+          <text x="4" y="11" fill="#64748b" fontSize="9" fontFamily="monospace">RSI 14</text>
+          <text x={W - 4} y={((1 - 70 / 100) * RSI_H - 2).toFixed(1)} fill="#64748b" fontSize="8" fontFamily="monospace" textAnchor="end">70</text>
+          <text x={W - 4} y={((1 - 30 / 100) * RSI_H - 2).toFixed(1)} fill="#64748b" fontSize="8" fontFamily="monospace" textAnchor="end">30</text>
         </svg>
       )}
 
@@ -177,13 +179,15 @@ function DeepChartLg({ card, cardId, color, height = 230 }) {
       {/* ── Legend (regime card only — click to toggle series) ── */}
       {legendItems && (
         <div style={{ display: 'flex', gap: 18, marginTop: 10, flexWrap: 'wrap' }}>
-          {legendItems.map(({ label, color: lc, dash }) => {
+          {legendItems.map(({ label, color: lc, dash }, li) => {
             const isHidden = hidden[label];
             return (
               <button key={label} onClick={() => setHidden((h) => ({ ...h, [label]: !h[label] }))}
                 style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, opacity: isHidden ? 0.3 : 1, transition: 'opacity .15s' }}>
-                <svg width="24" height="10" viewBox="0 0 24 10" style={{ flexShrink: 0 }}>
-                  <line x1="0" y1="5" x2="24" y2="5" stroke={lc} strokeWidth={dash ? 1.5 : 2.5} strokeDasharray={dash ? dash.join(' ') : undefined} />
+                <svg width="24" height="12" viewBox="0 0 24 12" style={{ flexShrink: 0 }}>
+                  {li === 0
+                    ? <rect x="0" y="2" width="24" height="8" rx="2" fill={lc} opacity="0.85" />
+                    : <line x1="0" y1="6" x2="24" y2="6" stroke={lc} strokeWidth={dash ? 1.5 : 2} strokeDasharray={dash ? dash.join(' ') : undefined} />}
                 </svg>
                 <span style={{ fontFamily: DSANS, fontSize: 11.5, color: isHidden ? '#475569' : '#94a3b8' }}>{label}</span>
               </button>
