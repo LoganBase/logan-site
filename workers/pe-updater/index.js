@@ -90,6 +90,8 @@ async function fetchPe(symbol, field, modName, auth) {
 async function runUpdate(env) {
   const today = new Date().toISOString().slice(0, 10);
 
+  if (!env.DB) return { date: today, error: 'D1 binding (DB) not configured', saved: {} };
+
   const auth = await getYFAuth();
   if (!auth) {
     return { date: today, error: 'Failed to obtain Yahoo Finance crumb', saved: {} };
