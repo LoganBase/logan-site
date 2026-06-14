@@ -264,7 +264,7 @@ function DeepDive({ card, cardId, onBack }) {
         {/* flag row (global flows) */}
         {card.flags && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            {card.flags.map((f) => (<img key={f} src={`../../assets/flags/${f}.svg`} alt={f} style={{ width: 26, height: 17, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
+            {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 26, height: 17, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
           </div>
         )}
         {/* full indicator table */}
