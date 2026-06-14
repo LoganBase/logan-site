@@ -129,7 +129,7 @@ export async function onRequest(context) {
 
     // Persist to KV (no TTL — kept indefinitely for historical reference)
     if (kv && summary) {
-      await kv.put(cacheKey, summary);
+      await kv.put(cacheKey, summary, { expirationTtl: 31_536_000 }); // 365 days
     }
 
     return new Response(JSON.stringify({ summary, cached: false }), {
