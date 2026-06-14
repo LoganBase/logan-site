@@ -17,17 +17,29 @@ const YF_HEADERS = {
 };
 
 const ALL_SYMBOLS = [
+  // Regime + Leadership
   'SPY', 'QQQ', 'RSP', 'QQEW', 'IVW', 'IVE',
+  // Breadth
   'RSPD',
-  '^TYX', '^TNX', 'TLT', 'UUP',
-  'HYG', 'LQD', 'JNK',
-  '^GSPTSE', 'SPDW', 'EWT', 'EWY', 'AIA', 'EZU', 'VEU', 'EEM',
-  '^N225', 'EWW', 'EWZ', 'ILF',
+  // Yield
+  '^TYX', '^TNX', '^IRX', 'TLT', 'UUP',
+  // Credit
+  'HYG', 'LQD', 'JNK', 'EMB',
+  // Global Flows — regional
+  'ACWI', 'FEZ', 'AIA', 'ILF', 'EEM',
+  // Global Flows — countries
+  '^GSPTSE', 'SPDW', 'VEU', 'EZU', '^N225',
+  'EWU', 'EWG', 'EWQ', 'EWL', 'EWN', 'EWI', 'EWP',
+  'EWJ', 'MCHI', 'EWT', 'EWY', 'INDA', 'EWA', 'EWH',
+  'EWW', 'EWZ', 'ECH',
+  // Sectors
   'XLI', 'XLK', 'XLF', 'XLE', 'XLU', 'XLRE', 'XLP',
+  'XLV', 'XLC', 'XLY', 'XLB',
   'XME', 'GDX', 'COPX', 'KBE',
-  'USCI', 'HG=F', 'GLD', 'IXC', 'XES', 'DBA', 'SLX',
-  'GEV', 'CAT', 'GRID', 'SU', 'TVE.TO', 'RIO', 'CCO.TO',
-  'AEM', 'LRCX', 'SITM', 'SOXX', 'ZEB.TO',
+  // Commodities
+  'USCI', 'HG=F', 'GLD', 'SLV', 'IXC', 'XES', 'DBA', 'SLX', 'URA',
+  // Equities
+  'IWM', 'NVDA', 'JPM', 'CAT', 'XOM', 'FCX', 'CCJ',
 ];
 
 // ── MATH ──────────────────────────────────────────────────────────────────────
@@ -162,14 +174,6 @@ export async function onRequest(context) {
   if (context.request.method === 'OPTIONS') {
     return new Response(null, {
       headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' },
-    });
-  }
-
-  const token = context.request.headers.get('X-Hub-Token');
-  if (!token || token !== context.env.HUB_TOKEN) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
 
