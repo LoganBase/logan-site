@@ -59,7 +59,7 @@ function BreadthBar({ exec, cats }) {
             );
           })}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 142 }}>
           {[['bullish', exec.bull], ['neutral', exec.neutral], ['bearish', exec.bear]].map(([k, n]) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 8, background: DSIG[k].fill, border: `1px solid ${DSIG[k].line}` }}>
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[k].c }} />
