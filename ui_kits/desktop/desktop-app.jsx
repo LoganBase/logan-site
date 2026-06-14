@@ -146,40 +146,44 @@ function OptionWorkspace({ D }) {
       {/* left rail */}
       <div style={{ width: 340, flexShrink: 0, borderRight: '1px solid #16202e', background: '#0a0f17', overflowY: 'auto', padding: '20px 16px' }}>
         <div style={{ padding: '4px 8px 20px', borderBottom: '1px solid #16202e', marginBottom: 16 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-            <span style={{ fontFamily: DSANS, fontSize: 20, fontWeight: 700, color: '#e8edf5' }}>{D.exec.bull}/{D.exec.bull + D.exec.neutral + D.exec.bear}</span>
-            <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8' }}>{D.exec.posture}</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-            {D.categories.map((c) => {
-              const pk = /off/i.test(D.exec.label) ? 'bearish' : /on/i.test(D.exec.label) ? 'bullish' : 'neutral';
-              return (
-                <React.Fragment key={c.label}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <span style={{ width: 130, flexShrink: 0, fontFamily: DSANS, fontSize: 12, color: '#94a3b8', fontWeight: 500, whiteSpace: 'nowrap' }}>{c.label}</span>
-                    <div style={{ display: 'flex', gap: 6 }}>{c.cards.map((s, i) => (<span key={i} style={{ width: 9, height: 9, borderRadius: '50%', background: DSIG[s].c, boxShadow: `0 0 5px ${DSIG[s].glow}` }} />))}</div>
-                  </div>
-                  {/macro conditions/i.test(c.label) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: DSIG[pk].fill, border: `1px solid ${DSIG[pk].line}` }}>
-                      <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5', flex: 1 }}>
-                        {D.exec.label.split(' — ').map((p, i, arr) => (
-                          <span key={i} style={{ display: 'block' }}>{i < arr.length - 1 ? p + ' —' : p}</span>
-                        ))}
-                      </span>
-                      <div style={{ display: 'flex', gap: 5 }}>
-                        {[['bullish', D.exec.bull], ['neutral', D.exec.neutral], ['bearish', D.exec.bear]].map(([k, n]) => (
-                          <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 5, background: DSIG[k].fill, border: `1px solid ${DSIG[k].line}` }}>
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: DSIG[k].c, flexShrink: 0 }} />
-                            <span style={{ fontFamily: DMONO, fontSize: 11, fontWeight: 600, color: DSIG[k].c }}>{n}</span>
-                          </span>
-                        ))}
-                      </div>
+          {/* 4/10 left, posture + category grid right */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
+            <span style={{ fontFamily: DSANS, fontSize: 20, fontWeight: 700, color: '#e8edf5', flexShrink: 0, lineHeight: 1.1 }}>{D.exec.bull}/{D.exec.bull + D.exec.neutral + D.exec.bear}</span>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8' }}>{D.exec.posture}</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {D.categories.map((c) => (
+                  <div key={c.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    <span style={{ fontFamily: DSANS, fontSize: 10, color: '#64748b', fontWeight: 500 }}>{c.label}</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+                      {c.cards.map((s, i) => (<span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[s].c, boxShadow: `0 0 4px ${DSIG[s].glow}` }} />))}
                     </div>
-                  )}
-                </React.Fragment>
-              );
-            })}
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
+          {/* Risk-Off box — full width, left edge aligned with 4/10 */}
+          {(() => {
+            const pk = /off/i.test(D.exec.label) ? 'bearish' : /on/i.test(D.exec.label) ? 'bullish' : 'neutral';
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: DSIG[pk].fill, border: `1px solid ${DSIG[pk].line}` }}>
+                <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5', flex: 1 }}>
+                  {D.exec.label.split(' — ').map((p, i, arr) => (
+                    <span key={i} style={{ display: 'block' }}>{i < arr.length - 1 ? p + ' —' : p}</span>
+                  ))}
+                </span>
+                <div style={{ display: 'flex', gap: 5 }}>
+                  {[['bullish', D.exec.bull], ['neutral', D.exec.neutral], ['bearish', D.exec.bear]].map(([k, n]) => (
+                    <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 5, background: DSIG[k].fill, border: `1px solid ${DSIG[k].line}` }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: DSIG[k].c, flexShrink: 0 }} />
+                      <span style={{ fontFamily: DMONO, fontSize: 11, fontWeight: 600, color: DSIG[k].c }}>{n}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
         {D.groups.map((g) => (
           <div key={g.label} style={{ marginBottom: 16 }}>
