@@ -35,7 +35,7 @@ function BreadthBar({ exec, cats }) {
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <span style={{ fontFamily: DMONO, fontSize: 22, fontWeight: 700, color: '#e8edf5' }}>{exec.bull}</span>
-          <span style={{ fontFamily: DMONO, fontSize: 13, color: '#475569' }}>/{total}</span>
+          <span style={{ fontFamily: DMONO, fontSize: 13, color: '#e8edf5' }}>/{total}</span>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, maxWidth: 230 }}>
@@ -46,25 +46,27 @@ function BreadthBar({ exec, cats }) {
         <span style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.4 }}>{exec.posture}</span>
       </div>
       <div style={{ width: 1, height: 56, background: '#1e2d3d', margin: '0 4px' }} />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9, flex: 1, minWidth: 220 }}>
-        {cats.map((c) => {
-          const bull = c.cards.filter((s) => s === 'bullish').length;
-          return (
-            <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ width: 96, fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500 }}>{c.label}</span>
-              <div style={{ display: 'flex', gap: 6, flex: 1 }}>{c.cards.map((s, i) => (<span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: DSIG[s].c, boxShadow: `0 0 6px ${DSIG[s].glow}` }} />))}</div>
-              <span style={{ fontFamily: DMONO, fontSize: 12, color: '#94a3b8', width: 52, textAlign: 'right' }}>{bull}/{c.cards.length}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
+          {cats.map((c) => {
+            const bull = c.cards.filter((s) => s === 'bullish').length;
+            return (
+              <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ width: 130, flexShrink: 0, fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500, whiteSpace: 'nowrap' }}>{c.label}</span>
+                <div style={{ display: 'flex', gap: 6, flex: 1 }}>{c.cards.map((s, i) => (<span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: DSIG[s].c, boxShadow: `0 0 6px ${DSIG[s].glow}` }} />))}</div>
+                <span style={{ fontFamily: DMONO, fontSize: 12, color: '#94a3b8', width: 36, textAlign: 'right' }}>{bull}/{c.cards.length}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[['bullish', exec.bull], ['neutral', exec.neutral], ['bearish', exec.bear]].map(([k, n]) => (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 11px', borderRadius: 8, background: DSIG[k].fill, border: `1px solid ${DSIG[k].line}` }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[k].c }} />
+              <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: DSIG[k].c }}>{n}</span>
             </div>
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        {[['bullish', exec.bull], ['neutral', exec.neutral], ['bearish', exec.bear]].map(([k, n]) => (
-          <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '7px 13px', borderRadius: 9, background: DSIG[k].fill, border: `1px solid ${DSIG[k].line}` }}>
-            <span style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[k].c }} />
-            <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 600, color: DSIG[k].c }}>{n}</span>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );
