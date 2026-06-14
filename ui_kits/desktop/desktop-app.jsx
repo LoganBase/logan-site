@@ -42,8 +42,8 @@ function BreadthBar({ exec, cats }) {
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0, marginTop: 4 }} />
           <span style={{ fontFamily: DSANS, fontSize: 17, fontWeight: 700, color: '#e8edf5', lineHeight: 1.25 }}>
-            {exec.label.split(' — ').map((p, i) => (
-              <span key={i} style={{ display: 'block' }}>{i === 0 ? p + ' —' : p}</span>
+            {exec.label.split(' — ').map((p, i, arr) => (
+              <span key={i} style={{ display: 'block' }}>{i < arr.length - 1 ? p + ' —' : p}</span>
             ))}
           </span>
         </div>
@@ -149,13 +149,16 @@ function OptionWorkspace({ D }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 16 }}>
             <span style={{ fontFamily: DSANS, fontSize: 20, fontWeight: 700, color: '#e8edf5' }}>{D.exec.bull}/{D.exec.bull + D.exec.neutral + D.exec.bear}</span>
             <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b' }}>bullish</span>
-            <div style={{ marginLeft: 'auto' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: DSIG.bullish.fill, border: `1px solid ${DSIG.bullish.line}` }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: postureColorD(D.exec.label), boxShadow: `0 0 6px ${postureColorD(D.exec.label)}` }} />
-              <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5' }}>
-                {D.exec.label.split(' — ').map((p, i) => (
-                  <span key={i} style={{ display: 'block' }}>{i === 0 ? p + ' —' : p}</span>
-                ))}
-              </span></span></div>
+            <div style={{ marginLeft: 'auto' }}>{(() => { const pk = /off/i.test(D.exec.label) ? 'bearish' : /on/i.test(D.exec.label) ? 'bullish' : 'neutral'; return (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: DSIG[pk].fill, border: `1px solid ${DSIG[pk].line}` }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[pk].c, boxShadow: `0 0 6px ${DSIG[pk].c}` }} />
+                <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5' }}>
+                  {D.exec.label.split(' — ').map((p, i, arr) => (
+                    <span key={i} style={{ display: 'block' }}>{i < arr.length - 1 ? p + ' —' : p}</span>
+                  ))}
+                </span>
+              </span>
+            ); })()}</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
             {D.categories.map((c) => (
