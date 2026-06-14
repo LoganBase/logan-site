@@ -124,9 +124,9 @@ async function refreshSymbol(db, symbol) {
     );
   }
 
-  // Fetch last 220 rows for indicator context (need 200 for SMA200 + buffer)
+  // Fetch last 500 rows for indicator context (200 for SMA200 + ample buffer for gaps and RSI convergence)
   const { results: ctx } = await query(db,
-    'SELECT date, close FROM daily_prices WHERE symbol = ? AND close IS NOT NULL ORDER BY date DESC LIMIT 220',
+    'SELECT date, close FROM daily_prices WHERE symbol = ? AND close IS NOT NULL ORDER BY date DESC LIMIT 500',
     [symbol]
   );
   const ctxRows   = ctx.reverse(); // oldest first
