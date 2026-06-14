@@ -41,22 +41,11 @@ function monthLabels(endLabel, n) {
 }
 
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
-function DeepChartLg({ card, cardId, color, height = 230 }) {
+function DeepChartLg({ card, cardId, color, height = 230, range, setRange, live }) {
   const ranges = ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'];
-  const [range, setRange] = useStateD('1Y');
-  const [live, setLive] = useStateD(null);
   const [hidden, setHidden] = useStateD({});
   const [hover, setHover] = useStateD(null);
   const svgRef = useRefD(null);
-
-  useEffectD(() => {
-    let alive = true;
-    setLive(null);
-    if (window.MarketHubData && cardId) {
-      window.MarketHubData.loadHistory(cardId, range).then((r) => { if (alive && r && r.values && r.values.length > 1) setLive(r); });
-    }
-    return () => { alive = false; };
-  }, [cardId, range]);
 
   const W = 720, H = height, top = 12, bot = 26, padR = 4;
   const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07], '20Y': [96, 0.06] };
@@ -255,17 +244,40 @@ function DeepChartLg({ card, cardId, color, height = 230 }) {
   );
 }
 
+const RANGE_TO_MONTHS = { '1W': 3, '1M': 3, '3M': 4, '6M': 7, '1Y': 14, '5Y': 24, '10Y': 30, '20Y': 36 };
+
 // ── Historical regime timeline — how the card's status changed month over month ──
-function RegimeTimeline({ card, asOf, months = 14, compact = false }) {
-  const hist = regimeHistory(card.seed, card.status, months);
-  const labels = monthLabels(asOf, months);
+function RegimeTimeline({ card, asOf, months = 14, compact = false, liveData, range }) {
+  const mo = (range && RANGE_TO_MONTHS[range]) || months;
+
+  let hist, labels;
+  if (liveData?.colorBy?.length && liveData?.dates?.length) {
+    const monthMap = {};
+    liveData.dates.forEach((d, i) => {
+      const m = String(d).slice(0, 7);
+      if (m) monthMap[m] = liveData.colorBy[i];
+    });
+    const sorted = Object.keys(monthMap).sort();
+    const allStatuses = sorted.map((m) => {
+      const v = monthMap[m];
+      return (v == null || isNaN(v)) ? 'neutral' : v > 0 ? 'bullish' : 'bearish';
+    });
+    hist = allStatuses.slice(-mo);
+    labels = sorted.slice(-mo).map((m) => MONTHS[parseInt(m.slice(5, 7), 10) - 1]);
+    while (hist.length < mo) { hist.unshift(hist[0] || card.status); labels.unshift(''); }
+  } else {
+    hist = regimeHistory(card.seed, card.status, mo);
+    labels = monthLabels(asOf, mo);
+  }
+
   let transitions = 0;
   for (let i = 1; i < hist.length; i++) if (hist[i] !== hist[i - 1]) transitions++;
   const barH = compact ? 26 : 38;
+  const labelStep = mo <= 14 ? 1 : mo <= 24 ? 2 : 4;
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569' }}>Regime history · {months} mo</div>
+        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569' }}>Regime history · {mo} mo</div>
         <div style={{ fontFamily: DMONO, fontSize: 11.5, color: '#64748b' }}>{transitions} regime change{transitions === 1 ? '' : 's'}</div>
       </div>
       <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end' }}>
@@ -274,11 +286,13 @@ function RegimeTimeline({ card, asOf, months = 14, compact = false }) {
           return (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
               <div style={{ position: 'relative', width: '100%', height: barH, borderRadius: 5, background: sg.c,
-                boxShadow: last ? `0 0 12px ${sg.glow}` : 'none', opacity: last ? 1 : 0.62 + (i / months) * 0.3,
+                boxShadow: last ? `0 0 12px ${sg.glow}` : 'none', opacity: last ? 1 : 0.62 + (i / mo) * 0.3,
                 borderLeft: changed ? '2px solid rgba(232,237,245,.55)' : 'none' }}>
                 {last && <div style={{ position: 'absolute', inset: 0, borderRadius: 5, border: '1.5px solid rgba(232,237,245,.6)' }} />}
               </div>
-              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#475569', fontWeight: last ? 700 : 400 }}>{labels[i]}</span>
+              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#475569', fontWeight: last ? 700 : 400 }}>
+                {(i % labelStep === 0 || last) ? labels[i] : ''}
+              </span>
             </div>
           );
         })}
@@ -371,6 +385,20 @@ function IndicatorTable({ rows }) {
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
+  const [range, setRange] = useStateD('1Y');
+  const [live, setLive] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    if (window.MarketHubData && cardId) {
+      window.MarketHubData.loadHistory(cardId, range).then((r) => {
+        if (alive && r && r.values && r.values.length > 1) setLive(r);
+      });
+    }
+    return () => { alive = false; };
+  }, [cardId, range]);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       {/* chart card */}
@@ -382,11 +410,11 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           </div>
           <div style={{ fontFamily: DMONO, fontSize: 28, fontWeight: 700, color: sg.c }}>{card.metricVal}</div>
         </div>
-        <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} />
+        <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
       </div>
       {/* regime timeline */}
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
-        <RegimeTimeline card={card} asOf={asOf} />
+        <RegimeTimeline card={card} asOf={asOf} liveData={live} range={range} />
       </div>
       {/* stat boxes */}
       <StatBoxes stats={card.stats} />
