@@ -18,11 +18,11 @@
 //                hideIndicator?, allRows?, sectorTable?, details? } ]
 //   GET /api/history?symbol=SPY&range=1y&d=YYYY-MM-DD -> { dates, closes, sma200, vs200, summary }
 //   GET /api/breadth-history?range=1y    -> { dates, mmth, mmfi, summary }
-//   GET /api/leadership?range=1y         -> { dates, ratio, summary }
-//   GET /api/valuations-history?range=10y-> { dates, cape, ... }
+//   GET /api/leadership?range=1y         -> { dates, rspVsSpy, qqewVsQqq, summary }
+//   GET /api/valuations-history?range=10y-> { dates, capes, peRatios, summary }
 //   GET /api/sectors?range=1y            -> { dates, cycVsDef, summary }
-//   GET /api/global-flows-history?range=5y -> { dates, regional, countries }
-//   GET /api/equities-history?range=1y   -> { dates, equities }
+//   GET /api/global-flows-history?range=5y -> { dates, regional:[{sym,label,prices}], countries }
+//   GET /api/equities-history?range=1y   -> { dates, equities:[{sym,label,group,prices}] }
 // ════════════════════════════════════════════════════════════════════════════
 (function () {
   'use strict';
@@ -38,18 +38,32 @@
   // UI range labels (kit) -> API range tokens (live product)
   const RANGE_MAP = { '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
 
-  // Per-card history: which endpoint + which field is the primary plotted series.
+  // Per-card history: which endpoint to call and how to extract { values, dates }.
+  // Simple cards use `field` (a flat number[] on the response).
+  // Complex cards (objects-in-array) use `extract(data)` to pick one series.
   const HISTORY = {
-    regime:      { url: (r) => `/api/history?symbol=SPY&range=${r}`,   field: 'vs200'    },
-    leadership:  { url: (r) => `/api/leadership?range=${r}`,           field: 'ratio'    },
-    breadth:     { url: (r) => `/api/breadth-history?range=${r}`,      field: 'mmth'     },
-    valuations:  { url: (r) => `/api/valuations-history?range=${r}`,   field: 'cape'     },
-    yield:       { url: (r) => `/api/history?symbol=%5ETNX&range=${r}`,field: 'closes'   },
-    credit:      { url: (r) => `/api/history?symbol=HYG&range=${r}`,   field: 'closes'   },
-    globalflows: { url: (r) => `/api/global-flows-history?range=${r}`, field: 'regional' },
-    sectors:     { url: (r) => `/api/sectors?range=${r}`,              field: 'cycVsDef' },
-    commodities: { url: (r) => `/api/history?symbol=USCI&range=${r}`,  field: 'closes'   },
-    equities:    { url: (r) => `/api/equities-history?range=${r}`,     field: 'equities' },
+    regime:      { url: (r) => `/api/history?symbol=SPY&range=${r}`,    field: 'vs200'     },
+    leadership:  { url: (r) => `/api/leadership?range=${r}`,            field: 'rspVsSpy'  },
+    breadth:     { url: (r) => `/api/breadth-history?range=${r}`,       field: 'mmth'      },
+    valuations:  { url: (r) => `/api/valuations-history?range=${r}`,    field: 'capes'     },
+    yield:       { url: (r) => `/api/history?symbol=%5ETNX&range=${r}`, field: 'closes'    },
+    credit:      { url: (r) => `/api/history?symbol=HYG&range=${r}`,    field: 'closes'    },
+    sectors:     { url: (r) => `/api/sectors?range=${r}`,               field: 'cycVsDef'  },
+    commodities: { url: (r) => `/api/history?symbol=USCI&range=${r}`,   field: 'closes'    },
+    globalflows: {
+      url: (r) => `/api/global-flows-history?range=${r}`,
+      extract: (data) => {
+        const acwi = (data.regional || []).find((s) => s.sym === 'ACWI');
+        return acwi ? { values: acwi.prices.map(Number), dates: data.dates || [] } : null;
+      },
+    },
+    equities: {
+      url: (r) => `/api/equities-history?range=${r}`,
+      extract: (data) => {
+        const spy = (data.equities || []).find((e) => e.sym === 'SPY');
+        return spy ? { values: spy.prices.map(Number), dates: data.dates || [] } : null;
+      },
+    },
   };
 
   // Symbol -> ISO country code, for the Global Flows flag row (from the live app).
@@ -79,9 +93,23 @@
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  // Strip HTML tags and entities from API value strings (values are HTML in the
+  // original app but rendered as plain text in the desktop kit).
+  function stripHtml(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/<br\s*\/?>/gi, ' / ')
+      .replace(/<[^>]*>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .trim();
+  }
+
   // ── Map a live /api/scores card into the kit's card shape ──
   function mapCard(c) {
-    const rows = (c.rows || []).map((r) => [r.label, r.value, r.condition || r.indicator || '', r.status]);
+    const rows = (c.rows || []).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '', r.status]);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       title: c.title,
@@ -89,16 +117,16 @@
       seed: hashSeed(c.id),
       trend: c.status === 'bullish' ? 0.5 : c.status === 'bearish' ? -0.5 : 0.05,
       metric: c.subtitle || head.label || c.title,
-      metricVal: head.value || '',
+      metricVal: stripHtml(head.value || ''),
       metricUnit: head.condition || head.indicator || '',
       // No explicit stat-box set in the API → surface the top 3 indicators as stats.
-      stats: (c.rows || []).slice(0, 3).map((r) => [r.label, r.value, r.condition || r.indicator || '',
+      stats: (c.rows || []).slice(0, 3).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '',
         r.status === 'bullish' ? 'pos' : r.status === 'bearish' ? 'neg' : null]),
       rows,
     };
-    // Global Flows: derive the flag row from card.details if the API provides it.
+    // Global Flows: derive the flag row from card.details (field is `sym`, not `symbol`).
     if (c.id === 'globalflows' && Array.isArray(c.details)) {
-      out.flags = c.details.map((d) => FLAG[d.symbol]).filter(Boolean);
+      out.flags = c.details.map((d) => FLAG[d.sym]).filter(Boolean);
     }
     return out;
   }
@@ -159,6 +187,7 @@
       const r = RANGE_MAP[uiRange] || '1y';
       try {
         const data = await getJSON(cfg.url(r) + `&d=${new Date().toISOString().slice(0, 10)}`);
+        if (cfg.extract) return cfg.extract(data);
         const values = data[cfg.field];
         if (!Array.isArray(values) || !values.length) return null;
         return { values: values.map(Number), dates: data.dates || [] };
