@@ -150,7 +150,11 @@ function OptionWorkspace({ D }) {
           <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b' }}>bullish</span>
           <div style={{ marginLeft: 'auto' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: 7, padding: '5px 11px', borderRadius: 8, background: DSIG.bullish.fill, border: `1px solid ${DSIG.bullish.line}` }}>
             <span style={{ width: 7, height: 7, borderRadius: '50%', background: postureColorD(D.exec.label), boxShadow: `0 0 6px ${postureColorD(D.exec.label)}` }} />
-            <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5' }}>{D.exec.label}</span></span></div>
+            <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5' }}>
+              {D.exec.label.split(' — ').map((p, i) => (
+                <span key={i} style={{ display: 'block' }}>{i === 0 ? p + ' —' : p}</span>
+              ))}
+            </span></span></div>
         </div>
         {D.groups.map((g) => (
           <div key={g.label} style={{ marginBottom: 16 }}>
