@@ -41,9 +41,13 @@ function BreadthBar({ exec, cats }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, maxWidth: 230 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0, marginTop: 4 }} />
-          <span style={{ fontFamily: DSANS, fontSize: 17, fontWeight: 700, color: '#e8edf5', lineHeight: 1.25 }}>{exec.label}</span>
+          <span style={{ fontFamily: DSANS, fontSize: 17, fontWeight: 700, color: '#e8edf5', lineHeight: 1.25 }}>
+            {exec.label.split(' — ').map((p, i) => (
+              <span key={i} style={{ display: 'block' }}>{i === 0 ? p + ' —' : p}</span>
+            ))}
+          </span>
         </div>
-        <span style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.4 }}>{exec.posture}</span>
+        <span style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.4, paddingLeft: 18 }}>{exec.posture}</span>
       </div>
       <div style={{ width: 1, height: 56, background: '#1e2d3d', margin: '0 4px' }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, flex: 1 }}>
