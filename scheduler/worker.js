@@ -49,8 +49,10 @@ export default {
       return new Response('Unauthorized', { status: 401 });
     }
 
-    const refresh = await (await fetch(REFRESH_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } })).json();
-    const signals = await (await fetch(SIGNALS_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } })).json();
+    const refreshRes = await fetch(REFRESH_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } });
+    const refresh = refreshRes.ok ? await refreshRes.json() : { error: `HTTP ${refreshRes.status}` };
+    const signalsRes = await fetch(SIGNALS_URL, { headers: { 'X-Hub-Token': env.HUB_TOKEN ?? '' } });
+    const signals = signalsRes.ok ? await signalsRes.json() : { error: `HTTP ${signalsRes.status}` };
     return new Response(JSON.stringify({ refresh, signals }, null, 2), {
       headers: { 'Content-Type': 'application/json' },
     });
