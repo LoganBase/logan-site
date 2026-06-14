@@ -57,7 +57,9 @@ async function fetchNext(seriesTicker) {
   } catch { return []; }
 }
 
-// Fed: find highest strike where P(above) ≥ 0.50 → implied rate = that + 0.25
+// Fed: find highest strike where P(at or above) ≥ 0.50 — that strike IS the implied rate
+// Kalshi KXFED asks "at or above X%", so P(≥X) ≥ 0.50 means X is the median outcome.
+// Confidence = P(exactly X) ≈ P(≥X) − P(≥X+0.25)
 function parseFed(markets) {
   const rows = markets
     .map(m => ({ s: strike(m.ticker), p: norm(m.last_price_dollars ?? (parseFloat(m.yes_bid_dollars) + parseFloat(m.yes_ask_dollars)) / 2), t: m.close_time, evt: m.event_ticker }))
@@ -69,11 +71,10 @@ function parseFed(markets) {
   const floor = [...rows].reverse().find(r => r.p >= 0.50);
   if (!floor) return null;
 
-  const implied    = floor.s + 0.25;
-  const ceilingRow = rows.find(r => r.s === implied);
-  const confidence = ceilingRow
-    ? Math.round((1 - ceilingRow.p) * 100)
-    : Math.round(floor.p * 100);
+  const implied  = floor.s;
+  const upperRow = rows.find(r => r.s === implied + 0.25);
+  const pUpper   = upperRow ? upperRow.p : 0;
+  const confidence = Math.round((floor.p - pUpper) * 100);
 
   const action = implied > CURRENT_FFTR + 0.01 ? 'Hike'
                : implied < CURRENT_FFTR - 0.01 ? 'Cut'
