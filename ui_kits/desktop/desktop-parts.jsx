@@ -239,7 +239,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {/* flags (global flows) */}
       {card.flags && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {card.flags.map((f) => (<img key={f} src={`../../assets/flags/${f}.svg`} alt={f} style={{ width: 30, height: 20, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
+          {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 30, height: 20, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
         </div>
       )}
       {/* indicators */}
