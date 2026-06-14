@@ -4127,7 +4127,7 @@ async function refreshAndLoad() {
   btn.disabled = true;
   try {
     btn.textContent = '⟳ Updating D1…';
-    const rr = await fetch('/api/refresh');
+    const rr = await fetch('/api/refresh', { headers: { 'X-Hub-Token': 'mh-2f9k7x4p' } });
     if (!rr.ok) throw new Error(`Refresh failed: HTTP ${rr.status}`);
     const rd = await rr.json();
     const added = rd.totalAdded ?? 0;
