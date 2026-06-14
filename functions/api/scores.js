@@ -287,7 +287,7 @@ function buildLeadership(q) {
       indicator: 'IVW vs IVE — 20d Return',
       value: ivw20 != null && ive20 != null ? `IVW&nbsp;${pct(ivw20, 1)}<br>IVE&nbsp;${pct(ive20, 1)}` : '—',
       condition: growthLead == null ? '—' : (growthLead ? 'Growth Leading — Risk-On' : 'Value Rotating — Reduce Growth'),
-      status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'neutral'),
+      status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'bearish'),
     },
   ];
   const leaderNote = (() => {
