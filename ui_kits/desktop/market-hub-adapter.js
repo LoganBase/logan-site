@@ -95,10 +95,12 @@
 
   // Strip HTML tags and entities from API value strings (values are HTML in the
   // original app but rendered as plain text in the desktop kit).
+  // API sometimes combines two values with <br> (e.g. "SPY $741<br>200d $682");
+  // take only the first segment so it fits in fixed-width stat boxes and table cells.
   function stripHtml(s) {
     if (!s) return '';
-    return String(s)
-      .replace(/<br\s*\/?>/gi, ' / ')
+    const first = String(s).split(/<br\s*\/?>/i)[0];
+    return first
       .replace(/<[^>]*>/g, '')
       .replace(/&nbsp;/g, ' ')
       .replace(/&amp;/g, '&')
