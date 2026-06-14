@@ -39,9 +39,9 @@ function BreadthBar({ exec, cats }) {
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, maxWidth: 230 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-          <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}` }} />
-          <span style={{ fontFamily: DSANS, fontSize: 22, fontWeight: 700, color: '#e8edf5', whiteSpace: 'nowrap' }}>{exec.label}</span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0, marginTop: 4 }} />
+          <span style={{ fontFamily: DSANS, fontSize: 17, fontWeight: 700, color: '#e8edf5', lineHeight: 1.25 }}>{exec.label}</span>
         </div>
         <span style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.4 }}>{exec.posture}</span>
       </div>
