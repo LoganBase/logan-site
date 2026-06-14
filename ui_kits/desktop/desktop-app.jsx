@@ -160,14 +160,21 @@ function OptionWorkspace({ D }) {
                     <div style={{ display: 'flex', gap: 6 }}>{c.cards.map((s, i) => (<span key={i} style={{ width: 9, height: 9, borderRadius: '50%', background: DSIG[s].c, boxShadow: `0 0 5px ${DSIG[s].glow}` }} />))}</div>
                   </div>
                   {/macro conditions/i.test(c.label) && (
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: DSIG[pk].fill, border: `1px solid ${DSIG[pk].line}` }}>
-                      <span style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[pk].c, boxShadow: `0 0 6px ${DSIG[pk].c}`, flexShrink: 0 }} />
-                      <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', borderRadius: 8, background: DSIG[pk].fill, border: `1px solid ${DSIG[pk].line}` }}>
+                      <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#e8edf5', flex: 1 }}>
                         {D.exec.label.split(' — ').map((p, i, arr) => (
                           <span key={i} style={{ display: 'block' }}>{i < arr.length - 1 ? p + ' —' : p}</span>
                         ))}
                       </span>
-                    </span>
+                      <div style={{ display: 'flex', gap: 5 }}>
+                        {[['bullish', D.exec.bull], ['neutral', D.exec.neutral], ['bearish', D.exec.bear]].map(([k, n]) => (
+                          <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '2px 7px', borderRadius: 5, background: DSIG[k].fill, border: `1px solid ${DSIG[k].line}` }}>
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', background: DSIG[k].c, flexShrink: 0 }} />
+                            <span style={{ fontFamily: DMONO, fontSize: 11, fontWeight: 600, color: DSIG[k].c }}>{n}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </React.Fragment>
               );
