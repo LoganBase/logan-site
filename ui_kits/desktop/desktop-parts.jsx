@@ -290,8 +290,8 @@ function RegimeTimeline({ card, asOf, months = 14, compact = false, liveData, ra
                 borderLeft: changed ? '2px solid rgba(232,237,245,.55)' : 'none' }}>
                 {last && <div style={{ position: 'absolute', inset: 0, borderRadius: 5, border: '1.5px solid rgba(232,237,245,.6)' }} />}
               </div>
-              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#475569', fontWeight: last ? 700 : 400 }}>
-                {(i % labelStep === 0 || last) ? labels[i] : ''}
+              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#475569', fontWeight: last ? 700 : 400, display: 'block', height: 12, lineHeight: '12px' }}>
+                {(i % labelStep === 0 || last) ? labels[i] : ' '}
               </span>
             </div>
           );
