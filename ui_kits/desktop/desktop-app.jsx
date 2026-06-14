@@ -342,18 +342,14 @@ function ToggleShell() {
           <span style={{ fontFamily: DSANS, fontSize: 15, fontWeight: 700, color: '#e8edf5', lineHeight: 1.1 }}>Market Hub</span>
           <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
         </div>
-        {/* the toggle */}
-        <div style={{ marginLeft: 22, display: 'flex', padding: 3, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 8 }}>
+        {/* the toggle — right-aligned, replaces date */}
+        <div style={{ marginLeft: 'auto', display: 'flex', padding: 3, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 8 }}>
           {TABS.map((t) => (
             <button key={t.id} onClick={() => pick(t.id)} style={{ all: 'unset', cursor: 'pointer', padding: '4px 12px', borderRadius: 6,
               background: t.id === mode ? '#1b2736' : 'transparent', border: `1px solid ${t.id === mode ? '#28384a' : 'transparent'}`, transition: 'background .18s ease' }}>
               <span style={{ fontFamily: DSANS, fontSize: 12.5, fontWeight: 600, color: t.id === mode ? '#e8edf5' : '#64748b' }}>{t.label}</span>
             </button>
           ))}
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
-          <span style={{ fontFamily: DMONO, fontSize: 12, color: '#94a3b8' }}>As of {D.asOf}</span>
         </div>
       </div>
       {mode === 'workspace' ? <OptionWorkspace D={D} /> : <OptionGlancePage D={D} />}
