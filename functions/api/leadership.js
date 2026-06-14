@@ -103,10 +103,12 @@ function compute(rows) {
   }
 
   // Consecutive days RSP beat/lagged SPY (daily return comparison)
+  // Ties (rspDay === spyDay) are neutral — they end the streak but don't reverse it
   let streak = 0;
   for (let i = dates.length - 1; i >= 1; i--) {
     const rspDay = maps.RSP[dates[i]] / maps.RSP[dates[i - 1]] - 1;
     const spyDay = maps.SPY[dates[i]] / maps.SPY[dates[i - 1]] - 1;
+    if (rspDay === spyDay) break;
     const leading = rspDay > spyDay;
     if (streak === 0) {
       streak = leading ? 1 : -1;
