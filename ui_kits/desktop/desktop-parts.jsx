@@ -263,6 +263,19 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   );
 }
 
+const HISTORY_CAPTION = {
+  regime:      'SPY above/below its 200-day moving average each month',
+  leadership:  'RSP leading or lagging SPY on a monthly basis',
+  breadth:     'Share of NYSE stocks above their 200-day average',
+  valuations:  'CAPE ratio signal vs. long-run historical norms',
+  yield:       '10-year Treasury yield trend each month',
+  credit:      'HYG credit-spread health vs. 200-day average',
+  globalflows: 'Global markets above/below their 200-day average',
+  sectors:     'Cyclical vs. defensive sector leadership each month',
+  commodities: 'Commodity complex trend vs. 200-day average',
+  equities:    'Equity market breadth vs. 200-day average',
+};
+
 // ── Historical regime timeline — how the card's status changed month over month ──
 function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) {
   const mo = months;
@@ -309,13 +322,18 @@ function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) 
         })}
       </div>
       {!compact && (
-        <div style={{ display: 'flex', gap: 18, marginTop: 16 }}>
+        <div style={{ display: 'flex', gap: 18, marginTop: 16, alignItems: 'center' }}>
           {[['bullish', 'Bullish'], ['neutral', 'Neutral'], ['bearish', 'Bearish']].map(([k, lab]) => (
             <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: DSIG[k].c }} />
               <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>{lab}</span>
             </div>
           ))}
+          {HISTORY_CAPTION[card?.id] && (
+            <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 11, color: '#475569', fontStyle: 'italic' }}>
+              {HISTORY_CAPTION[card.id]}
+            </span>
+          )}
         </div>
       )}
     </div>
