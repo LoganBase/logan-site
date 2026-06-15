@@ -490,7 +490,65 @@ function CountryTable({ details }) {
   );
 }
 
-// ── NYSE Breadth — $MMTH & $MMFI stat boxes + V2-style chart (breadth card only) ──
+// ── Breadth card unified stat boxes (3 boxes: NYSE KPIs | Days in Zone | Sector count) ──
+function BreadthStatBoxes() {
+  const [nyse, setNyse] = useStateD(null);
+  const [sectorCur, setSectorCur] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    Promise.all([
+      fetch('/api/breadth-history?range=1y').then(r => r.json()).catch(() => null),
+      fetch('/api/sector-breadth-history?range=6mo').then(r => r.json()).catch(() => null),
+    ]).then(([breadth, sector]) => {
+      if (!alive) return;
+      if (breadth?.summary) setNyse(breadth.summary);
+      if (Array.isArray(sector?.above) && sector.above.length) setSectorCur(sector.above[sector.above.length - 1]);
+    });
+    return () => { alive = false; };
+  }, []);
+
+  const colNyse = (v) => v >= 70 ? '#22c55e' : v >= 40 ? '#f59e0b' : '#ef4444';
+  const colSec  = (v) => v >= 8  ? '#22c55e' : v >  5  ? '#f59e0b' : '#ef4444';
+  const curMmth    = nyse?.currentMmth;
+  const curMmfi    = nyse?.currentMmfi;
+  const daysInZone = nyse?.daysInZone;
+
+  const box = { background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '14px 14px' };
+  const val = (c) => ({ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: c });
+  const lab = { fontFamily: DSANS, fontSize: 12, color: '#94a3b8', marginTop: 5 };
+  const sub = { fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 };
+  const div = { margin: '10px 0', borderTop: '1px solid #1e2d3d' };
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+      {/* Box 1: $MMTH + $MMFI */}
+      <div style={box}>
+        <div style={val(curMmth != null ? colNyse(curMmth) : '#64748b')}>{curMmth != null ? curMmth.toFixed(1) + '%' : '—'}</div>
+        <div style={lab}>$MMTH (200d)</div>
+        <div style={sub}>% NYSE above 200d SMA</div>
+        <div style={div} />
+        <div style={val(curMmfi != null ? colNyse(curMmfi) : '#64748b')}>{curMmfi != null ? curMmfi.toFixed(1) + '%' : '—'}</div>
+        <div style={lab}>$MMFI (50d)</div>
+        <div style={sub}>% NYSE above 50d SMA</div>
+      </div>
+      {/* Box 2: Days in Zone */}
+      <div style={box}>
+        <div style={val('#e2e8f0')}>{daysInZone != null ? String(daysInZone) : '—'}</div>
+        <div style={lab}>Days in Zone</div>
+        <div style={sub}>consecutive days at current level</div>
+      </div>
+      {/* Box 3: Sector count */}
+      <div style={box}>
+        <div style={val(sectorCur != null ? colSec(sectorCur) : '#64748b')}>{sectorCur != null ? `${sectorCur} / 11` : '—'}</div>
+        <div style={lab}>Sectors above 200d MA</div>
+        <div style={sub}>{sectorCur != null ? (sectorCur >= 8 ? 'Bullish breadth' : sectorCur > 5 ? 'Mixed breadth' : 'Bearish breadth') : 'of 11 SPDR sector ETFs'}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── NYSE Breadth — $MMTH & $MMFI V2-style chart (breadth card only) ──
 function NyseBreadthChart() {
   const RMAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
   const [range, setRange] = useStateD('5Y');
@@ -521,27 +579,11 @@ function NyseBreadthChart() {
   }, [range]);
 
   const col = (v) => v >= 70 ? '#22c55e' : v >= 40 ? '#f59e0b' : '#ef4444';
-  const curMmth    = summary?.currentMmth;
-  const curMmfi    = summary?.currentMmfi;
-  const daysInZone = summary?.daysInZone;
-  const fakeCard   = { seed: 3, trend: 0, metric: 'NYSE Breadth — $MMTH & $MMFI', metricUnit: '% NYSE stocks above key moving averages', metricVal: '' };
+  const curMmth  = summary?.currentMmth;
+  const fakeCard = { seed: 3, trend: 0, metric: 'NYSE Breadth — $MMTH & $MMFI', metricUnit: '% NYSE stocks above key moving averages', metricVal: '' };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-        {[
-          { label: '$MMTH (200D)', val: curMmth != null ? curMmth.toFixed(1) + '%' : '—', sub: '% NYSE above 200d SMA', color: curMmth != null ? col(curMmth) : '#e2e8f0' },
-          { label: '$MMFI (50D)',  val: curMmfi != null ? curMmfi.toFixed(1) + '%' : '—', sub: '% NYSE above 50d SMA',  color: curMmfi != null ? col(curMmfi) : '#e2e8f0' },
-          { label: 'DAYS IN ZONE', val: daysInZone != null ? String(daysInZone) : '—', sub: 'consecutive days at level', color: '#e2e8f0' },
-        ].map(({ label, val, sub, color }) => (
-          <div key={label} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '12px 16px' }}>
-            <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.08em' }}>{label}</div>
-            <div style={{ fontFamily: DMONO, fontSize: 26, fontWeight: 700, color, lineHeight: 1.1, marginBottom: 2 }}>{val}</div>
-            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>{sub}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>NYSE Breadth — $MMTH &amp; $MMFI</div>
@@ -552,7 +594,6 @@ function NyseBreadthChart() {
           </div>
         </div>
         <DeepChartLg card={fakeCard} cardId="breadth" color="#f59e0b" height={230} range={range} setRange={setRange} live={live} />
-      </div>
     </div>
   );
 }
@@ -640,6 +681,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {/* breadth card: unified stat boxes at top */}
+      {cardId === 'breadth' && <BreadthStatBoxes />}
       {/* breadth card: Sector Breakdown → SectorBreadthChart → NyseBreadthChart */}
       {cardId === 'breadth' && card.sectorTable && card.sectorTable.length > 0 && (
         <div>
@@ -686,8 +729,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           <CountryTable details={card.details} />
         </div>
       )}
-      {/* stat boxes with section heading */}
-      {card.stats && card.stats.length > 0 && (
+      {/* stat boxes — suppressed for breadth (uses BreadthStatBoxes instead) */}
+      {card.stats && card.stats.length > 0 && cardId !== 'breadth' && (
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics'}</div>
           <StatBoxes stats={card.stats} />
@@ -706,4 +749,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, NyseBreadthChart, SectorBreadthChart, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, DeepDiveContent });
