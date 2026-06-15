@@ -62,7 +62,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
     const norm = (v) => (v != null && !isNaN(v)) ? 0.07 + ((v - lo) / span) * 0.86 : null;
     primaryArr = live.values.map(norm);
     overlayArrs = (live.overlays || []).map((o) => ({ ...o, arr: (o.values || []).map(norm) }));
-    if (live.format === 'pct' && lo < 0 && hi > 0) zeroY = norm(0);
+    if (live.format === 'pct' && lo <= 0 && hi >= 0) zeroY = norm(0);
   } else {
     const [n, vol] = conf[range] || [64, 0.10];
     let s = card.seed * 9301 + 49297 + range.length * 1733;
