@@ -292,7 +292,7 @@ function buildRegime(q, ctx) {
   return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, stats, hideIndicator: true, note: regimeNote };
 }
 
-function buildLeadership(q) {
+function buildLeadership(q, ctx) {
   const spy  = q['SPY'],  rsp  = q['RSP'];
   const qqq  = q['QQQ'],  qqew = q['QQEW'];
   const ivw  = q['IVW'],  ive  = q['IVE'];
@@ -351,9 +351,13 @@ function buildLeadership(q) {
       : ' Value over Growth — defensive rotation underway.';
     return breadthStr + styleStr;
   })();
-  const stats = [
-    ['RSP vs SPY',    rspSpread   != null ? (rspSpread   >= 0 ? '+' : '') + rspSpread.toFixed(1)   + '%' : '—', '20d breadth spread', rspSpread   != null ? (rspSpread   > 0 ? 'pos' : 'neg') : null],
-    ['QQEW vs QQQ',   qqewSpread  != null ? (qqewSpread  >= 0 ? '+' : '') + qqewSpread.toFixed(1)  + '%' : '—', '20d tech breadth',   qqewSpread  != null ? (qqewSpread  > 0 ? 'pos' : 'neg') : null],
+  const stats = ctx ? [
+    ['5Y Spread',      ctx.spreadRsp  != null ? (ctx.spreadRsp  >= 0 ? '+' : '') + ctx.spreadRsp.toFixed(1)  + '%' : '—', 'RSP vs SPY cumulative',  ctx.spreadRsp  != null ? (ctx.spreadRsp  > 0 ? 'pos' : 'neg') : null],
+    ['Daily Streak',   ctx.streak     != null ? String(Math.abs(ctx.streak)) : '—', ctx.streak > 0 ? 'days RSP leading daily' : 'days RSP losing daily', ctx.streak > 0 ? 'pos' : ctx.streak < 0 ? 'neg' : null],
+    ['5Y Tech Spread', ctx.spreadQqew != null ? (ctx.spreadQqew >= 0 ? '+' : '') + ctx.spreadQqew.toFixed(1) + '%' : '—', 'QQEW vs QQQ cumulative', ctx.spreadQqew != null ? (ctx.spreadQqew > 0 ? 'pos' : 'neg') : null],
+  ] : [
+    ['RSP vs SPY',      rspSpread   != null ? (rspSpread   >= 0 ? '+' : '') + rspSpread.toFixed(1)   + '%' : '—', '20d breadth spread', rspSpread   != null ? (rspSpread   > 0 ? 'pos' : 'neg') : null],
+    ['QQEW vs QQQ',    qqewSpread  != null ? (qqewSpread  >= 0 ? '+' : '') + qqewSpread.toFixed(1)  + '%' : '—', '20d tech breadth',   qqewSpread  != null ? (qqewSpread  > 0 ? 'pos' : 'neg') : null],
     ['Growth vs Value', styleSpread != null ? (styleSpread >= 0 ? '+' : '') + styleSpread.toFixed(1) + '%' : '—', '20d style spread',  styleSpread != null ? (styleSpread > 0 ? 'pos' : 'neg') : null],
   ];
   return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, stats, hideIndicator: true, note: leaderNote };
@@ -508,6 +512,48 @@ async function loadBreadthLatest(db) {
       `SELECT date, pct_above_200d, pct_above_50d FROM market_breadth ORDER BY date DESC LIMIT 1`
     ).all();
     return results?.[0] ?? null;
+  } catch { return null; }
+}
+
+// ── LEADERSHIP D1 SOURCE ──────────────────────────────────────────────────────
+async function loadLeadershipContext(db) {
+  try {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 5);
+    const startDate = d.toISOString().slice(0, 10);
+    const { results } = await db.prepare(
+      `SELECT symbol, date, close FROM daily_prices
+       WHERE symbol IN ('SPY','RSP','QQQ','QQEW') AND date >= ?
+       ORDER BY date ASC`
+    ).bind(startDate).all();
+    if (!results || results.length < 20) return null;
+
+    const maps = { SPY: {}, RSP: {}, QQQ: {}, QQEW: {} };
+    for (const row of results) { if (maps[row.symbol]) maps[row.symbol][row.date] = row.close; }
+
+    const dates = Object.keys(maps.SPY).filter(d => maps.RSP[d]).sort();
+    if (dates.length < 2) return null;
+    const d0 = dates[0], dN = dates[dates.length - 1];
+
+    const spreadRsp = (maps.RSP[dN] / maps.RSP[d0] - 1) * 100 - (maps.SPY[dN] / maps.SPY[d0] - 1) * 100;
+    let spreadQqew = null;
+    if (maps.QQQ[d0] && maps.QQEW[d0] && maps.QQQ[dN] && maps.QQEW[dN]) {
+      spreadQqew = (maps.QQEW[dN] / maps.QQEW[d0] - 1) * 100 - (maps.QQQ[dN] / maps.QQQ[d0] - 1) * 100;
+    }
+
+    let streak = 0;
+    for (let i = dates.length - 1; i >= 1; i--) {
+      const rspDay = maps.RSP[dates[i]] / maps.RSP[dates[i - 1]] - 1;
+      const spyDay = maps.SPY[dates[i]] / maps.SPY[dates[i - 1]] - 1;
+      if (rspDay === spyDay) break;
+      const leading = rspDay > spyDay;
+      if (streak === 0)               { streak = leading ? 1 : -1; }
+      else if (leading  && streak > 0) { streak++; }
+      else if (!leading && streak < 0) { streak--; }
+      else                             { break; }
+    }
+
+    return { spreadRsp, spreadQqew, streak };
   } catch { return null; }
 }
 
@@ -1231,13 +1277,14 @@ export async function onRequest(context) {
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1 or stale
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
-  const [d1, shiller, buffett, forwardPe, japanPe, breadthData] = await Promise.all([
+  const [d1, shiller, buffett, forwardPe, japanPe, breadthData, leaderCtx] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
     db ? loadBuffettLatest(db) : Promise.resolve(null),
     db ? loadForwardPeLatest(db) : Promise.resolve(null),
     db ? loadJapanPeLatest(db) : Promise.resolve(null),
     db ? loadBreadthLatest(db) : Promise.resolve(null),
+    db ? loadLeadershipContext(db) : Promise.resolve(null),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   // Treat D1 data as stale only if >3 calendar days old — handles weekends + pre-seeder Monday
@@ -1274,7 +1321,7 @@ export async function onRequest(context) {
 
   const cards = [
     buildRegime(q, regimeCtx),
-    buildLeadership(q),
+    buildLeadership(q, leaderCtx),
     buildBreadth(q, breadthData),
     buildValuations(shiller, buffett, forwardPe, japanPe),
     buildYield(q),
