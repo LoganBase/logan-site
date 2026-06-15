@@ -126,7 +126,8 @@
 
   // ── Map a live /api/scores card into the kit's card shape ──
   function mapCard(c) {
-    const rows = (c.rows || []).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '', r.status]);
+    const normStatus = (s) => s === 'bullish' ? 'bullish' : s === 'bearish' ? 'bearish' : 'neutral';
+    const rows = (c.rows || []).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '', normStatus(r.status)]);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       title: c.title,
