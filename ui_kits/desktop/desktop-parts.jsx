@@ -52,7 +52,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07] };
 
   // ── Normalise all series into the same 0..1 plot space ──
-  let primaryArr = [], overlayArrs = [];
+  let primaryArr = [], overlayArrs = [], zeroY = null;
   if (live && live.values.length > 1) {
     const allVals = [
       ...live.values,
@@ -62,6 +62,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
     const norm = (v) => (v != null && !isNaN(v)) ? 0.07 + ((v - lo) / span) * 0.86 : null;
     primaryArr = live.values.map(norm);
     overlayArrs = (live.overlays || []).map((o) => ({ ...o, arr: (o.values || []).map(norm) }));
+    if (live.format === 'pct' && lo < 0 && hi > 0) zeroY = norm(0);
   } else {
     const [n, vol] = conf[range] || [64, 0.10];
     let s = card.seed * 9301 + 49297 + range.length * 1733;
@@ -134,6 +135,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
           </defs>
           {[0.2, 0.4, 0.6, 0.8].map((g) => (<line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 5" />))}
           <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+          {zeroY != null && <line x1="0" x2={W} y1={yy(zeroY).toFixed(1)} y2={yy(zeroY).toFixed(1)} stroke="#475569" strokeWidth="1" strokeDasharray="4 3" />}
           {!mainHidden && <path d={mainArea} fill={`url(#${gradId})`} />}
           {overlayArrs.map((o) => !hidden[o.label] && (
             <path key={o.label} d={buildPath(o.arr)} fill="none" stroke={o.color} strokeWidth="1.5"
