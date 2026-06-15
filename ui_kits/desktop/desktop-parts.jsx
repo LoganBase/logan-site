@@ -513,7 +513,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {/* stat boxes with section heading */}
       {card.stats && card.stats.length > 0 && (
         <div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Regime Metrics</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics'}</div>
           <StatBoxes stats={card.stats} />
         </div>
       )}
