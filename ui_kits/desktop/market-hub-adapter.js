@@ -127,7 +127,8 @@
   // ── Map a live /api/scores card into the kit's card shape ──
   function mapCard(c) {
     const normStatus = (s) => s === 'bullish' ? 'bullish' : s === 'bearish' ? 'bearish' : 'neutral';
-    const rows = (c.rows || []).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '', normStatus(r.status)]);
+    // r[0]=label, r[1]=value, r[2]=condition, r[3]=status, r[4]=indicator
+    const rows = (c.rows || []).map((r) => [r.label, stripHtml(r.value), r.condition || '', normStatus(r.status), r.indicator || '']);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       title: c.title,
@@ -137,8 +138,8 @@
       metric: c.subtitle || head.label || c.title,
       metricVal: stripHtml(head.value || ''),
       metricUnit: head.condition || head.indicator || '',
-      // No explicit stat-box set in the API → surface the top 3 indicators as stats.
-      stats: (c.rows || []).slice(0, 3).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '',
+      // Use server-provided stats (e.g. regime historical context) if available, else derive from top 3 rows.
+      stats: c.stats || (c.rows || []).slice(0, 3).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '',
         r.status === 'bullish' ? 'pos' : r.status === 'bearish' ? 'neg' : null]),
       rows,
     };
