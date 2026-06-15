@@ -36,7 +36,7 @@
   };
 
   // UI range labels (kit) -> API range tokens (live product)
-  const RANGE_MAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y', '20Y': '20y' };
+  const RANGE_MAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
 
   // Per-card history: which endpoint to call and how to extract { values, dates }.
   // Simple cards use `field` (a flat number[] on the response).
