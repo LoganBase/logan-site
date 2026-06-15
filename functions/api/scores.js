@@ -351,7 +351,12 @@ function buildLeadership(q) {
       : ' Value over Growth — defensive rotation underway.';
     return breadthStr + styleStr;
   })();
-  return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, hideIndicator: true, note: leaderNote };
+  const stats = [
+    ['RSP vs SPY',    rspSpread   != null ? (rspSpread   >= 0 ? '+' : '') + rspSpread.toFixed(1)   + '%' : '—', '20d breadth spread', rspSpread   != null ? (rspSpread   > 0 ? 'pos' : 'neg') : null],
+    ['QQEW vs QQQ',   qqewSpread  != null ? (qqewSpread  >= 0 ? '+' : '') + qqewSpread.toFixed(1)  + '%' : '—', '20d tech breadth',   qqewSpread  != null ? (qqewSpread  > 0 ? 'pos' : 'neg') : null],
+    ['Growth vs Value', styleSpread != null ? (styleSpread >= 0 ? '+' : '') + styleSpread.toFixed(1) + '%' : '—', '20d style spread',  styleSpread != null ? (styleSpread > 0 ? 'pos' : 'neg') : null],
+  ];
+  return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, stats, hideIndicator: true, note: leaderNote };
 }
 
 function buildBreadth(q, breadthData) {
@@ -448,7 +453,12 @@ function buildBreadth(q, breadthData) {
     return { ticker: s, name: SECTOR_NAMES[s], vs200: +vs200.toFixed(2), bull: d.price > d.sma200 };
   }).filter(Boolean);
 
-  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, hideIndicator: true, note: breadthNote, sectorTable };
+  const stats = [
+    ['NYSE 200d',    mmth   != null ? mmth.toFixed(1)   + '%' : '—', '% stocks above 200d SMA',   mmth   != null ? (mmth   >= 70 ? 'pos' : mmth   < 40 ? 'neg' : null) : null],
+    ['NYSE 50d',     mmfi   != null ? mmfi.toFixed(1)   + '%' : '—', '% stocks above 50d SMA',    mmfi   != null ? (mmfi   >= 70 ? 'pos' : mmfi   < 40 ? 'neg' : null) : null],
+    ['Sector Count', n200   >  0    ? `${bull200} / ${n200}` : '—',  'SPDR sectors above 200d',   n200   >  0    ? (bull200 >= 8  ? 'pos' : bull200 <  5  ? 'neg' : null) : null],
+  ];
+  return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, stats, hideIndicator: true, note: breadthNote, sectorTable };
 }
 
 // ── SHILLER D1 SOURCE ─────────────────────────────────────────────────────────
@@ -584,10 +594,15 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     { label: 'Japan P/E',     indicator: 'EWJ (Japan ETF) vs S&P 500', value: japanPeStr, condition: japanCond, status: japanStatus },
   ];
 
+  const stats = [
+    ['CAPE',         capeStr,                                                             'avg ~17× (100yr)',  capeStatus  === 'bearish' ? 'neg' : capeStatus  === 'bullish' ? 'pos' : null],
+    ['Trailing P/E', peStr,                                                               'avg ~16×',          peStatus    === 'bearish' ? 'neg' : peStatus    === 'bullish' ? 'pos' : null],
+    ['Buffett Ind.',  buffettRatio != null ? buffettRatio.toFixed(0) + '%' : '~230%',    'Mkt Cap / GDP',     buffettRatio != null ? (buffettRatio > 115 ? 'neg' : buffettRatio <= 80 ? 'pos' : null) : 'neg'],
+  ];
   return {
     id: 'valuations', number: 4, title: 'Valuations', subtitle: 'The Rubber Band',
     status: cardStatus(rows.slice(0, 3)),  // Japan P/E is deep-dive context only
-    rows, hideIndicator: true,
+    rows, stats, hideIndicator: true,
     note: [
       'Valuations set return expectations, not entry points — combine with Regime and Credit before acting.',
       cape != null ? `CAPE ${cape.toFixed(1)}× (${dateLabel}) — ${cape > 35 ? 'top decile historically; long-run returns compress from here' : cape > 25 ? 'elevated vs ~17× long-run avg' : 'near long-run average'}.` : null,
@@ -662,7 +677,12 @@ function buildYield(q) {
       : ` Curve steepening (${pct(curveSpread, 2)}) — growth expectations rebuilding.`;
     return threshStr + curveStr;
   })();
-  return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows, hideIndicator: true, note: yieldNote };
+  const stats = [
+    ['30Y Yield',    yieldVal   != null ? yieldVal.toFixed(2)          + '%' : '—', '5% = equity headwind',    yieldStat    === 'bearish' ? 'neg' : yieldStat   === 'bullish' ? 'pos' : null],
+    ['10Y Yield',    tnx?.price != null ? tnx.price.toFixed(2)         + '%' : '—', '4.5%+ = restrictive',     tnx?.price   != null ? (tnx.price >= 4.5 ? 'neg' : tnx.price < 3.5 ? 'pos' : null) : null],
+    ['Curve 3m–10Y', curveSpread != null ? (curveSpread >= 0 ? '+' : '') + curveSpread.toFixed(2) + '%' : '—', 'inversion = recession risk', curveStatus === 'bearish' ? 'neg' : curveStatus === 'bullish' ? 'pos' : null],
+  ];
+  return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows, stats, hideIndicator: true, note: yieldNote };
 }
 
 function buildGlobalFlows(q) {
@@ -741,7 +761,14 @@ function buildGlobalFlows(q) {
     : `${bull}/${total} regional indexes above 200d — broad global weakness; defensive positioning warranted.`)
     + (acwi ? ` ACWI ${acwi.above ? 'above' : 'below'} 200d (${acwi.vs200Str}).` : '');
 
-  return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, details, hideIndicator: true, note: flowNote };
+  const acwiDetail = cardDetails.find((d) => d.sym === 'ACWI');
+  const eemDetail  = cardDetails.find((d) => d.sym === 'EEM');
+  const stats = [
+    ['Regional Bull', `${bull} / ${total}`,          'indexes above 200d SMA', bull >= 6 ? 'pos' : bull < 4 ? 'neg' : null],
+    ['ACWI vs 200d',  acwiDetail?.vs200Str || '—',   'global market proxy',    acwiDetail?.above ? 'pos' : 'neg'],
+    ['Emerg. Mkts',   eemDetail?.vs200Str  || '—',   'EM risk appetite',       eemDetail?.above  ? 'pos' : 'neg'],
+  ];
+  return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, stats, details, hideIndicator: true, note: flowNote };
 }
 
 function buildSectors(q) {
@@ -838,7 +865,12 @@ function buildSectors(q) {
     ? `Defensives outpacing cyclicals by ${Math.abs(spread).toFixed(1)}% (20d avg vs SPY) — flight to safety underway; reduce cyclical exposure.`
     : `Cyclicals and defensives near parity (${spreadStr} spread, 20d avg vs SPY) — no clear rotation signal; stay diversified.`;
 
-  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, allRows, hideIndicator: true, note: sectNote };
+  const stats = [
+    ['Cyc vs Def',    (spread >= 0 ? '+' : '') + spread.toFixed(1) + '%', '20d avg rel perf vs SPY', spread > 1 ? 'pos' : spread < -1 ? 'neg' : null],
+    ['Cyclicals ↑',  `${cycBull} / ${cycRows.length}`,                    'above 200d SMA',           cycBull >= 5 ? 'pos' : cycBull < 3 ? 'neg' : null],
+    ['Defensives ↑', `${defBull} / ${defRows.length}`,                    'above 200d SMA',           null],
+  ];
+  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, stats, allRows, hideIndicator: true, note: sectNote };
 }
 
 function buildCommodities(q) {
@@ -948,8 +980,15 @@ function buildCommodities(q) {
     + (copperAbove && !goldAbove ? ' Gold fading — safe haven demand absent, risk-on confirmed.' : '')
     + (!copperAbove && goldAbove ? ' Gold leading copper — safe haven demand with growth caution.' : '');
 
+  const copperVs200 = copper?.vs200 != null ? (copper.vs200 >= 0 ? '+' : '') + copper.vs200.toFixed(1) + '%' : '—';
+  const goldVs200   = gold?.vs200   != null ? (gold.vs200   >= 0 ? '+' : '') + gold.vs200.toFixed(1)   + '%' : '—';
+  const stats = [
+    ['Bull Signals',  `${bull} / ${COM_META.length}`, 'macro-positive signals',   bull >= 6 ? 'pos' : bull < 4 ? 'neg' : null],
+    ['Copper vs 200d', copperVs200,                    'industrial / growth proxy', copperAbove ? 'pos' : 'neg'],
+    ['Gold vs 200d',   goldVs200,                      'safe haven demand',         goldAbove   ? 'neg' : 'pos'],
+  ];
   return { id: 'commodities', number: 9, title: 'Commodities', subtitle: 'The Growth Engine',
-    status, rows, hideIndicator: true, note: commNote };
+    status, rows, stats, hideIndicator: true, note: commNote };
 }
 
 function buildEquities(q) {
@@ -1012,8 +1051,18 @@ function buildEquities(q) {
     || (bull >= 7 ? 'All themes active — execution environment favourable.'
       : 'Broad weakness — wait for MA recapture before adding positions.');
 
+  const iwm  = q['IWM'],  nvda = q['NVDA'];
+  const iwmAbove  = !!(iwm?.price  && iwm?.sma200  && iwm.price  > iwm.sma200);
+  const nvdaAbove = !!(nvda?.price && nvda?.sma200 && nvda.price > nvda.sma200);
+  const iwmVs200  = iwm?.vs200  != null ? (iwm.vs200  >= 0 ? '+' : '') + iwm.vs200.toFixed(1)  + '%' : '—';
+  const nvdaVs200 = nvda?.vs200 != null ? (nvda.vs200 >= 0 ? '+' : '') + nvda.vs200.toFixed(1) + '%' : '—';
+  const stats = [
+    ['Names Above MAs', `${bull} / ${total}`, 'above both 50d & 200d',  bull >= 7 ? 'pos' : bull < 5 ? 'neg' : null],
+    ['Russell 2000',    iwmVs200,              'small-cap risk appetite', iwm?.vs200  != null ? (iwmAbove  ? 'pos' : 'neg') : null],
+    ['Nvidia vs 200d',  nvdaVs200,             'tech / AI risk proxy',    nvda?.vs200 != null ? (nvdaAbove ? 'pos' : 'neg') : null],
+  ];
   return { id: 'equities', number: 10, title: 'Equities', subtitle: 'The Execution Layer',
-    status, rows, hideIndicator: true, note: equityNote };
+    status, rows, stats, hideIndicator: true, note: equityNote };
 }
 
 function buildCredit(q) {
@@ -1093,8 +1142,16 @@ function buildCredit(q) {
       : '';
     return hygStr + spreadStr + embStr;
   })();
+  const hygVs200 = hyg?.vs200 != null ? (hyg.vs200 >= 0 ? '+' : '') + hyg.vs200.toFixed(1) + '%' : '—';
+  const lqdVs200 = lqd?.vs200 != null ? (lqd.vs200 >= 0 ? '+' : '') + lqd.vs200.toFixed(1) + '%' : '—';
+  const embVs200 = emb?.vs200 != null ? (emb.vs200 >= 0 ? '+' : '') + emb.vs200.toFixed(1) + '%' : '—';
+  const stats = [
+    ['HYG vs 200d', hygVs200, 'high yield health',   hygBull == null ? null : hygBull ? 'pos' : 'neg'],
+    ['LQD vs 200d', lqdVs200, 'investment grade',    lqdBull == null ? null : lqdBull ? 'pos' : 'neg'],
+    ['EMB vs 200d', embVs200, 'EM credit risk',      embBull == null ? null : embBull ? 'pos' : 'neg'],
+  ];
   return {
-    id: 'credit', number: 6, title: 'Credit', subtitle: 'The Risk Canary', status, rows, hideIndicator: true,
+    id: 'credit', number: 6, title: 'Credit', subtitle: 'The Risk Canary', status, rows, stats, hideIndicator: true,
     note: creditNote,
   };
 }
