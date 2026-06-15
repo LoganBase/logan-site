@@ -444,6 +444,15 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           <StatBoxes stats={card.stats} />
         </div>
       )}
+      {/* summary note */}
+      {card.note && (
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Summary</div>
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
+            <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
