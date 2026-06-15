@@ -266,11 +266,12 @@ function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) 
   const mo = months;
 
   let hist, labels;
-  if (liveData?.colorBy?.length && liveData?.dates?.length) {
+  const colorSrc = liveData?.colorBy?.length ? liveData.colorBy : liveData?.values?.length ? liveData.values : null;
+  if (colorSrc && liveData?.dates?.length) {
     const monthMap = {};
     liveData.dates.forEach((d, i) => {
       const m = String(d).slice(0, 7);
-      if (m) monthMap[m] = liveData.colorBy[i];
+      if (m) monthMap[m] = colorSrc[i];
     });
     const sorted = Object.keys(monthMap).sort();
     const allStatuses = sorted.map((m) => {
@@ -497,7 +498,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       </div>
       {/* regime timeline — always 1Y, never tied to chart range */}
       <div>
-        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Regime History</div>
+        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{card.title} History</div>
         <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
           <RegimeTimeline card={card} asOf={asOf} liveData={regimeLive} />
         </div>
