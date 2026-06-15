@@ -752,7 +752,15 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {/* chart card — breadth card uses NyseBreadthChart instead */}
+      {/* breadth card: Sector Breakdown → SectorBreadthChart → NyseBreadthChart */}
+      {cardId === 'breadth' && card.sectorTable && card.sectorTable.length > 0 && (
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Sector Breakdown</div>
+          <SectorBreakdown sectorTable={card.sectorTable} />
+        </div>
+      )}
+      {cardId === 'breadth' && <SectorBreadthChart />}
+      {/* chart card — breadth uses NyseBreadthChart, all others use DeepChartLg */}
       {cardId === 'breadth' ? <NyseBreadthChart /> : (
         <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -778,10 +786,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 30, height: 20, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
         </div>
       )}
-      {/* sector ETF breadth chart — breadth card only */}
-      {cardId === 'breadth' && <SectorBreadthChart />}
       {/* indicators */}
-
       <div>
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Indicators</div>
         <IndicatorTable rows={card.rows} />
@@ -791,13 +796,6 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Country Breakdown</div>
           <CountryTable details={card.details} />
-        </div>
-      )}
-      {/* sector breakdown — breadth card only */}
-      {card.sectorTable && card.sectorTable.length > 0 && (
-        <div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Sector Breakdown</div>
-          <SectorBreakdown sectorTable={card.sectorTable} />
         </div>
       )}
       {/* stat boxes with section heading */}
