@@ -52,17 +52,19 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07] };
 
   // ── Normalise all series into the same 0..1 plot space ──
-  let primaryArr = [], overlayArrs = [], zeroY = null;
+  let primaryArr = [], overlayArrs = [], zeroY = null, normThresholds = [];
   if (live && live.values.length > 1) {
     const allVals = [
       ...live.values,
       ...(live.overlays || []).flatMap((o) => o.values || []),
+      ...(live.thresholds || []).map((t) => t.y),
     ].filter((v) => v != null && !isNaN(v));
     const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
     const norm = (v) => (v != null && !isNaN(v)) ? 0.07 + ((v - lo) / span) * 0.86 : null;
     primaryArr = live.values.map(norm);
     overlayArrs = (live.overlays || []).map((o) => ({ ...o, arr: (o.values || []).map(norm) }));
     if (live.format === 'pct' && lo <= 0 && hi >= 0) zeroY = norm(0);
+    normThresholds = (live.thresholds || []).map((t) => ({ ...t, yNorm: norm(t.y) }));
   } else {
     const [n, vol] = conf[range] || [64, 0.10];
     let s = card.seed * 9301 + 49297 + range.length * 1733;
@@ -136,6 +138,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
           {[0.2, 0.4, 0.6, 0.8].map((g) => (<line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 5" />))}
           <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
           {zeroY != null && <line x1="0" x2={W} y1={yy(zeroY).toFixed(1)} y2={yy(zeroY).toFixed(1)} stroke="#475569" strokeWidth="1" strokeDasharray="4 3" />}
+          {normThresholds.map((t) => <line key={t.y} x1="0" x2={W} y1={yy(t.yNorm).toFixed(1)} y2={yy(t.yNorm).toFixed(1)} stroke={t.color} strokeWidth="1" strokeDasharray="4 4" strokeOpacity="0.5" />)}
           {!mainHidden && <path d={mainArea} fill={`url(#${gradId})`} />}
           {overlayArrs.map((o) => !hidden[o.label] && (
             <path key={o.label} d={buildPath(o.arr)} fill="none" stroke={o.color} strokeWidth="1.5"
@@ -484,84 +487,44 @@ function CountryTable({ details }) {
   );
 }
 
-// ── NYSE Breadth — $MMTH & $MMFI historical chart (breadth card only) ──
+// ── NYSE Breadth — $MMTH & $MMFI stat boxes + V2-style chart (breadth card only) ──
 function NyseBreadthChart() {
-  const RMAP = { '10Y': '10y', '5Y': '5y', '1Y': '1y', '6MO': '6mo', '3MO': '3mo', '1MO': '1mo', '1WK': '1wk' };
-  const RANGES = ['10Y', '5Y', '1Y', '6MO', '3MO', '1MO', '1WK'];
-  const [sel, setSel] = useStateD('5Y');
-  const [data, setData] = useStateD(null);
+  const RMAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const [range, setRange] = useStateD('5Y');
+  const [live, setLive] = useStateD(null);
+  const [summary, setSummary] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
-    setData(null);
-    fetch(`/api/breadth-history?range=${RMAP[sel]}`)
+    setLive(null);
+    fetch(`/api/breadth-history?range=${RMAP[range]}`)
       .then(r => r.json())
-      .then(j => { if (alive && (Array.isArray(j.mmth) || Array.isArray(j.mmfi))) setData(j); })
+      .then(j => {
+        if (!alive) return;
+        if (Array.isArray(j.mmth) && j.mmth.length) {
+          setLive({
+            values: j.mmth,
+            dates:  j.dates || [],
+            label:  '$MMTH (200d)',
+            lineColor: '#f59e0b',
+            overlays: [{ label: '$MMFI (50d)', values: j.mmfi || [], color: '#60a5fa', dash: null }],
+            thresholds: [{ y: 70, color: '#22c55e' }, { y: 40, color: '#ef4444' }],
+          });
+        }
+        if (j.summary) setSummary(j.summary);
+      })
       .catch(() => {});
     return () => { alive = false; };
-  }, [sel]);
+  }, [range]);
 
-  const W = 800, H = 200, top = 10, bot = 20;
-  const yy  = (v) => v == null ? null : +(top + (1 - v / 100) * (H - top - bot)).toFixed(1);
   const col = (v) => v >= 70 ? '#22c55e' : v >= 40 ? '#f59e0b' : '#ef4444';
-  const n   = data?.mmth?.length || data?.mmfi?.length || 0;
-  const dx  = n > 1 ? W / (n - 1) : W;
-
-  // Colored segments for $MMTH (zone: green/amber/red)
-  const buildColorSegs = (values) => {
-    if (!values?.length) return [];
-    const segs = [];
-    let seg = null;
-    for (let i = 0; i < values.length; i++) {
-      const v = values[i];
-      const x = +(i * dx).toFixed(1);
-      const y = yy(v);
-      if (v == null) { if (seg) { segs.push(seg); seg = null; } continue; }
-      const c = col(v);
-      if (!seg || c !== seg.c) {
-        if (seg) {
-          const prev = seg.pts[seg.pts.length - 1];
-          const mid = [+((prev[0] + x) / 2).toFixed(1), +((prev[1] + y) / 2).toFixed(1)];
-          seg.pts.push(mid);
-          segs.push(seg);
-          seg = { c, pts: [mid, [x, y]] };
-        } else {
-          seg = { c, pts: [[x, y]] };
-        }
-      } else {
-        seg.pts.push([x, y]);
-      }
-    }
-    if (seg) segs.push(seg);
-    return segs;
-  };
-
-  // Null-safe single-color segments for $MMFI
-  const buildSegs = (values) => {
-    if (!values?.length) return [];
-    const segs = [];
-    let cur = [];
-    for (let i = 0; i < values.length; i++) {
-      const v = values[i];
-      if (v != null) { cur.push([+(i * dx).toFixed(1), yy(v)]); }
-      else if (cur.length) { segs.push(cur); cur = []; }
-    }
-    if (cur.length) segs.push(cur);
-    return segs;
-  };
-
-  const summary   = data?.summary || {};
-  const curMmth   = summary.currentMmth;
-  const curMmfi   = summary.currentMmfi;
-  const daysInZone = summary.daysInZone;
-  const mmthSegs  = buildColorSegs(data?.mmth || []);
-  const mmfiSegs  = buildSegs(data?.mmfi || []);
+  const curMmth    = summary?.currentMmth;
+  const curMmfi    = summary?.currentMmfi;
+  const daysInZone = summary?.daysInZone;
+  const fakeCard   = { seed: 3, trend: 0, metric: 'NYSE Breadth — $MMTH & $MMFI', metricUnit: '% NYSE stocks above key moving averages', metricVal: '' };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-      <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569' }}>
-        NYSE Breadth — $MMTH &amp; $MMFI Historical
-      </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
         {[
           { label: '$MMTH (200D)', val: curMmth != null ? curMmth.toFixed(1) + '%' : '—', sub: '% NYSE above 200d SMA', color: curMmth != null ? col(curMmth) : '#e2e8f0' },
@@ -575,51 +538,17 @@ function NyseBreadthChart() {
           </div>
         ))}
       </div>
-      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 18px 12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            {[
-              { c: '#f59e0b', lab: '$MMTH (200d)', dash: false },
-              { c: '#60a5fa', lab: '$MMFI (50d)',  dash: true  },
-              { c: '#22c55e', lab: '70% — Bullish', dash: true  },
-              { c: '#ef4444', lab: '40% — Bearish', dash: true  },
-            ].map(({ c, lab, dash }) => (
-              <span key={lab} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <svg width="20" height="10" style={{ flexShrink: 0 }}>
-                  <line x1="0" y1="5" x2="20" y2="5" stroke={c} strokeWidth="2" strokeLinecap="round" strokeDasharray={dash ? '4 3' : undefined} />
-                </svg>
-                <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8' }}>{lab}</span>
-              </span>
-            ))}
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>NYSE Breadth — $MMTH &amp; $MMFI</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>% NYSE stocks above key moving averages</div>
           </div>
-          <div style={{ display: 'flex', gap: 3 }}>
-            {RANGES.map(r => (
-              <button key={r} onClick={() => setSel(r)} style={{
-                all: 'unset', cursor: 'pointer', fontFamily: DMONO, fontSize: 11, fontWeight: 600,
-                padding: '3px 7px', borderRadius: 5, letterSpacing: '.04em',
-                background: sel === r ? '#1e3a5f' : 'transparent',
-                color:      sel === r ? '#93c5fd' : '#475569',
-                border: `1px solid ${sel === r ? '#2d5a8e' : 'transparent'}`,
-              }}>{r}</button>
-            ))}
+          <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: curMmth != null ? col(curMmth) : '#f59e0b' }}>
+            {curMmth != null ? curMmth.toFixed(1) + '%' : '—'}
           </div>
         </div>
-        {!data && <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: DSANS, fontSize: 12 }}>Loading…</div>}
-        {data && (
-          <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: 200 }}>
-            <line x1="0" x2={W} y1={yy(70)} y2={yy(70)} stroke="#22c55e" strokeWidth="1" strokeDasharray="4 4" strokeOpacity="0.4" />
-            <line x1="0" x2={W} y1={yy(40)} y2={yy(40)} stroke="#ef4444" strokeWidth="1" strokeDasharray="4 4" strokeOpacity="0.4" />
-            {mmfiSegs.map((seg, i) => (
-              <polyline key={i} points={seg.map(p => `${p[0]},${p[1]}`).join(' ')}
-                fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
-            ))}
-            {mmthSegs.map((s, i) => (
-              <polyline key={i} points={s.pts.map(p => `${p[0]},${p[1]}`).join(' ')}
-                fill="none" stroke={s.c} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-            ))}
-            <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
-          </svg>
-        )}
+        <DeepChartLg card={fakeCard} cardId="breadth" color="#f59e0b" height={230} range={range} setRange={setRange} live={live} />
       </div>
     </div>
   );
