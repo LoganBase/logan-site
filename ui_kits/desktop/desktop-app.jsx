@@ -38,7 +38,7 @@ function BreadthBar({ exec, cats }) {
           <span style={{ fontFamily: DMONO, fontSize: 13, color: '#e8edf5' }}>/{total}</span>
         </div>
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, maxWidth: 230 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0, maxWidth: 310 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: color, boxShadow: `0 0 8px ${color}`, flexShrink: 0, marginTop: 4 }} />
           <span style={{ fontFamily: DSANS, fontSize: 17, fontWeight: 700, color: '#e8edf5', lineHeight: 1.25 }}>
