@@ -152,6 +152,7 @@
         r.status === 'bullish' ? 'pos' : r.status === 'bearish' ? 'neg' : null]),
       rows,
       note: c.note || null,
+      sectorTable: c.sectorTable || null,
     };
     // Global Flows: derive the flag row from card.details (field is `sym`, not `symbol`).
     if (c.id === 'globalflows' && Array.isArray(c.details)) {
