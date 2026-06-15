@@ -55,8 +55,9 @@ function BreadthBar({ exec, cats }) {
             const bull = c.cards.filter((s) => s === 'bullish').length;
             return (
               <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ width: 130, flexShrink: 0, fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500, whiteSpace: 'nowrap' }}>{c.label}</span>
-                <div style={{ display: 'flex', gap: 6, flex: 1 }}>{c.cards.map((s, i) => (<span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: DSIG[s].c, boxShadow: `0 0 6px ${DSIG[s].glow}` }} />))}</div>
+                <div style={{ flex: 1 }} />
+                <span style={{ flexShrink: 0, fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500, whiteSpace: 'nowrap' }}>{c.label}</span>
+                <div style={{ display: 'flex', gap: 6 }}>{c.cards.map((s, i) => (<span key={i} style={{ width: 10, height: 10, borderRadius: '50%', background: DSIG[s].c, boxShadow: `0 0 6px ${DSIG[s].glow}` }} />))}</div>
                 <span style={{ fontFamily: DMONO, fontSize: 12, color: '#94a3b8', width: 36, textAlign: 'right' }}>{bull}/{c.cards.length}</span>
               </div>
             );
