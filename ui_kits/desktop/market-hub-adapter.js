@@ -108,10 +108,7 @@
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
-  // Strip HTML tags and entities from API value strings (values are HTML in the
-  // original app but rendered as plain text in the desktop kit).
-  // API sometimes combines two values with <br> (e.g. "SPY $741<br>200d $682");
-  // take only the first segment so it fits in fixed-width stat boxes and table cells.
+  // Strip HTML — single line (for stat boxes where space is tight)
   function stripHtml(s) {
     if (!s) return '';
     const first = String(s).split(/<br\s*\/?>/i)[0];
@@ -124,11 +121,21 @@
       .trim();
   }
 
+  // Strip HTML — multi-line: joins <br>-separated segments with \n (for indicator table rows)
+  function stripHtmlMulti(s) {
+    if (!s) return '';
+    return String(s)
+      .split(/<br\s*\/?>/i)
+      .map((seg) => seg.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim())
+      .filter(Boolean)
+      .join('\n');
+  }
+
   // ── Map a live /api/scores card into the kit's card shape ──
   function mapCard(c) {
     const normStatus = (s) => s === 'bullish' ? 'bullish' : s === 'bearish' ? 'bearish' : 'neutral';
-    // r[0]=label, r[1]=value, r[2]=condition, r[3]=status, r[4]=indicator
-    const rows = (c.rows || []).map((r) => [r.label, stripHtml(r.value), r.condition || '', normStatus(r.status), r.indicator || '']);
+    // r[0]=label, r[1]=value (multi-line), r[2]=condition, r[3]=status, r[4]=indicator
+    const rows = (c.rows || []).map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '']);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       title: c.title,
