@@ -135,7 +135,9 @@
   function mapCard(c) {
     const normStatus = (s) => s === 'bullish' ? 'bullish' : s === 'bearish' ? 'bearish' : 'neutral';
     // r[0]=label, r[1]=value (multi-line), r[2]=condition, r[3]=status, r[4]=indicator
-    const rows = (c.rows || []).map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '']);
+    // Use allRows (full set) when present (e.g. Sectors has top-6 in rows, all-11 in allRows)
+    const rowSource = c.allRows || c.rows || [];
+    const rows = rowSource.map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '']);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       title: c.title,
