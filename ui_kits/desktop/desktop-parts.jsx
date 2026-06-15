@@ -484,7 +484,148 @@ function CountryTable({ details }) {
   );
 }
 
-// ── Sector ETF Breadth historical bar chart (breadth card only) ──
+// ── NYSE Breadth — $MMTH & $MMFI historical chart (breadth card only) ──
+function NyseBreadthChart() {
+  const RMAP = { '10Y': '10y', '5Y': '5y', '1Y': '1y', '6MO': '6mo', '3MO': '3mo', '1MO': '1mo', '1WK': '1wk' };
+  const RANGES = ['10Y', '5Y', '1Y', '6MO', '3MO', '1MO', '1WK'];
+  const [sel, setSel] = useStateD('5Y');
+  const [data, setData] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setData(null);
+    fetch(`/api/breadth-history?range=${RMAP[sel]}`)
+      .then(r => r.json())
+      .then(j => { if (alive && (Array.isArray(j.mmth) || Array.isArray(j.mmfi))) setData(j); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [sel]);
+
+  const W = 800, H = 200, top = 10, bot = 20;
+  const yy  = (v) => v == null ? null : +(top + (1 - v / 100) * (H - top - bot)).toFixed(1);
+  const col = (v) => v >= 70 ? '#22c55e' : v >= 40 ? '#f59e0b' : '#ef4444';
+  const n   = data?.mmth?.length || data?.mmfi?.length || 0;
+  const dx  = n > 1 ? W / (n - 1) : W;
+
+  // Colored segments for $MMTH (zone: green/amber/red)
+  const buildColorSegs = (values) => {
+    if (!values?.length) return [];
+    const segs = [];
+    let seg = null;
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      const x = +(i * dx).toFixed(1);
+      const y = yy(v);
+      if (v == null) { if (seg) { segs.push(seg); seg = null; } continue; }
+      const c = col(v);
+      if (!seg || c !== seg.c) {
+        if (seg) {
+          const prev = seg.pts[seg.pts.length - 1];
+          const mid = [+((prev[0] + x) / 2).toFixed(1), +((prev[1] + y) / 2).toFixed(1)];
+          seg.pts.push(mid);
+          segs.push(seg);
+          seg = { c, pts: [mid, [x, y]] };
+        } else {
+          seg = { c, pts: [[x, y]] };
+        }
+      } else {
+        seg.pts.push([x, y]);
+      }
+    }
+    if (seg) segs.push(seg);
+    return segs;
+  };
+
+  // Null-safe single-color segments for $MMFI
+  const buildSegs = (values) => {
+    if (!values?.length) return [];
+    const segs = [];
+    let cur = [];
+    for (let i = 0; i < values.length; i++) {
+      const v = values[i];
+      if (v != null) { cur.push([+(i * dx).toFixed(1), yy(v)]); }
+      else if (cur.length) { segs.push(cur); cur = []; }
+    }
+    if (cur.length) segs.push(cur);
+    return segs;
+  };
+
+  const summary   = data?.summary || {};
+  const curMmth   = summary.currentMmth;
+  const curMmfi   = summary.currentMmfi;
+  const daysInZone = summary.daysInZone;
+  const mmthSegs  = buildColorSegs(data?.mmth || []);
+  const mmfiSegs  = buildSegs(data?.mmfi || []);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569' }}>
+        NYSE Breadth — $MMTH &amp; $MMFI Historical
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+        {[
+          { label: '$MMTH (200D)', val: curMmth != null ? curMmth.toFixed(1) + '%' : '—', sub: '% NYSE above 200d SMA', color: curMmth != null ? col(curMmth) : '#e2e8f0' },
+          { label: '$MMFI (50D)',  val: curMmfi != null ? curMmfi.toFixed(1) + '%' : '—', sub: '% NYSE above 50d SMA',  color: curMmfi != null ? col(curMmfi) : '#e2e8f0' },
+          { label: 'DAYS IN ZONE', val: daysInZone != null ? String(daysInZone) : '—', sub: 'consecutive days at level', color: '#e2e8f0' },
+        ].map(({ label, val, sub, color }) => (
+          <div key={label} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '12px 16px' }}>
+            <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 600, color: '#475569', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.08em' }}>{label}</div>
+            <div style={{ fontFamily: DMONO, fontSize: 26, fontWeight: 700, color, lineHeight: 1.1, marginBottom: 2 }}>{val}</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>{sub}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 18px 12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            {[
+              { c: '#f59e0b', lab: '$MMTH (200d)', dash: false },
+              { c: '#60a5fa', lab: '$MMFI (50d)',  dash: true  },
+              { c: '#22c55e', lab: '70% — Bullish', dash: true  },
+              { c: '#ef4444', lab: '40% — Bearish', dash: true  },
+            ].map(({ c, lab, dash }) => (
+              <span key={lab} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <svg width="20" height="10" style={{ flexShrink: 0 }}>
+                  <line x1="0" y1="5" x2="20" y2="5" stroke={c} strokeWidth="2" strokeLinecap="round" strokeDasharray={dash ? '4 3' : undefined} />
+                </svg>
+                <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8' }}>{lab}</span>
+              </span>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: 3 }}>
+            {RANGES.map(r => (
+              <button key={r} onClick={() => setSel(r)} style={{
+                all: 'unset', cursor: 'pointer', fontFamily: DMONO, fontSize: 11, fontWeight: 600,
+                padding: '3px 7px', borderRadius: 5, letterSpacing: '.04em',
+                background: sel === r ? '#1e3a5f' : 'transparent',
+                color:      sel === r ? '#93c5fd' : '#475569',
+                border: `1px solid ${sel === r ? '#2d5a8e' : 'transparent'}`,
+              }}>{r}</button>
+            ))}
+          </div>
+        </div>
+        {!data && <div style={{ height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: DSANS, fontSize: 12 }}>Loading…</div>}
+        {data && (
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: 200 }}>
+            <line x1="0" x2={W} y1={yy(70)} y2={yy(70)} stroke="#22c55e" strokeWidth="1" strokeDasharray="4 4" strokeOpacity="0.4" />
+            <line x1="0" x2={W} y1={yy(40)} y2={yy(40)} stroke="#ef4444" strokeWidth="1" strokeDasharray="4 4" strokeOpacity="0.4" />
+            {mmfiSegs.map((seg, i) => (
+              <polyline key={i} points={seg.map(p => `${p[0]},${p[1]}`).join(' ')}
+                fill="none" stroke="#60a5fa" strokeWidth="1.5" strokeDasharray="4 3" strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+            {mmthSegs.map((s, i) => (
+              <polyline key={i} points={s.pts.map(p => `${p[0]},${p[1]}`).join(' ')}
+                fill="none" stroke={s.c} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+            <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Sector ETF Breadth historical line chart (breadth card only) ──
 function SectorBreadthChart() {
   const RMAP = { '10Y': '10y', '5Y': '5y', '3Y': '3y', '1Y': '1y', '6MO': '6mo' };
   const RANGES = ['10Y', '5Y', '3Y', '1Y', '6MO'];
@@ -611,17 +752,19 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {/* chart card */}
-      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-          <div>
-            <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{card.metric}</div>
-            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{card.metricUnit}</div>
+      {/* chart card — breadth card uses NyseBreadthChart instead */}
+      {cardId === 'breadth' ? <NyseBreadthChart /> : (
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <div>
+              <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{card.metric}</div>
+              <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{card.metricUnit}</div>
+            </div>
+            <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
           </div>
-          <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
+          <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
         </div>
-        <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
-      </div>
+      )}
       {/* regime timeline — always 1Y, never tied to chart range */}
       <div>
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{card.title} History</div>
@@ -638,6 +781,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {/* sector ETF breadth chart — breadth card only */}
       {cardId === 'breadth' && <SectorBreadthChart />}
       {/* indicators */}
+
       <div>
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Indicators</div>
         <IndicatorTable rows={card.rows} />
@@ -676,4 +820,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, SectorBreadthChart, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, NyseBreadthChart, SectorBreadthChart, DeepDiveContent });
