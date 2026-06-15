@@ -406,7 +406,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
             <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{card.metric}</div>
             <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{card.metricUnit}</div>
           </div>
-          <div style={{ fontFamily: DMONO, fontSize: 18, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
+          <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
         </div>
         <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
       </div>
