@@ -596,33 +596,22 @@ function NyseBreadthChart() {
 }
 
 // ── Sector ETF Breadth historical chart — V2 style via DeepChartLg (breadth card only) ──
-function SectorBreadthChart() {
+// liveSectorCount: passed from DeepDiveContent via card.sectorTable (live scores); injected as
+// today's final data point so the chart end matches the Sector Breakdown table (D1 history can lag).
+function SectorBreadthChart({ liveSectorCount = null }) {
   const RMAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
   const [range, setRange] = useStateD('5Y');
-  const [live, setLive] = useStateD(null);
-  const [curVal, setCurVal] = useStateD(null);
+  const [rawData, setRawData] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
-    setLive(null);
+    setRawData(null);
     const today = new Date().toISOString().slice(0, 10);
     fetch(`/api/sector-breadth-history?range=${RMAP[range]}&d=${today}`)
       .then(r => r.json())
       .then(j => {
         if (!alive || !Array.isArray(j.above) || !j.above.length) return;
-        const last = j.above[j.above.length - 1];
-        const col = (v) => v >= 8 ? '#22c55e' : v > 5 ? '#f59e0b' : '#ef4444';
-        setCurVal(last);
-        setLive({
-          values:     j.above,
-          dates:      j.dates || [],
-          label:      'Sectors above 200d MA',
-          format:     'count',
-          lineColor:  col(last),
-          colorBy:    j.above,
-          colorByFn:  col,
-          thresholds: [{ y: 8, color: '#22c55e' }, { y: 5, color: '#ef4444' }],
-        });
+        setRawData({ dates: j.dates || [], above: j.above });
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -630,6 +619,30 @@ function SectorBreadthChart() {
 
   const col = (v) => v >= 8 ? '#22c55e' : v > 5 ? '#f59e0b' : '#ef4444';
   const fakeCard = { seed: 4, trend: 0, metric: 'Sector ETF Breadth — Historical', metricUnit: '# of 11 SPDR sectors above their 200d MA', metricVal: '' };
+
+  // Build live obj at render time so liveSectorCount prop changes update immediately without re-fetch
+  let live = null;
+  let curVal = null;
+  if (rawData) {
+    let { dates, above } = rawData;
+    if (liveSectorCount != null) {
+      const today = new Date().toISOString().slice(0, 10);
+      const lastDate = dates[dates.length - 1];
+      if (!lastDate || lastDate < today) {
+        dates = [...dates, today];
+        above = [...above, liveSectorCount];
+      } else {
+        above = [...above.slice(0, -1), liveSectorCount];
+      }
+    }
+    curVal = above[above.length - 1];
+    live = {
+      values: above, dates,
+      label: 'Sectors above 200d MA', format: 'count',
+      lineColor: col(curVal), colorBy: above, colorByFn: col,
+      thresholds: [{ y: 8, color: '#22c55e' }, { y: 5, color: '#ef4444' }],
+    };
+  }
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
@@ -693,7 +706,9 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           <SectorBreakdown sectorTable={card.sectorTable} />
         </div>
       )}
-      {cardId === 'breadth' && <SectorBreadthChart />}
+      {cardId === 'breadth' && (
+        <SectorBreadthChart liveSectorCount={card.sectorTable ? card.sectorTable.filter(s => s.bull).length : null} />
+      )}
       {/* chart card — breadth uses NyseBreadthChart, all others use DeepChartLg */}
       {cardId === 'breadth' ? <NyseBreadthChart /> : (
         <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
