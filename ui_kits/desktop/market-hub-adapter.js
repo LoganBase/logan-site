@@ -63,10 +63,11 @@
       extract: (data) => {
         if (!Array.isArray(data.rspVsSpy) || !data.rspVsSpy.length) return null;
         return {
-          values:   data.rspVsSpy,
-          dates:    data.dates || [],
-          label:    'RSP vs SPY',
-          format:   'pct',
+          values:    data.rspVsSpy,
+          dates:     data.dates || [],
+          label:     'RSP vs SPY',
+          format:    'pct',
+          lineColor: '#22d3ee',
           overlays: [
             { label: 'QQEW vs QQQ', values: data.qqewVsQqq || [], color: '#a855f7', dash: null },
           ],
