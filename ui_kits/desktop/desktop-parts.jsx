@@ -318,7 +318,7 @@ function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) 
           ))}
           <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{ width: 2, height: 12, background: 'rgba(232,237,245,.55)' }} />
-            <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>Regime change</span>
+            <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>{card?.id === 'regime' ? 'Regime change' : 'Status change'}</span>
           </span>
         </div>
       )}
