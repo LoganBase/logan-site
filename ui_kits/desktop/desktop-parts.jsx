@@ -342,7 +342,7 @@ function StatBoxes({ stats }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${stats.length}, 1fr)`, gap: 10 }}>
       {stats.map((st, i) => {
-        const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#e8edf5';
+        const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#f59e0b';
         return (
           <div key={i} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '14px 14px' }}>
             <div style={{ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: tone }}>{st[1]}</div>
