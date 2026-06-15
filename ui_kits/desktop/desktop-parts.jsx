@@ -264,16 +264,24 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
 }
 
 const HISTORY_CAPTION = {
-  regime:      'SPY above/below its 200-day moving average each month',
-  leadership:  'RSP leading or lagging SPY on a monthly basis',
-  breadth:     'Share of NYSE stocks above their 200-day average',
+  regime:      ['SPY ', ['above', 'bull'], ' or ', ['below', 'bear'], ' its 200-day moving average each month'],
+  leadership:  ['RSP ', ['leading', 'bull'], ' or ', ['lagging', 'bear'], ' SPY on a monthly basis'],
+  breadth:     ['NYSE stocks ', ['above', 'bull'], ' or ', ['below', 'bear'], ' their 200-day average'],
   valuations:  'CAPE ratio signal vs. long-run historical norms',
   yield:       '10-year Treasury yield trend each month',
   credit:      'HYG credit-spread health vs. 200-day average',
-  globalflows: 'Global markets above/below their 200-day average',
-  sectors:     'Cyclical vs. defensive sector leadership each month',
+  globalflows: ['Global markets ', ['above', 'bull'], ' or ', ['below', 'bear'], ' their 200-day average'],
+  sectors:     ['', ['Cyclical', 'bull'], ' vs. ', ['defensive', 'bear'], ' sector leadership each month'],
   commodities: 'Commodity complex trend vs. 200-day average',
   equities:    'Equity market breadth vs. 200-day average',
+};
+const renderCaption = (cap) => {
+  if (!cap) return null;
+  if (typeof cap === 'string') return cap;
+  return cap.map((seg, i) => Array.isArray(seg)
+    ? <span key={i} style={{ color: DSIG[seg[1]].c, fontStyle: 'italic' }}>{seg[0]}</span>
+    : <span key={i}>{seg}</span>
+  );
 };
 
 // ── Historical regime timeline — how the card's status changed month over month ──
@@ -331,7 +339,7 @@ function RegimeTimeline({ card, cardId, asOf, months = 12, compact = false, live
           ))}
           {HISTORY_CAPTION[cardId] && (
             <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 11, color: '#475569', fontStyle: 'italic' }}>
-              {HISTORY_CAPTION[cardId]}
+              {renderCaption(HISTORY_CAPTION[cardId])}
             </span>
           )}
         </div>
