@@ -177,9 +177,55 @@ function cardStatus(rows) {
   return 'neutral';
 }
 
+function ordinalSuffix(n) {
+  const s = Math.round(n), t = s % 100, u = s % 10;
+  return s + (t >= 11 && t <= 13 ? 'th' : u === 1 ? 'st' : u === 2 ? 'nd' : u === 3 ? 'rd' : 'th');
+}
+
+// ── REGIME HISTORICAL CONTEXT (D1 queries) ────────────────────────────────────
+async function loadRegimeContext(db) {
+  try {
+    const currentRow = await db.prepare(
+      `SELECT vs200_pct FROM indicators WHERE symbol='SPY' ORDER BY date DESC LIMIT 1`
+    ).first();
+    if (!currentRow || currentRow.vs200_pct == null) return null;
+    const v = currentRow.vs200_pct;
+    const bull = v >= 0;
+
+    const [pctRow, durRow, velRow] = await Promise.all([
+      // Percentile rank of current vs200 among all history
+      db.prepare(
+        `SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM indicators WHERE symbol='SPY')) AS pct
+         FROM indicators WHERE symbol='SPY' AND vs200_pct <= ?`
+      ).bind(v).first(),
+      // Consecutive trading days in current regime (above OR below 200d SMA)
+      db.prepare(bull
+        ? `SELECT COUNT(*) AS days FROM indicators WHERE symbol='SPY' AND vs200_pct >= 0
+           AND date > COALESCE((SELECT MAX(date) FROM indicators WHERE symbol='SPY' AND vs200_pct < 0), '1900-01-01')`
+        : `SELECT COUNT(*) AS days FROM indicators WHERE symbol='SPY' AND vs200_pct < 0
+           AND date > COALESCE((SELECT MAX(date) FROM indicators WHERE symbol='SPY' AND vs200_pct >= 0), '1900-01-01')`
+      ).first(),
+      // vs200 value 10 trading days ago for ROC calculation
+      db.prepare(
+        `SELECT vs200_pct FROM indicators WHERE symbol='SPY' ORDER BY date DESC LIMIT 1 OFFSET 9`
+      ).first(),
+    ]);
+
+    const velocity = velRow?.vs200_pct != null ? v - velRow.vs200_pct : null;
+    return {
+      percentile: pctRow?.pct ?? null,
+      duration:   durRow?.days ?? null,
+      velocity,
+      bull,
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
 // ── CARD BUILDERS ─────────────────────────────────────────────────────────────
 
-function buildRegime(q) {
+function buildRegime(q, ctx) {
   const spy = q['SPY'];
   if (!spy) return placeholderCard(1, 'Regime', 'The Anchor');
 
@@ -237,7 +283,17 @@ function buildRegime(q) {
       : ` SPY ${pct(v200)} below 200d — bear regime active; read all cards defensively.`;
     return crossStr + stretchStr;
   })();
-  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, hideIndicator: true, note: regimeNote };
+  const stats = ctx ? (() => {
+    const { percentile, duration, velocity, bull: ctxBull } = ctx;
+    const velStr  = velocity != null ? (velocity >= 0 ? '+' : '') + velocity.toFixed(1) + '%' : '—';
+    const velTone = velocity == null ? null : velocity > 0.05 ? 'pos' : velocity < -0.05 ? 'neg' : null;
+    return [
+      ['Percentile Rank',    percentile != null ? ordinalSuffix(percentile) : '—',  'of all historical days',                  percentile != null && percentile >= 70 ? 'pos' : percentile != null && percentile <= 30 ? 'neg' : null],
+      ['Regime Duration',    duration   != null ? String(duration) : '—',           ctxBull ? 'days above 200d SMA' : 'days below 200d SMA', null],
+      ['Extension Velocity', velStr,                                                 '10d ROC of stretch',                      velTone],
+    ];
+  })() : null;
+  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, stats, hideIndicator: true, note: regimeNote };
 }
 
 function buildLeadership(q) {
@@ -1161,8 +1217,10 @@ export async function onRequest(context) {
     }
   }
 
+  const regimeCtx = db ? await loadRegimeContext(db) : null;
+
   const cards = [
-    buildRegime(q),
+    buildRegime(q, regimeCtx),
     buildLeadership(q),
     buildBreadth(q, breadthData),
     buildValuations(shiller, buffett, forwardPe, japanPe),
