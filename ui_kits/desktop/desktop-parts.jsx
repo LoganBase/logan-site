@@ -82,7 +82,8 @@ function DeepChartLg({ card, cardId, color, height = 230, range, setRange, live 
   const gradId = `dlg${card.seed}`;
 
   const hasLegend = overlayArrs.length > 0;
-  const mainHidden = hasLegend && hidden['SPY'];
+  const mainLabel = live?.label || 'SPY';
+  const mainHidden = hasLegend && hidden[mainLabel];
 
   // ── Colour-coded SPY segments (when colorBy present) ──
   const colorSegs = (live?.colorBy && !mainHidden) ? (() => {
