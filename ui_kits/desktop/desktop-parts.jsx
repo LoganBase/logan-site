@@ -414,13 +414,6 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
         <RegimeTimeline card={card} asOf={asOf} liveData={live} />
       </div>
-      {/* stat boxes with section heading */}
-      {card.stats && card.stats.length > 0 && (
-        <div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Historical Context</div>
-          <StatBoxes stats={card.stats} />
-        </div>
-      )}
       {/* flags (global flows) */}
       {card.flags && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -432,6 +425,13 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Indicators</div>
         <IndicatorTable rows={card.rows} />
       </div>
+      {/* stat boxes with section heading */}
+      {card.stats && card.stats.length > 0 && (
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Historical Context</div>
+          <StatBoxes stats={card.stats} />
+        </div>
+      )}
     </div>
   );
 }
