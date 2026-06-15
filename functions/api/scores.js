@@ -185,14 +185,15 @@ function ordinalSuffix(n) {
 // ── REGIME HISTORICAL CONTEXT (D1 queries) ────────────────────────────────────
 async function loadRegimeContext(db) {
   try {
+    // roc10 is pre-computed by the seeder as vs200[i] - vs200[i-10], matching history.js exactly
     const currentRow = await db.prepare(
-      `SELECT vs200_pct FROM indicators WHERE symbol='SPY' ORDER BY date DESC LIMIT 1`
+      `SELECT vs200_pct, roc10 FROM indicators WHERE symbol='SPY' ORDER BY date DESC LIMIT 1`
     ).first();
     if (!currentRow || currentRow.vs200_pct == null) return null;
     const v = currentRow.vs200_pct;
     const bull = v >= 0;
 
-    const [pctRow, durRow, velRow] = await Promise.all([
+    const [pctRow, durRow] = await Promise.all([
       // Percentile rank of current vs200 among all history
       db.prepare(
         `SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM indicators WHERE symbol='SPY')) AS pct
@@ -205,17 +206,12 @@ async function loadRegimeContext(db) {
         : `SELECT COUNT(*) AS days FROM indicators WHERE symbol='SPY' AND vs200_pct < 0
            AND date > COALESCE((SELECT MAX(date) FROM indicators WHERE symbol='SPY' AND vs200_pct >= 0), '1900-01-01')`
       ).first(),
-      // vs200 value 10 trading days ago for ROC calculation
-      db.prepare(
-        `SELECT vs200_pct FROM indicators WHERE symbol='SPY' ORDER BY date DESC LIMIT 1 OFFSET 9`
-      ).first(),
     ]);
 
-    const velocity = velRow?.vs200_pct != null ? v - velRow.vs200_pct : null;
     return {
       percentile: pctRow?.pct ?? null,
       duration:   durRow?.days ?? null,
-      velocity,
+      velocity:   currentRow.roc10 ?? null,
       bull,
     };
   } catch (e) {
