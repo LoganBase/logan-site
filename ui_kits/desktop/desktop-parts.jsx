@@ -376,6 +376,30 @@ function IndicatorTable({ rows }) {
   );
 }
 
+// ── Sector breakdown table (breadth card — sectorTable from /api/scores) ──
+function SectorBreakdown({ sectorTable }) {
+  if (!sectorTable || !sectorTable.length) return null;
+  const sorted = [...sectorTable].sort((a, b) => b.vs200 - a.vs200);
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 18px' }}>
+      {sorted.map((s, i) => {
+        const c = s.bull ? '#22c55e' : '#ef4444';
+        const glow = s.bull ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)';
+        return (
+          <div key={s.ticker} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < sorted.length - 1 ? '1px solid #16202e' : 'none' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, boxShadow: `0 0 5px ${glow}`, flexShrink: 0 }} />
+            <span style={{ fontFamily: DSANS, fontSize: 13.5, color: '#e8edf5', flex: 1 }}>{s.name}</span>
+            <span style={{ fontFamily: DMONO, fontSize: 11, color: '#64748b', width: 44, textAlign: 'right', flexShrink: 0 }}>{s.ticker}</span>
+            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: c, width: 72, textAlign: 'right', flexShrink: 0 }}>
+              {(s.vs200 >= 0 ? '+' : '') + s.vs200.toFixed(1) + '%'}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -437,6 +461,13 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Indicators</div>
         <IndicatorTable rows={card.rows} />
       </div>
+      {/* sector breakdown — breadth card only */}
+      {card.sectorTable && card.sectorTable.length > 0 && (
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Sector Breakdown</div>
+          <SectorBreakdown sectorTable={card.sectorTable} />
+        </div>
+      )}
       {/* stat boxes with section heading */}
       {card.stats && card.stats.length > 0 && (
         <div>
@@ -457,4 +488,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, DeepDiveContent });
