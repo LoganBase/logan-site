@@ -149,6 +149,7 @@
       stats: c.stats || (c.rows || []).slice(0, 3).map((r) => [r.label, stripHtml(r.value), r.condition || r.indicator || '',
         r.status === 'bullish' ? 'pos' : r.status === 'bearish' ? 'neg' : null]),
       rows,
+      note: c.note || null,
     };
     // Global Flows: derive the flag row from card.details (field is `sym`, not `symbol`).
     if (c.id === 'globalflows' && Array.isArray(c.details)) {
