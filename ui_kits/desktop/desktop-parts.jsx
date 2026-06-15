@@ -394,6 +394,13 @@ function IndicatorTable({ rows }) {
   if (!rows || !rows.length) return null;
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0 7px', borderBottom: '1px solid #1e2d3d' }}>
+        <span style={{ width: 9, flexShrink: 0 }} />
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 130, flexShrink: 0 }}>Signal</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 175, flexShrink: 0 }}>Indicator</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', flex: 1 }}>Condition</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 100, textAlign: 'right', flexShrink: 0 }}>Value</span>
+      </div>
       {rows.map((r, i) => {
         const rs = DSIG[r[3]] || DSIG.neutral;
         return (
