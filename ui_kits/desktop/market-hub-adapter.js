@@ -58,7 +58,21 @@
         };
       },
     },
-    leadership:  { url: (r) => `/api/leadership?range=${r}`,            field: 'rspVsSpy'  },
+    leadership: {
+      url: (r) => `/api/leadership?range=${r}`,
+      extract: (data) => {
+        if (!Array.isArray(data.rspVsSpy) || !data.rspVsSpy.length) return null;
+        return {
+          values:   data.rspVsSpy,
+          dates:    data.dates || [],
+          label:    'RSP vs SPY',
+          format:   'pct',
+          overlays: [
+            { label: 'QQEW vs QQQ', values: data.qqewVsQqq || [], color: '#a855f7', dash: null },
+          ],
+        };
+      },
+    },
     breadth:     { url: (r) => `/api/breadth-history?range=${r}`,       field: 'mmth'      },
     valuations:  { url: (r) => `/api/valuations-history?range=${r}`,    field: 'capes'     },
     yield:       { url: (r) => `/api/history?symbol=%5ETNX&range=${r}`, field: 'closes'    },
