@@ -400,6 +400,41 @@ function SectorBreakdown({ sectorTable }) {
   );
 }
 
+// ── Country breakdown table (global flows card — details from /api/scores) ──
+function CountryTable({ details }) {
+  if (!details || !details.length) return null;
+  const groupOrder = [];
+  const groupMap = {};
+  details.forEach((d) => {
+    if (!groupMap[d.group]) { groupMap[d.group] = []; groupOrder.push(d.group); }
+    groupMap[d.group].push(d);
+  });
+  const groups = groupOrder.map((g) => ({ group: g, items: groupMap[g] }));
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '0 18px' }}>
+      {groups.map(({ group, items }, gi) => (
+        <div key={group}>
+          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#334155', padding: '10px 0 4px' }}>{group}</div>
+          {items.map((d, i) => {
+            const c = d.above ? '#22c55e' : '#ef4444';
+            const glow = d.above ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)';
+            const isLast = gi === groups.length - 1 && i === items.length - 1;
+            return (
+              <div key={d.sym} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '9px 0', borderBottom: isLast ? 'none' : '1px solid #16202e' }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, boxShadow: `0 0 5px ${glow}`, flexShrink: 0 }} />
+                <span style={{ fontFamily: DSANS, fontSize: 13.5, color: '#e8edf5', flex: 1 }}>{d.label}</span>
+                <span style={{ fontFamily: DMONO, fontSize: 11, color: '#64748b', width: 56, textAlign: 'right', flexShrink: 0 }}>{d.sym}</span>
+                <span style={{ fontFamily: DMONO, fontSize: 12, color: '#94a3b8', width: 72, textAlign: 'right', flexShrink: 0 }}>{d.value}</span>
+                <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: c, width: 72, textAlign: 'right', flexShrink: 0 }}>{d.vs200}</span>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -461,6 +496,13 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Indicators</div>
         <IndicatorTable rows={card.rows} />
       </div>
+      {/* country breakdown — global flows card only */}
+      {card.details && card.details.length > 0 && (
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Country Breakdown</div>
+          <CountryTable details={card.details} />
+        </div>
+      )}
       {/* sector breakdown — breadth card only */}
       {card.sectorTable && card.sectorTable.length > 0 && (
         <div>
@@ -488,4 +530,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, DeepDiveContent });
