@@ -273,10 +273,6 @@ function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) 
   const barH = compact ? 26 : 38;
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569' }}>Regime history · {mo} mo</div>
-        <div style={{ fontFamily: DMONO, fontSize: 11.5, color: '#64748b' }}>{transitions} regime change{transitions === 1 ? '' : 's'}</div>
-      </div>
       <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end' }}>
         {hist.map((st, i) => {
           const sg = DSIG[st], changed = i > 0 && hist[i - 1] !== st, last = i === hist.length - 1;
@@ -424,8 +420,11 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
       </div>
       {/* regime timeline — always 1Y, never tied to chart range */}
-      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
-        <RegimeTimeline card={card} asOf={asOf} liveData={regimeLive} />
+      <div>
+        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Regime History</div>
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
+          <RegimeTimeline card={card} asOf={asOf} liveData={regimeLive} />
+        </div>
       </div>
       {/* flags (global flows) */}
       {card.flags && (
