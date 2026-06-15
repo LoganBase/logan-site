@@ -385,6 +385,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
   const [range, setRange] = useStateD('1Y');
   const [live, setLive] = useStateD(null);
+  const [regimeLive, setRegimeLive] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
@@ -396,6 +397,18 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     }
     return () => { alive = false; };
   }, [cardId, range]);
+
+  // Regime timeline always uses 1Y data independent of the chart range selector
+  useEffectD(() => {
+    let alive = true;
+    setRegimeLive(null);
+    if (window.MarketHubData && cardId) {
+      window.MarketHubData.loadHistory(cardId, '1Y').then((r) => {
+        if (alive && r && r.values && r.values.length > 1) setRegimeLive(r);
+      });
+    }
+    return () => { alive = false; };
+  }, [cardId]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -410,9 +423,9 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         </div>
         <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
       </div>
-      {/* regime timeline */}
+      {/* regime timeline — always 1Y, never tied to chart range */}
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
-        <RegimeTimeline card={card} asOf={asOf} liveData={live} />
+        <RegimeTimeline card={card} asOf={asOf} liveData={regimeLive} />
       </div>
       {/* flags (global flows) */}
       {card.flags && (
