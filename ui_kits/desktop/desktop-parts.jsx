@@ -244,11 +244,9 @@ function DeepChartLg({ card, cardId, color, height = 230, range, setRange, live 
   );
 }
 
-const RANGE_TO_MONTHS = { '1W': 3, '1M': 3, '3M': 4, '6M': 7, '1Y': 14, '5Y': 24, '10Y': 30, '20Y': 36 };
-
 // ── Historical regime timeline — how the card's status changed month over month ──
-function RegimeTimeline({ card, asOf, months = 14, compact = false, liveData, range }) {
-  const mo = (range && RANGE_TO_MONTHS[range]) || months;
+function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) {
+  const mo = months;
 
   let hist, labels;
   if (liveData?.colorBy?.length && liveData?.dates?.length) {
@@ -273,7 +271,6 @@ function RegimeTimeline({ card, asOf, months = 14, compact = false, liveData, ra
   let transitions = 0;
   for (let i = 1; i < hist.length; i++) if (hist[i] !== hist[i - 1]) transitions++;
   const barH = compact ? 26 : 38;
-  const labelStep = mo <= 14 ? 1 : mo <= 24 ? 2 : 4;
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
@@ -290,9 +287,7 @@ function RegimeTimeline({ card, asOf, months = 14, compact = false, liveData, ra
                 borderLeft: changed ? '2px solid rgba(232,237,245,.55)' : 'none' }}>
                 {last && <div style={{ position: 'absolute', inset: 0, borderRadius: 5, border: '1.5px solid rgba(232,237,245,.6)' }} />}
               </div>
-              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#475569', fontWeight: last ? 700 : 400, display: 'block', height: 12, lineHeight: '12px' }}>
-                {(i % labelStep === 0 || last) ? labels[i] : ' '}
-              </span>
+              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#475569', fontWeight: last ? 700 : 400 }}>{labels[i]}</span>
             </div>
           );
         })}
@@ -414,7 +409,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       </div>
       {/* regime timeline */}
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
-        <RegimeTimeline card={card} asOf={asOf} liveData={live} range={range} />
+        <RegimeTimeline card={card} asOf={asOf} liveData={live} />
       </div>
       {/* stat boxes */}
       <StatBoxes stats={card.stats} />
