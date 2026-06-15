@@ -372,7 +372,7 @@ function IndicatorTable({ rows }) {
             <span style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#e8edf5', width: 130, flexShrink: 0 }}>{r[0]}</span>
             <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b', width: 175, flexShrink: 0 }}>{r[4]}</span>
             <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', flex: 1 }}>{r[2]}</span>
-            <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 600, color: rs.c, width: 100, textAlign: 'right', flexShrink: 0 }}>{r[1]}</span>
+            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: rs.c, width: 100, textAlign: 'right', flexShrink: 0, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{r[1]}</span>
           </div>
         );
       })}
