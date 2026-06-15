@@ -43,13 +43,13 @@ function monthLabels(endLabel, n) {
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
 function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live }) {
   const color = live?.lineColor || colorProp;
-  const ranges = ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'];
+  const ranges = ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [hidden, setHidden] = useStateD({});
   const [hover, setHover] = useStateD(null);
   const svgRef = useRefD(null);
 
   const W = 720, H = height, top = 12, bot = 26, padR = 4;
-  const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07], '20Y': [96, 0.06] };
+  const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07] };
 
   // ── Normalise all series into the same 0..1 plot space ──
   let primaryArr = [], overlayArrs = [];
