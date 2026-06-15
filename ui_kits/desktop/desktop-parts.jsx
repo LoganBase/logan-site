@@ -277,7 +277,7 @@ const HISTORY_CAPTION = {
 };
 
 // ── Historical regime timeline — how the card's status changed month over month ──
-function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) {
+function RegimeTimeline({ card, cardId, asOf, months = 12, compact = false, liveData }) {
   const mo = months;
 
   let hist, labels;
@@ -329,9 +329,9 @@ function RegimeTimeline({ card, asOf, months = 12, compact = false, liveData }) 
               <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>{lab}</span>
             </div>
           ))}
-          {HISTORY_CAPTION[card?.id] && (
+          {HISTORY_CAPTION[cardId] && (
             <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 11, color: '#475569', fontStyle: 'italic' }}>
-              {HISTORY_CAPTION[card.id]}
+              {HISTORY_CAPTION[cardId]}
             </span>
           )}
         </div>
@@ -516,7 +516,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       <div>
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{card.title} History</div>
         <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
-          <RegimeTimeline card={card} asOf={asOf} liveData={regimeLive} />
+          <RegimeTimeline card={card} cardId={cardId} asOf={asOf} liveData={regimeLive} />
         </div>
       </div>
       {/* flags (global flows) */}
