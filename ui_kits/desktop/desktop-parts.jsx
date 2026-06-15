@@ -369,9 +369,10 @@ function IndicatorTable({ rows }) {
         return (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: i < rows.length - 1 ? '1px solid #16202e' : 'none' }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: rs.c, boxShadow: `0 0 6px ${rs.glow}`, flexShrink: 0 }} />
-            <span style={{ fontFamily: DSANS, fontSize: 14, color: '#e8edf5', flex: 1 }}>{r[0]}</span>
-            <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#64748b', width: 160 }}>{r[2]}</span>
-            <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 600, color: rs.c, width: 90, textAlign: 'right' }}>{r[1]}</span>
+            <span style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#e8edf5', width: 130, flexShrink: 0 }}>{r[0]}</span>
+            <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b', width: 175, flexShrink: 0 }}>{r[4]}</span>
+            <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', flex: 1 }}>{r[2]}</span>
+            <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 600, color: rs.c, width: 100, textAlign: 'right', flexShrink: 0 }}>{r[1]}</span>
           </div>
         );
       })}
@@ -413,8 +414,13 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
         <RegimeTimeline card={card} asOf={asOf} liveData={live} />
       </div>
-      {/* stat boxes */}
-      <StatBoxes stats={card.stats} />
+      {/* stat boxes with section heading */}
+      {card.stats && card.stats.length > 0 && (
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Historical Context</div>
+          <StatBoxes stats={card.stats} />
+        </div>
+      )}
       {/* flags (global flows) */}
       {card.flags && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
