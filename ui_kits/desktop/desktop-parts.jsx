@@ -92,9 +92,10 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   // ── Colour-coded SPY segments (when colorBy present) ──
   const colorSegs = (live?.colorBy && !mainHidden) ? (() => {
     const segs = []; let start = 0, cur = null;
+    const defaultCfn = (v) => (v == null || isNaN(v)) ? '#3b82f6' : v > 14 ? '#ef4444' : v < 0 ? '#f97316' : '#3b82f6';
+    const cfn = live.colorByFn || defaultCfn;
     primaryArr.forEach((p, i) => {
-      const v = live.colorBy[i];
-      const c = (v == null || isNaN(v)) ? '#3b82f6' : v > 14 ? '#ef4444' : v < 0 ? '#f97316' : '#3b82f6';
+      const c = cfn(live.colorBy[i]);
       if (c !== cur) { if (cur !== null) segs.push({ from: start, to: i, c: cur }); start = i; cur = c; }
     });
     if (cur) segs.push({ from: start, to: n - 1, c: cur });
@@ -116,6 +117,8 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   const isPrice = live?.format !== 'pct' && overlayArrs.length > 0;
   const fmtVal = (v) => live?.format === 'pct'
     ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+    : live?.format === 'count'
+    ? String(Math.round(v))
     : isPrice ? `$${v.toFixed(2)}` : v.toFixed(3);
   const handleMouseMove = (e) => {
     const el = svgRef.current;
@@ -554,97 +557,53 @@ function NyseBreadthChart() {
   );
 }
 
-// ── Sector ETF Breadth historical line chart (breadth card only) ──
+// ── Sector ETF Breadth historical chart — V2 style via DeepChartLg (breadth card only) ──
 function SectorBreadthChart() {
-  const RMAP = { '10Y': '10y', '5Y': '5y', '3Y': '3y', '1Y': '1y', '6MO': '6mo' };
-  const RANGES = ['10Y', '5Y', '3Y', '1Y', '6MO'];
-  const [sel, setSel] = useStateD('5Y');
-  const [data, setData] = useStateD(null);
+  const RMAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const [range, setRange] = useStateD('5Y');
+  const [live, setLive] = useStateD(null);
+  const [curVal, setCurVal] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
-    setData(null);
-    fetch(`/api/sector-breadth-history?range=${RMAP[sel]}`)
+    setLive(null);
+    fetch(`/api/sector-breadth-history?range=${RMAP[range]}`)
       .then(r => r.json())
-      .then(j => { if (alive && Array.isArray(j.above) && j.above.length) setData(j); })
+      .then(j => {
+        if (!alive || !Array.isArray(j.above) || !j.above.length) return;
+        const last = j.above[j.above.length - 1];
+        const col = (v) => v >= 8 ? '#22c55e' : v > 5 ? '#f59e0b' : '#ef4444';
+        setCurVal(last);
+        setLive({
+          values:     j.above,
+          dates:      j.dates || [],
+          label:      'Sectors above 200d MA',
+          format:     'count',
+          lineColor:  col(last),
+          colorBy:    j.above,
+          colorByFn:  col,
+          thresholds: [{ y: 8, color: '#22c55e' }, { y: 5, color: '#ef4444' }],
+        });
+      })
       .catch(() => {});
     return () => { alive = false; };
-  }, [sel]);
+  }, [range]);
 
-  const W = 800, H = 160, top = 12, bot = 16, MAX = 11, BULL = 8, BEAR = 5;
-  const yy  = (v) => top + (1 - v / MAX) * (H - top - bot);
-  const col = (v) => v >= BULL ? '#22c55e' : v > BEAR ? '#f59e0b' : '#ef4444';
-  const n   = data?.above?.length || 0;
-  const dx  = n > 1 ? W / (n - 1) : W;
-  const cur = n > 0 ? data.above[n - 1] : null;
-
-  // Build colored polyline segments — split at color-zone boundaries
-  const segs = [];
-  if (n > 0) {
-    const above = data.above;
-    const pts = above.map((v, i) => [+(i * dx).toFixed(1), +yy(v).toFixed(1)]);
-    let seg = { c: col(above[0]), pts: [pts[0]] };
-    for (let i = 1; i < pts.length; i++) {
-      const c = col(above[i]);
-      if (c !== seg.c) {
-        const mid = [+((pts[i - 1][0] + pts[i][0]) / 2).toFixed(1), +((pts[i - 1][1] + pts[i][1]) / 2).toFixed(1)];
-        seg.pts.push(mid);
-        segs.push(seg);
-        seg = { c, pts: [mid] };
-      }
-      seg.pts.push(pts[i]);
-    }
-    segs.push(seg);
-  }
+  const col = (v) => v >= 8 ? '#22c55e' : v > 5 ? '#f59e0b' : '#ef4444';
+  const fakeCard = { seed: 4, trend: 0, metric: 'Sector ETF Breadth — Historical', metricUnit: '# of 11 SPDR sectors above their 200d MA', metricVal: '' };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569' }}>
-          Sector ETF Breadth — Historical
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Sector ETF Breadth — Historical</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}># of 11 SPDR sectors above their 200d MA</div>
         </div>
-        <div style={{ display: 'flex', gap: 3 }}>
-          {RANGES.map(r => (
-            <button key={r} onClick={() => setSel(r)} style={{
-              all: 'unset', cursor: 'pointer', fontFamily: DMONO, fontSize: 11, fontWeight: 600,
-              padding: '3px 8px', borderRadius: 5, letterSpacing: '.04em',
-              background: sel === r ? '#1e3a5f' : 'transparent',
-              color: sel === r ? '#93c5fd' : '#475569',
-              border: `1px solid ${sel === r ? '#2d5a8e' : 'transparent'}`,
-            }}>{r}</button>
-          ))}
+        <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: curVal != null ? col(curVal) : '#64748b' }}>
+          {curVal != null ? `${curVal} / 11` : '—'}
         </div>
       </div>
-      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 18px 12px' }}>
-        <div style={{ display: 'flex', gap: 14, marginBottom: 10, alignItems: 'center' }}>
-          <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>Sectors above 200d MA</span>
-          <span style={{ width: 1, height: 12, background: '#1e2d3d', flexShrink: 0 }} />
-          {[['#22c55e', `8+ — Bullish`], ['#f59e0b', `6–7 — Mixed`], ['#ef4444', `≤5 — Bearish`]].map(([c, lab]) => (
-            <span key={lab} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="20" height="10" style={{ flexShrink: 0 }}><line x1="0" y1="5" x2="20" y2="5" stroke={c} strokeWidth="2" strokeLinecap="round" /></svg>
-              <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8' }}>{lab}</span>
-            </span>
-          ))}
-          {cur != null && (
-            <span style={{ marginLeft: 'auto', fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: col(cur) }}>
-              {cur} / {data.totals?.[n - 1] ?? MAX}
-            </span>
-          )}
-        </div>
-        {!data && <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: DSANS, fontSize: 12 }}>Loading…</div>}
-        {data && (
-          <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: 160 }}>
-            <line x1="0" x2={W} y1={yy(BULL).toFixed(1)} y2={yy(BULL).toFixed(1)} stroke="#22c55e" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.4" />
-            <line x1="0" x2={W} y1={yy(BEAR).toFixed(1)} y2={yy(BEAR).toFixed(1)} stroke="#ef4444" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.4" />
-            {segs.map((s, i) => (
-              <polyline key={i}
-                points={s.pts.map(p => `${p[0]},${p[1]}`).join(' ')}
-                fill="none" stroke={s.c} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
-            ))}
-            <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
-          </svg>
-        )}
-      </div>
+      <DeepChartLg card={fakeCard} cardId="breadth-etf" color={curVal != null ? col(curVal) : '#f59e0b'} height={200} range={range} setRange={setRange} live={live} />
     </div>
   );
 }
