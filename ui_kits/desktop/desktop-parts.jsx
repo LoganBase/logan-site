@@ -551,10 +551,12 @@ function NyseBreadthChart() {
   const [range, setRange] = useStateD('5Y');
   const [live, setLive] = useStateD(null);
   const [summary, setSummary] = useStateD(null);
+  const [noData, setNoData] = useStateD(false);
 
   useEffectD(() => {
     let alive = true;
     setLive(null);
+    setNoData(false);
     fetch(`/api/breadth-history?range=${RMAP[range]}`)
       .then(r => r.json())
       .then(j => {
@@ -568,6 +570,8 @@ function NyseBreadthChart() {
             overlays: [{ label: '$MMFI (50d)', values: j.mmfi || [], color: '#60a5fa', dash: null }],
             thresholds: [{ y: 70, color: '#22c55e' }, { y: 40, color: '#ef4444' }],
           });
+        } else {
+          setNoData(true);
         }
         if (j.summary) setSummary(j.summary);
       })
@@ -590,7 +594,27 @@ function NyseBreadthChart() {
             {curMmth != null ? curMmth.toFixed(1) + '%' : '—'}
           </div>
         </div>
-        <DeepChartLg card={fakeCard} cardId="breadth" color="#f59e0b" height={230} range={range} setRange={setRange} live={live} />
+        {noData
+        ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 230, gap: 8 }}>
+            <div style={{ fontFamily: DSANS, fontSize: 13, color: '#475569' }}>No data for {range} range</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#334155' }}>$MMTH / $MMFI data needs a TradingView CSV refresh</div>
+          </div>
+        )
+        : <DeepChartLg card={fakeCard} cardId="breadth" color="#f59e0b" height={230} range={range} setRange={setRange} live={live} />
+      }
+      {/* range buttons still show so user can switch away from the empty range */}
+      {noData && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 12, flexWrap: 'wrap' }}>
+          {['1W','1M','3M','6M','1Y','5Y','10Y'].map((r) => (
+            <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', padding: '5px 10px', borderRadius: 7,
+              background: r === range ? '#1e2d3d' : 'transparent',
+              color: r === range ? '#e8edf5' : '#64748b',
+              fontFamily: DSANS, fontSize: 12, fontWeight: r === range ? 600 : 400,
+            }}>{r}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
