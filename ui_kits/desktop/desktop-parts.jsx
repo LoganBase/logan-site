@@ -103,13 +103,15 @@ function DeepChartLg({ card, cardId, color, height = 230, range, setRange, live 
 
   // ── Legend items ──
   const legendItems = hasLegend ? [
-    { label: 'SPY', color, dash: null },
+    { label: live?.label || 'SPY', color, dash: null },
     ...overlayArrs.map((o) => ({ label: o.label, color: o.color, dash: o.dash })),
   ] : null;
 
   // ── Hover / tooltip ──
-  const isPrice = overlayArrs.length > 0;
-  const fmtVal = (v) => isPrice ? `$${v.toFixed(2)}` : v.toFixed(3);
+  const isPrice = live?.format !== 'pct' && overlayArrs.length > 0;
+  const fmtVal = (v) => live?.format === 'pct'
+    ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+    : isPrice ? `$${v.toFixed(2)}` : v.toFixed(3);
   const handleMouseMove = (e) => {
     const el = svgRef.current;
     if (!el || n < 2) return;
@@ -193,7 +195,7 @@ function DeepChartLg({ card, cardId, color, height = 230, range, setRange, live 
           }}>
             <div style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 600 }}>{live.dates[hover]}</div>
             {[
-              { label: 'SPY', value: live.values[hover], color },
+              { label: live?.label || 'SPY', value: live.values[hover], color },
               ...(live.overlays || []).map((o) => ({ label: o.label, value: (o.values || [])[hover], color: o.color })),
             ].filter(({ value }) => value != null && !isNaN(value)).map(({ label, value, color: tc }) => (
               <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginBottom: 5 }}>
