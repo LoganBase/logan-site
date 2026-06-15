@@ -398,6 +398,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      {/* stat boxes — top so always visible without scrolling */}
+      <StatBoxes stats={card.stats} />
       {/* chart card */}
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
@@ -413,8 +415,6 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
         <RegimeTimeline card={card} asOf={asOf} liveData={live} />
       </div>
-      {/* stat boxes */}
-      <StatBoxes stats={card.stats} />
       {/* flags (global flows) */}
       {card.flags && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
