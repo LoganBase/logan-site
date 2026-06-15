@@ -41,7 +41,8 @@ function monthLabels(endLabel, n) {
 }
 
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
-function DeepChartLg({ card, cardId, color, height = 230, range, setRange, live }) {
+function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live }) {
+  const color = live?.lineColor || colorProp;
   const ranges = ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'];
   const [hidden, setHidden] = useStateD({});
   const [hover, setHover] = useStateD(null);
