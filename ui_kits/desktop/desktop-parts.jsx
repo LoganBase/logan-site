@@ -204,6 +204,19 @@ function DeepChartLg({ card, cardId, color, height = 230, range, setRange, live 
                 <span style={{ fontFamily: DMONO, fontSize: 12.5, color: '#e8edf5', fontWeight: 600 }}>{fmtVal(value)}</span>
               </div>
             ))}
+            {rsiData && rsiData[hover] != null && !isNaN(rsiData[hover]) && (() => {
+              const rv = rsiData[hover];
+              const rc = rsiCol(rv);
+              const rl = rv > 70 ? 'Overbought' : rv > 50 ? 'Bullish Momentum' : rv > 40 ? 'Neutral' : rv > 30 ? 'Bearish Momentum' : 'Oversold';
+              return (
+                <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #1e2d3d', display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: rc, flexShrink: 0 }} />
+                  <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>
+                    RSI: <span style={{ color: rc, fontWeight: 600 }}>{rv.toFixed(1)}</span> — {rl}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
