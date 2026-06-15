@@ -205,7 +205,7 @@ function OptionWorkspace({ D }) {
         ))}
       </div>
       {/* right deep-dive */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '28px 36px 60px' }}>
+      <div style={{ flex: 1, overflowY: 'scroll', padding: '28px 36px 60px' }}>
         <div style={{ maxWidth: 820, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 13, marginBottom: 24 }}>
             <span style={{ width: 11, height: 11, borderRadius: '50%', background: DSIG[card.status].c, boxShadow: `0 0 9px ${DSIG[card.status].c}` }} />
@@ -213,7 +213,7 @@ function OptionWorkspace({ D }) {
             <StatusPill status={card.status} />
             <span style={{ marginLeft: 'auto', fontFamily: DMONO, fontSize: 12, color: '#64748b' }}>As of {D.asOf}</span>
           </div>
-          <DeepDiveContent card={card} cardId={sel} asOf={D.asOf} />
+          <DeepDiveContent card={card} cardId={sel} asOf={D.asOf} chartHeight={190} />
         </div>
       </div>
     </div>
