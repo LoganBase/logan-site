@@ -501,12 +501,31 @@ function SectorBreadthChart() {
     return () => { alive = false; };
   }, [sel]);
 
-  const W = 800, H = 160, top = 8, bot = 16, MAX = 11, BULL = 8, BEAR = 5;
+  const W = 800, H = 160, top = 12, bot = 16, MAX = 11, BULL = 8, BEAR = 5;
   const yy  = (v) => top + (1 - v / MAX) * (H - top - bot);
   const col = (v) => v >= BULL ? '#22c55e' : v > BEAR ? '#f59e0b' : '#ef4444';
   const n   = data?.above?.length || 0;
-  const dx  = n > 1 ? W / n : W;
+  const dx  = n > 1 ? W / (n - 1) : W;
   const cur = n > 0 ? data.above[n - 1] : null;
+
+  // Build colored polyline segments — split at color-zone boundaries
+  const segs = [];
+  if (n > 0) {
+    const above = data.above;
+    const pts = above.map((v, i) => [+(i * dx).toFixed(1), +yy(v).toFixed(1)]);
+    let seg = { c: col(above[0]), pts: [pts[0]] };
+    for (let i = 1; i < pts.length; i++) {
+      const c = col(above[i]);
+      if (c !== seg.c) {
+        const mid = [+((pts[i - 1][0] + pts[i][0]) / 2).toFixed(1), +((pts[i - 1][1] + pts[i][1]) / 2).toFixed(1)];
+        seg.pts.push(mid);
+        segs.push(seg);
+        seg = { c, pts: [mid] };
+      }
+      seg.pts.push(pts[i]);
+    }
+    segs.push(seg);
+  }
 
   return (
     <div>
@@ -528,11 +547,11 @@ function SectorBreadthChart() {
       </div>
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 18px 12px' }}>
         <div style={{ display: 'flex', gap: 14, marginBottom: 10, alignItems: 'center' }}>
-          <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>Sectors above 200d</span>
+          <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>Sectors above 200d MA</span>
           <span style={{ width: 1, height: 12, background: '#1e2d3d', flexShrink: 0 }} />
-          {[['#22c55e', `${BULL}+ — Bullish`], ['#f59e0b', `${BEAR + 1}–${BULL - 1} — Mixed`], ['#ef4444', `≤${BEAR} — Bearish`]].map(([c, lab]) => (
-            <span key={lab} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 9, height: 9, borderRadius: 2, background: c, flexShrink: 0 }} />
+          {[['#22c55e', `8+ — Bullish`], ['#f59e0b', `6–7 — Mixed`], ['#ef4444', `≤5 — Bearish`]].map(([c, lab]) => (
+            <span key={lab} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="20" height="10" style={{ flexShrink: 0 }}><line x1="0" y1="5" x2="20" y2="5" stroke={c} strokeWidth="2" strokeLinecap="round" /></svg>
               <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8' }}>{lab}</span>
             </span>
           ))}
@@ -542,17 +561,19 @@ function SectorBreadthChart() {
             </span>
           )}
         </div>
-        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: 160 }}>
-          <line x1="0" x2={W} y1={yy(BULL).toFixed(1)} y2={yy(BULL).toFixed(1)} stroke="#22c55e" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.45" />
-          <line x1="0" x2={W} y1={yy(BEAR).toFixed(1)} y2={yy(BEAR).toFixed(1)} stroke="#ef4444" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.45" />
-          {data?.above?.map((v, i) => (
-            <rect key={i}
-              x={+(i * dx).toFixed(2)} y={+yy(v).toFixed(2)}
-              width={+Math.max(dx - 0.4, 0.4).toFixed(2)} height={+(H - bot - yy(v)).toFixed(2)}
-              fill={col(v)} opacity="0.88" />
-          ))}
-          <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
-        </svg>
+        {!data && <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontFamily: DSANS, fontSize: 12 }}>Loading…</div>}
+        {data && (
+          <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: 160 }}>
+            <line x1="0" x2={W} y1={yy(BULL).toFixed(1)} y2={yy(BULL).toFixed(1)} stroke="#22c55e" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.4" />
+            <line x1="0" x2={W} y1={yy(BEAR).toFixed(1)} y2={yy(BEAR).toFixed(1)} stroke="#ef4444" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.4" />
+            {segs.map((s, i) => (
+              <polyline key={i}
+                points={s.pts.map(p => `${p[0]},${p[1]}`).join(' ')}
+                fill="none" stroke={s.c} strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+            <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+          </svg>
+        )}
       </div>
     </div>
   );
