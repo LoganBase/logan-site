@@ -14,6 +14,9 @@ const RANGE_DAYS = {
   '3y':  1095,
   '1y':  365,
   '6mo': 183,
+  '3mo': 92,
+  '1mo': 31,
+  '1wk': 7,
 };
 
 function startDateFor(days) {

@@ -491,28 +491,25 @@ function CountryTable({ details }) {
 }
 
 // ── Breadth card unified stat boxes (3 boxes: NYSE KPIs | Days in Zone | Sector count) ──
-function BreadthStatBoxes() {
+// sectorCount / sectorTotal come from card.sectorTable (live scores data) — avoids D1 lag
+function BreadthStatBoxes({ sectorCount = null, sectorTotal = 11 }) {
   const [nyse, setNyse] = useStateD(null);
-  const [sectorCur, setSectorCur] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
-    Promise.all([
-      fetch('/api/breadth-history?range=1y').then(r => r.json()).catch(() => null),
-      fetch('/api/sector-breadth-history?range=6mo').then(r => r.json()).catch(() => null),
-    ]).then(([breadth, sector]) => {
-      if (!alive) return;
-      if (breadth?.summary) setNyse(breadth.summary);
-      if (Array.isArray(sector?.above) && sector.above.length) setSectorCur(sector.above[sector.above.length - 1]);
-    });
+    fetch('/api/breadth-history?range=1y').then(r => r.json())
+      .then(j => { if (alive && j?.summary) setNyse(j.summary); })
+      .catch(() => {});
     return () => { alive = false; };
   }, []);
 
-  const colNyse = (v) => v >= 70 ? '#22c55e' : v >= 40 ? '#f59e0b' : '#ef4444';
-  const colSec  = (v) => v >= 8  ? '#22c55e' : v >  5  ? '#f59e0b' : '#ef4444';
+  const colNyse    = (v) => v >= 70 ? '#22c55e' : v >= 40 ? '#f59e0b' : '#ef4444';
+  const colSec     = (v) => v >= 8  ? '#22c55e' : v >  5  ? '#f59e0b' : '#ef4444';
   const curMmth    = nyse?.currentMmth;
   const curMmfi    = nyse?.currentMmfi;
   const daysInZone = nyse?.daysInZone;
+  const secColor   = sectorCount != null ? colSec(sectorCount) : '#64748b';
+  const secLabel   = sectorCount != null ? (sectorCount >= 8 ? 'Bullish breadth' : sectorCount > 5 ? 'Mixed breadth' : 'Bearish breadth') : 'of 11 SPDR sector ETFs';
 
   const box = { background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '14px 14px' };
   const val = (c) => ({ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: c });
@@ -538,11 +535,11 @@ function BreadthStatBoxes() {
         <div style={lab}>Days in Zone</div>
         <div style={sub}>consecutive days at current level</div>
       </div>
-      {/* Box 3: Sector count */}
+      {/* Box 3: Sector count — sourced from card.sectorTable (live scores data) */}
       <div style={box}>
-        <div style={val(sectorCur != null ? colSec(sectorCur) : '#64748b')}>{sectorCur != null ? `${sectorCur} / 11` : '—'}</div>
+        <div style={val(secColor)}>{sectorCount != null ? `${sectorCount} / ${sectorTotal}` : '—'}</div>
         <div style={lab}>Sectors above 200d MA</div>
-        <div style={sub}>{sectorCur != null ? (sectorCur >= 8 ? 'Bullish breadth' : sectorCur > 5 ? 'Mixed breadth' : 'Bearish breadth') : 'of 11 SPDR sector ETFs'}</div>
+        <div style={sub}>{secLabel}</div>
       </div>
     </div>
   );
@@ -681,8 +678,13 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {/* breadth card: unified stat boxes at top */}
-      {cardId === 'breadth' && <BreadthStatBoxes />}
+      {/* breadth card: unified stat boxes at top — sector count from live scores data */}
+      {cardId === 'breadth' && (
+        <BreadthStatBoxes
+          sectorCount={card.sectorTable ? card.sectorTable.filter(s => s.bull).length : null}
+          sectorTotal={card.sectorTable?.length || 11}
+        />
+      )}
       {/* breadth card: Sector Breakdown → SectorBreadthChart → NyseBreadthChart */}
       {cardId === 'breadth' && card.sectorTable && card.sectorTable.length > 0 && (
         <div>
