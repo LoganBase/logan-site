@@ -605,7 +605,8 @@ function SectorBreadthChart() {
   useEffectD(() => {
     let alive = true;
     setLive(null);
-    fetch(`/api/sector-breadth-history?range=${RMAP[range]}`)
+    const today = new Date().toISOString().slice(0, 10);
+    fetch(`/api/sector-breadth-history?range=${RMAP[range]}&d=${today}`)
       .then(r => r.json())
       .then(j => {
         if (!alive || !Array.isArray(j.above) || !j.above.length) return;
