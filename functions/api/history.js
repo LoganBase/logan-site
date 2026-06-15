@@ -140,7 +140,7 @@ function calcRsi(closes, period = 14) {
 async function fromYahoo(symbol, range, cfg) {
   // Always fetch at least 5y so percentile is computed against meaningful history.
   // Short-range chart requests (1mo, 1wk, etc.) will be trimmed after stats are computed.
-  const fetchRange = cfg.days >= 1825 ? cfg.range : '5y';
+  const fetchRange = cfg.days >= 3650 ? cfg.range : '10y';
   const res = await fetch(
     `${YF}/${encodeURIComponent(symbol)}?interval=1d&range=${fetchRange}`,
     { headers: HEADERS }
