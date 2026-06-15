@@ -405,7 +405,7 @@ function IndicatorTable({ rows }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0 7px', borderBottom: '1px solid #1e2d3d' }}>
         <span style={{ width: 9, flexShrink: 0 }} />
         <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 130, flexShrink: 0 }}>Signal</span>
-        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 175, flexShrink: 0 }}>Indicator</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 220, flexShrink: 0 }}>Indicator</span>
         <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', flex: 1 }}>Condition</span>
         <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 100, textAlign: 'right', flexShrink: 0 }}>Value</span>
       </div>
@@ -415,7 +415,7 @@ function IndicatorTable({ rows }) {
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: i < rows.length - 1 ? '1px solid #16202e' : 'none' }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: rs.c, boxShadow: `0 0 6px ${rs.glow}`, flexShrink: 0 }} />
             <span style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#e8edf5', width: 130, flexShrink: 0 }}>{r[0]}</span>
-            <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b', width: 175, flexShrink: 0 }}>{r[4]}</span>
+            <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b', width: 220, flexShrink: 0 }}>{r[4]}</span>
             <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', flex: 1 }}>{r[2]}</span>
             <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: rs.c, width: 100, textAlign: 'right', flexShrink: 0, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{r[1]}</span>
           </div>
