@@ -484,6 +484,80 @@ function CountryTable({ details }) {
   );
 }
 
+// ── Sector ETF Breadth historical bar chart (breadth card only) ──
+function SectorBreadthChart() {
+  const RMAP = { '10Y': '10y', '5Y': '5y', '3Y': '3y', '1Y': '1y', '6MO': '6mo' };
+  const RANGES = ['10Y', '5Y', '3Y', '1Y', '6MO'];
+  const [sel, setSel] = useStateD('5Y');
+  const [data, setData] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setData(null);
+    fetch(`/api/sector-breadth-history?range=${RMAP[sel]}`)
+      .then(r => r.json())
+      .then(j => { if (alive && Array.isArray(j.above) && j.above.length) setData(j); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [sel]);
+
+  const W = 800, H = 160, top = 8, bot = 16, MAX = 11, BULL = 8, BEAR = 5;
+  const yy  = (v) => top + (1 - v / MAX) * (H - top - bot);
+  const col = (v) => v >= BULL ? '#22c55e' : v > BEAR ? '#f59e0b' : '#ef4444';
+  const n   = data?.above?.length || 0;
+  const dx  = n > 1 ? W / n : W;
+  const cur = n > 0 ? data.above[n - 1] : null;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569' }}>
+          Sector ETF Breadth — Historical
+        </div>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {RANGES.map(r => (
+            <button key={r} onClick={() => setSel(r)} style={{
+              all: 'unset', cursor: 'pointer', fontFamily: DMONO, fontSize: 11, fontWeight: 600,
+              padding: '3px 8px', borderRadius: 5, letterSpacing: '.04em',
+              background: sel === r ? '#1e3a5f' : 'transparent',
+              color: sel === r ? '#93c5fd' : '#475569',
+              border: `1px solid ${sel === r ? '#2d5a8e' : 'transparent'}`,
+            }}>{r}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 18px 12px' }}>
+        <div style={{ display: 'flex', gap: 14, marginBottom: 10, alignItems: 'center' }}>
+          <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>Sectors above 200d</span>
+          <span style={{ width: 1, height: 12, background: '#1e2d3d', flexShrink: 0 }} />
+          {[['#22c55e', `${BULL}+ — Bullish`], ['#f59e0b', `${BEAR + 1}–${BULL - 1} — Mixed`], ['#ef4444', `≤${BEAR} — Bearish`]].map(([c, lab]) => (
+            <span key={lab} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 9, height: 9, borderRadius: 2, background: c, flexShrink: 0 }} />
+              <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8' }}>{lab}</span>
+            </span>
+          ))}
+          {cur != null && (
+            <span style={{ marginLeft: 'auto', fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: col(cur) }}>
+              {cur} / {data.totals?.[n - 1] ?? MAX}
+            </span>
+          )}
+        </div>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: 160 }}>
+          <line x1="0" x2={W} y1={yy(BULL).toFixed(1)} y2={yy(BULL).toFixed(1)} stroke="#22c55e" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.45" />
+          <line x1="0" x2={W} y1={yy(BEAR).toFixed(1)} y2={yy(BEAR).toFixed(1)} stroke="#ef4444" strokeWidth="1" strokeDasharray="3 4" strokeOpacity="0.45" />
+          {data?.above?.map((v, i) => (
+            <rect key={i}
+              x={+(i * dx).toFixed(2)} y={+yy(v).toFixed(2)}
+              width={+Math.max(dx - 0.4, 0.4).toFixed(2)} height={+(H - bot - yy(v)).toFixed(2)}
+              fill={col(v)} opacity="0.88" />
+          ))}
+          <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -540,6 +614,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 30, height: 20, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
         </div>
       )}
+      {/* sector ETF breadth chart — breadth card only */}
+      {cardId === 'breadth' && <SectorBreadthChart />}
       {/* indicators */}
       <div>
         <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Indicators</div>
@@ -579,4 +655,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, SectorBreadthChart, DeepDiveContent });
