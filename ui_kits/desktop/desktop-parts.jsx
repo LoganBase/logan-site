@@ -342,6 +342,7 @@ function SparkD({ seed, trend, color, w = 72, h = 26 }) {
 
 // ── Stat boxes row ──
 function StatBoxes({ stats }) {
+  if (!stats || !stats.length) return null;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${stats.length}, 1fr)`, gap: 10 }}>
       {stats.map((st, i) => {
@@ -360,10 +361,11 @@ function StatBoxes({ stats }) {
 
 // ── Indicator table ──
 function IndicatorTable({ rows }) {
+  if (!rows || !rows.length) return null;
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 18px' }}>
       {rows.map((r, i) => {
-        const rs = DSIG[r[3]];
+        const rs = DSIG[r[3]] || DSIG.neutral;
         return (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '13px 0', borderBottom: i < rows.length - 1 ? '1px solid #16202e' : 'none' }}>
             <span style={{ width: 9, height: 9, borderRadius: '50%', background: rs.c, boxShadow: `0 0 6px ${rs.glow}`, flexShrink: 0 }} />
