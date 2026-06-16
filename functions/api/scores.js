@@ -253,14 +253,14 @@ function buildRegime(q, ctx) {
   };
 
   // Row 3: Trend Cross — Golden Cross / Death Cross, classified by spread strength.
-  // A sub-1% spread means the 50d/200d lines are essentially touching — too close
-  // to call a confirmed cross, so it reads neutral rather than forcing bull/bear.
+  // A spread under +/-8% is too close to call a confirmed cross, so it reads
+  // neutral rather than forcing bull/bear.
   const s50 = spy.sma50, s200 = spy.sma200;
   const crossSpread = s50 != null && s200 != null ? ((s50 - s200) / s200) * 100 : null;
   let crossStatus, crossCondition;
   if (crossSpread == null)    { crossStatus = 'neutral'; crossCondition = '—'; }
-  else if (crossSpread > 1)   { crossStatus = 'bullish'; crossCondition = 'Golden Cross — Confirmed'; }
-  else if (crossSpread >= -1) { crossStatus = 'neutral'; crossCondition = 'Cross Forming — Awaiting Confirmation'; }
+  else if (crossSpread > 8)   { crossStatus = 'bullish'; crossCondition = 'Golden Cross — Confirmed'; }
+  else if (crossSpread >= -8) { crossStatus = 'neutral'; crossCondition = 'Cross Forming — Awaiting Confirmation'; }
   else                        { crossStatus = 'bearish'; crossCondition = 'Death Cross — De-Risk'; }
   const r3 = {
     label: 'Trend Cross',
