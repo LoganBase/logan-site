@@ -2,8 +2,8 @@
  * Market Hub — Leadership Deep Dive API
  * GET /api/leadership?range=5y
  *
- * Returns cumulative relative performance of RSP vs SPY (breadth quality)
- * and QQEW vs QQQ (tech breadth).
+ * Returns cumulative relative performance of RSP vs SPY (breadth quality),
+ * QQEW vs QQQ (tech breadth), and IVW vs IVE (growth/value style bias).
  *
  * Primary: Cloudflare D1. Fallback: Yahoo Finance v8 HTTP API.
  */
@@ -36,7 +36,7 @@ async function fromD1(db, days) {
   const startDate = startDateFor(days);
   const { results } = await db.prepare(
     `SELECT symbol, date, close FROM daily_prices
-     WHERE symbol IN ('SPY','RSP','QQQ','QQEW') AND date >= ?
+     WHERE symbol IN ('SPY','RSP','QQQ','QQEW','IVW','IVE') AND date >= ?
      ORDER BY date ASC, symbol ASC`
   ).bind(startDate).all();
   return results || [];
@@ -69,7 +69,7 @@ async function fetchYF(symbol, cfg) {
 // ── COMPUTE ───────────────────────────────────────────────────────────────────
 function compute(rows) {
   // Group closes by symbol → date map
-  const maps = { SPY: {}, RSP: {}, QQQ: {}, QQEW: {} };
+  const maps = { SPY: {}, RSP: {}, QQQ: {}, QQEW: {}, IVW: {}, IVE: {} };
   for (const row of rows) {
     if (maps[row.symbol]) maps[row.symbol][row.date] = row.close;
   }
@@ -84,9 +84,12 @@ function compute(rows) {
   const rsp0  = maps.RSP[dates[0]];
   const qqq0  = maps.QQQ[dates[0]];
   const qqew0 = maps.QQEW[dates[0]];
+  const ivw0  = maps.IVW[dates[0]];
+  const ive0  = maps.IVE[dates[0]];
 
   const rspVsSpy  = [];
   const qqewVsQqq = [];
+  const ivwVsIve  = [];
 
   for (const date of dates) {
     const spyRet = (maps.SPY[date] / spy0 - 1) * 100;
@@ -99,6 +102,14 @@ function compute(rows) {
       qqewVsQqq.push(qqewRet - qqqRet);
     } else {
       qqewVsQqq.push(null);
+    }
+
+    if (maps.IVW[date] && maps.IVE[date] && ivw0 && ive0) {
+      const ivwRet = (maps.IVW[date] / ivw0 - 1) * 100;
+      const iveRet = (maps.IVE[date] / ive0 - 1) * 100;
+      ivwVsIve.push(ivwRet - iveRet);
+    } else {
+      ivwVsIve.push(null);
     }
   }
 
@@ -126,9 +137,11 @@ function compute(rows) {
     dates,
     rspVsSpy,
     qqewVsQqq,
+    ivwVsIve,
     summary: {
       currentRspVsSpy:  rspVsSpy[n - 1],
       currentQqewVsQqq: qqewVsQqq[n - 1],
+      currentIvwVsIve:  ivwVsIve[n - 1],
       streak,
       rspLeading: streak > 0,
     },
@@ -152,22 +165,27 @@ export async function onRequest(context) {
     let rows = db ? await fromD1(db, cfg.days) : [];
 
     if (rows.length < 10) {
-      const [spyMap, rspMap, qqqMap, qqewMap] = await Promise.all([
+      const [spyMap, rspMap, qqqMap, qqewMap, ivwMap, iveMap] = await Promise.all([
         fetchYF('SPY',  cfg),
         fetchYF('RSP',  cfg),
         fetchYF('QQQ',  cfg),
         fetchYF('QQEW', cfg),
+        fetchYF('IVW',  cfg),
+        fetchYF('IVE',  cfg),
       ]);
       rows = [];
       const allDates = new Set([
         ...Object.keys(spyMap), ...Object.keys(rspMap),
         ...Object.keys(qqqMap), ...Object.keys(qqewMap),
+        ...Object.keys(ivwMap), ...Object.keys(iveMap),
       ]);
       for (const date of [...allDates].sort()) {
         if (spyMap[date])  rows.push({ symbol: 'SPY',  date, close: spyMap[date] });
         if (rspMap[date])  rows.push({ symbol: 'RSP',  date, close: rspMap[date] });
         if (qqqMap[date])  rows.push({ symbol: 'QQQ',  date, close: qqqMap[date] });
         if (qqewMap[date]) rows.push({ symbol: 'QQEW', date, close: qqewMap[date] });
+        if (ivwMap[date])  rows.push({ symbol: 'IVW',  date, close: ivwMap[date] });
+        if (iveMap[date])  rows.push({ symbol: 'IVE',  date, close: iveMap[date] });
       }
     }
 
