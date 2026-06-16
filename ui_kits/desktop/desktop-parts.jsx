@@ -121,8 +121,6 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
     ? v.toFixed(1) + '%'
     : live?.format === 'count'
     ? String(Math.round(v))
-    : live?.format === 'index'
-    ? v.toFixed(1)
     : isPrice ? `$${v.toFixed(2)}` : v.toFixed(3);
   const handleMouseMove = (e) => {
     const el = svgRef.current;
@@ -732,14 +730,6 @@ function LeadershipPriceChart() {
   const [range, setRange] = useStateD('1Y');
   const [live, setLive] = useStateD(null);
 
-  // Rebase a price series to 100 at the first available value, so symbols at very
-  // different price levels (e.g. SPY ~$580 vs QQEW ~$95) plot on a comparable scale.
-  const rebase100 = (arr) => {
-    if (!Array.isArray(arr)) return [];
-    const first = arr.find((v) => v != null);
-    return first == null ? arr.map(() => null) : arr.map((v) => v == null ? null : (v / first) * 100);
-  };
-
   useEffectD(() => {
     let alive = true;
     setLive(null);
@@ -748,17 +738,17 @@ function LeadershipPriceChart() {
       .then(j => {
         if (!alive || !j.prices || !Array.isArray(j.dates) || !j.dates.length) return;
         setLive({
-          values:    rebase100(j.prices.SPY),
+          values:    j.prices.SPY || [],
           dates:     j.dates,
           label:     'SPY',
-          format:    'index',
+          format:    'price',
           lineColor: '#22d3ee',
           overlays: [
-            { label: 'RSP',  values: rebase100(j.prices.RSP),  color: '#a855f7', dash: null },
-            { label: 'QQQ',  values: rebase100(j.prices.QQQ),  color: '#22c55e', dash: null },
-            { label: 'QQEW', values: rebase100(j.prices.QQEW), color: '#60a5fa', dash: null },
-            { label: 'IVW',  values: rebase100(j.prices.IVW),  color: '#f59e0b', dash: null },
-            { label: 'IVE',  values: rebase100(j.prices.IVE),  color: '#ef4444', dash: null },
+            { label: 'RSP',  values: j.prices.RSP  || [], color: '#a855f7', dash: null },
+            { label: 'QQQ',  values: j.prices.QQQ  || [], color: '#22c55e', dash: null },
+            { label: 'QQEW', values: j.prices.QQEW || [], color: '#60a5fa', dash: null },
+            { label: 'IVW',  values: j.prices.IVW  || [], color: '#f59e0b', dash: null },
+            { label: 'IVE',  values: j.prices.IVE  || [], color: '#ef4444', dash: null },
           ],
         });
       })
@@ -766,14 +756,14 @@ function LeadershipPriceChart() {
     return () => { alive = false; };
   }, [range]);
 
-  const fakeCard = { seed: 6, trend: 0, metric: 'RSP / SPY / QQEW / QQQ / IVW / IVE', metricUnit: 'Rebased to 100 at range start', metricVal: '' };
+  const fakeCard = { seed: 6, trend: 0, metric: 'RSP / SPY / QQEW / QQQ / IVW / IVE', metricUnit: 'Price history', metricVal: '' };
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>RSP / SPY / QQEW / QQQ / IVW / IVE</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>Rebased to 100 at range start</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>Price history</div>
         </div>
       </div>
       <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range={range} setRange={setRange} live={live} />
