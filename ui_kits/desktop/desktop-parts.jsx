@@ -715,41 +715,65 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     return () => { alive = false; };
   }, [cardId]);
 
+  const sectionLabel = (txt) => (
+    <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{txt}</div>
+  );
+
+  if (cardId === 'breadth') {
+    // Breadth order: NYSE Breadth → Breadth History → Sector ETF Breadth → Sector Breakdown → Indicators → Key Metrics → Summary
+    const liveSectorCount = card.sectorTable ? card.sectorTable.filter(s => s.bull).length : null;
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <NyseBreadthChart />
+        <div>
+          {sectionLabel('Breadth History')}
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
+            <RegimeTimeline card={card} cardId={cardId} asOf={asOf} liveData={regimeLive} />
+          </div>
+        </div>
+        <SectorBreadthChart liveSectorCount={liveSectorCount} />
+        {card.sectorTable && card.sectorTable.length > 0 && (
+          <div>
+            {sectionLabel('Sector Breakdown')}
+            <SectorBreakdown sectorTable={card.sectorTable} />
+          </div>
+        )}
+        <div>
+          {sectionLabel('Indicators')}
+          <IndicatorTable rows={card.rows} />
+        </div>
+        <div>
+          {sectionLabel('Key Metrics')}
+          <BreadthStatBoxes sectorCount={liveSectorCount} sectorTotal={card.sectorTable?.length || 11} />
+        </div>
+        {card.note && (
+          <div>
+            {sectionLabel('Summary')}
+            <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
+              <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      {/* breadth card: unified stat boxes at top — sector count from live scores data */}
-      {cardId === 'breadth' && (
-        <BreadthStatBoxes
-          sectorCount={card.sectorTable ? card.sectorTable.filter(s => s.bull).length : null}
-          sectorTotal={card.sectorTable?.length || 11}
-        />
-      )}
-      {/* breadth card: Sector Breakdown → SectorBreadthChart → NyseBreadthChart */}
-      {cardId === 'breadth' && card.sectorTable && card.sectorTable.length > 0 && (
-        <div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Sector Breakdown</div>
-          <SectorBreakdown sectorTable={card.sectorTable} />
-        </div>
-      )}
-      {cardId === 'breadth' && (
-        <SectorBreadthChart liveSectorCount={card.sectorTable ? card.sectorTable.filter(s => s.bull).length : null} />
-      )}
-      {/* chart card — breadth uses NyseBreadthChart, all others use DeepChartLg */}
-      {cardId === 'breadth' ? <NyseBreadthChart /> : (
-        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <div>
-              <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{card.metric}</div>
-              <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{card.metricUnit}</div>
-            </div>
-            <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
+      {/* chart card */}
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+          <div>
+            <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{card.metric}</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{card.metricUnit}</div>
           </div>
-          <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
+          <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
         </div>
-      )}
+        <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
+      </div>
       {/* regime timeline — always 1Y, never tied to chart range */}
       <div>
-        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{card.title} History</div>
+        {sectionLabel(`${card.title} History`)}
         <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
           <RegimeTimeline card={card} cardId={cardId} asOf={asOf} liveData={regimeLive} />
         </div>
@@ -762,27 +786,27 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       )}
       {/* indicators */}
       <div>
-        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Indicators</div>
+        {sectionLabel('Indicators')}
         <IndicatorTable rows={card.rows} />
       </div>
       {/* country breakdown — global flows card only */}
       {card.details && card.details.length > 0 && (
         <div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Country Breakdown</div>
+          {sectionLabel('Country Breakdown')}
           <CountryTable details={card.details} />
         </div>
       )}
-      {/* stat boxes — suppressed for breadth (uses BreadthStatBoxes instead) */}
-      {card.stats && card.stats.length > 0 && cardId !== 'breadth' && (
+      {/* key metrics */}
+      {card.stats && card.stats.length > 0 && (
         <div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics'}</div>
+          {sectionLabel(cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics')}
           <StatBoxes stats={card.stats} />
         </div>
       )}
       {/* summary note */}
       {card.note && (
         <div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Summary</div>
+          {sectionLabel('Summary')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
             <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
           </div>
