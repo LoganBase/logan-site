@@ -945,8 +945,8 @@ function EquitiesChart() {
   );
 }
 
-// ── Regime card — 3 static framing questions answered dynamically from rows/stats ──
-function buildRegimeQA(card) {
+// ── Regime card — Market Diagnostics: one static question per Regime Metrics box ──
+function buildRegimeDiagnostics(card) {
   const rows = card.rows || [];   // [label, value, condition, status, indicator]
   const stats = card.stats || []; // [label, value, desc, tone]
   const r1 = rows[0], r2 = rows[1], r3 = rows[2];
@@ -954,23 +954,16 @@ function buildRegimeQA(card) {
   const pctStat = findStat('Percentile Rank');
   const durStat = findStat('Regime Duration');
   const velStat = findStat('Extension Velocity');
-  const toneOf = (status) => status === 'bullish' ? '#22c55e' : status === 'bearish' ? '#ef4444' : '#f59e0b';
-
-  const periodAnswer = [
-    pctStat ? `${pctStat[1]} percentile of all historical days` : null,
-    durStat ? `${durStat[1]} ${durStat[2]}` : null,
-  ].filter(Boolean).join(' — ') + (pctStat || durStat ? '.' : '—');
-
-  const trendAnswer = [
-    r2 ? r2[2] : null,
-    r3 ? r3[2] : null,
-    velStat ? `extension velocity ${velStat[1]} (${velStat[2]})` : null,
-  ].filter(Boolean).join(' · ') || '—';
+  const toneOfStatus = (status) => status === 'bullish' ? '#22c55e' : status === 'bearish' ? '#ef4444' : '#f59e0b';
+  const toneOfStat = (tone) => tone === 'pos' ? '#22c55e' : tone === 'neg' ? '#ef4444' : '#f59e0b';
 
   return [
-    { q: 'Classification of the current market?', a: r1 ? r1[2] : '—', c: r1 ? toneOf(r1[3]) : '#94a3b8' },
-    { q: 'Define the current period in context to historical precedents?', a: periodAnswer, c: '#94a3b8' },
-    { q: 'Assess the strength and maturity of the prevailing trend?', a: trendAnswer, c: r2 ? toneOf(r2[3]) : '#94a3b8' },
+    { label: 'SPY Regime', q: 'How is the prevailing market environment categorized?', a: r1 ? r1[2] : '—', c: r1 ? toneOfStatus(r1[3]) : '#94a3b8' },
+    { label: 'Stretch Risk', q: 'To what degree has the market become overextended?', a: r2 ? r2[2] : '—', c: r2 ? toneOfStatus(r2[3]) : '#94a3b8' },
+    { label: 'Trend Cross', q: 'Has the present market trend been confirmed?', a: r3 ? r3[2] : '—', c: r3 ? toneOfStatus(r3[3]) : '#94a3b8' },
+    { label: 'Percentile Rank', q: 'Define the current period in context to historical precedents?', a: pctStat ? `${pctStat[1]} percentile of all historical days` : '—', c: pctStat ? toneOfStat(pctStat[3]) : '#94a3b8' },
+    { label: 'Regime Duration', q: 'How persistent is the present market cycle?', a: durStat ? `${durStat[1]} ${durStat[2]}` : '—', c: durStat ? toneOfStat(durStat[3]) : '#94a3b8' },
+    { label: 'Extension Velocity', q: 'Is market momentum accelerating or decelerating?', a: velStat ? `${velStat[1]} (${velStat[2]})` : '—', c: velStat ? toneOfStat(velStat[3]) : '#94a3b8' },
   ];
 }
 
@@ -1167,13 +1160,16 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           {sectionLabel('Summary')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
             {cardId === 'regime' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
-                {buildRegimeQA(card).map(({ q, a, c }) => (
-                  <div key={q}>
-                    <div style={{ fontFamily: DSANS, fontSize: 13.5, color: '#64748b', fontWeight: 600, marginBottom: 4, lineHeight: 1.5 }}>{q}</div>
-                    <div style={{ fontFamily: DSANS, fontSize: 13.5, color: c, fontWeight: 500, lineHeight: 1.5 }}>{a}</div>
-                  </div>
-                ))}
+              <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
+                <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 12 }}>Market Diagnostics</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {buildRegimeDiagnostics(card).map(({ label, q, a, c }) => (
+                    <div key={label}>
+                      <div style={{ fontFamily: DSANS, fontSize: 13.5, color: '#64748b', fontWeight: 600, marginBottom: 4, lineHeight: 1.5 }}>{label}: {q}</div>
+                      <div style={{ fontFamily: DSANS, fontSize: 13.5, color: c, fontWeight: 500, lineHeight: 1.5 }}>{a}</div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
             <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
