@@ -703,6 +703,180 @@ function SectorBreadthChart({ liveSectorCount = null }) {
   );
 }
 
+// ── Equities MA position summary (3 boxes: above both / above 200d only / below 200d) ──
+function EquitiesMASummary({ rows }) {
+  if (!rows || !rows.length) return null;
+  const aboveBoth = rows.filter(r => r[3] === 'bullish').length;
+  const above200  = rows.filter(r => r[3] === 'neutral').length;
+  const below200  = rows.filter(r => r[3] === 'bearish').length;
+  const boxes = [
+    { label: 'Above Both MAs',  value: aboveBoth, sub: '50d & 200d SMA',  color: '#22c55e' },
+    { label: 'Above 200d Only', value: above200,  sub: 'Lagging 50d SMA', color: '#f59e0b' },
+    { label: 'Below 200d',      value: below200,  sub: 'In bear territory', color: '#ef4444' },
+  ];
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+      {boxes.map(({ label, value, sub, color }) => (
+        <div key={label} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '18px 16px' }}>
+          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', marginBottom: 12 }}>{label}</div>
+          <div style={{ fontFamily: DMONO, fontSize: 34, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b', marginTop: 10 }}>{sub}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Equities multi-series normalized performance chart ──
+const EQ_META = [
+  ['SPY',  'S&P 500',        '#94a3b8'],
+  ['IWM',  'Russell 2000',   '#64748b'],
+  ['NVDA', 'Nvidia',         '#818cf8'],
+  ['JPM',  'JPMorgan',       '#22c55e'],
+  ['CAT',  'Caterpillar',    '#f97316'],
+  ['XOM',  'Exxon Mobil',    '#ef4444'],
+  ['FCX',  'Freeport-Mc.',   '#d97706'],
+  ['GDX',  'Gold Miners',    '#eab308'],
+  ['CCJ',  'Cameco',         '#06b6d4'],
+  ['EEM',  'Emerg. Markets', '#a855f7'],
+];
+const EQ_COLOR = Object.fromEntries(EQ_META.map(([s, , c]) => [s, c]));
+
+function EquitiesChart() {
+  const RMAP   = { '10Y': '10y', '5Y': '5y', '1Y': '1y', '6M': '6mo', '3M': '3mo' };
+  const RANGES = ['10Y', '5Y', '1Y', '6M', '3M'];
+  const [range, setRange] = useStateD('5Y');
+  const [data, setData]   = useStateD(null);
+  const [hidden, setHidden] = useStateD({});
+  const [hover, setHover]   = useStateD(null);
+  const svgRef = useRefD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setData(null);
+    const today = new Date().toISOString().slice(0, 10);
+    fetch(`/api/equities-history?range=${RMAP[range]}&d=${today}`)
+      .then(r => r.json())
+      .then(d => { if (alive && d.equities) setData(d); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+
+  const W = 720, H = 250, top = 12, bot = 26, padR = 4;
+
+  let seriesNorm = null, gMin = 100, gMax = 100;
+  if (data) {
+    const allVals = data.equities.flatMap(e => e.prices).filter(v => v != null && !isNaN(v));
+    if (allVals.length) { gMin = Math.min(...allVals); gMax = Math.max(...allVals); }
+    const span = gMax - gMin || 1;
+    const norm = v => v != null ? 0.07 + ((v - gMin) / span) * 0.86 : null;
+    seriesNorm = data.equities.map(e => ({ sym: e.sym, label: e.label, nrm: e.prices.map(norm), raw: e.prices }));
+  }
+
+  const n  = data ? data.dates.length : 0;
+  const dx = n > 1 ? (W - padR) / (n - 1) : 1;
+  const yy = p => p != null ? top + (1 - p) * (H - top - bot) : null;
+  const path = arr => {
+    let d = '';
+    arr.forEach((p, i) => { if (p != null) d += `${(i === 0 || arr[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${yy(p).toFixed(1)}`; });
+    return d;
+  };
+  const onMove = e => {
+    const el = svgRef.current;
+    if (!el || n < 2) return;
+    const rect = el.getBoundingClientRect();
+    setHover(Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left) / rect.width) * (n - 1)))));
+  };
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Watchlist Performance</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>Normalized (100 = period start)</div>
+        </div>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: DSANS, fontSize: 10.5, color: '#475569' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: data ? '#22c55e' : '#475569', boxShadow: data ? '0 0 6px #22c55e' : 'none' }} />
+          {data ? 'Live' : 'Loading…'}
+        </span>
+      </div>
+
+      <div style={{ position: 'relative' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: H }}>
+          {[0.2, 0.4, 0.6, 0.8].map(g => <line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 5" />)}
+          <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+          {/* 100 baseline dashed line */}
+          {seriesNorm && (() => { const by = top + (1 - (0.07 + ((100 - gMin) / (gMax - gMin || 1)) * 0.86)) * (H - top - bot); return <line x1="0" x2={W} y1={by.toFixed(1)} y2={by.toFixed(1)} stroke="#334155" strokeWidth="1" strokeDasharray="4 3" />; })()}
+          {/* Series lines */}
+          {seriesNorm && seriesNorm.map(({ sym, nrm }) => !hidden[sym] && (
+            <path key={sym} d={path(nrm)} fill="none" stroke={EQ_COLOR[sym] || '#64748b'} strokeWidth="1.8"
+              strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          ))}
+          {/* Crosshair */}
+          {hover != null && <line x1={(hover * dx).toFixed(1)} x2={(hover * dx).toFixed(1)} y1={top} y2={H - bot} stroke="#334155" strokeWidth="1" strokeDasharray="2 3" pointerEvents="none" />}
+          {/* Hover dots */}
+          {hover != null && seriesNorm && seriesNorm.map(({ sym, nrm }) => !hidden[sym] && nrm[hover] != null && (
+            <circle key={sym} cx={(hover * dx).toFixed(1)} cy={yy(nrm[hover]).toFixed(1)} r="3.5" fill={EQ_COLOR[sym] || '#64748b'} stroke="#080c14" strokeWidth="1.5" pointerEvents="none" />
+          ))}
+          {/* Latest-point dots */}
+          {hover == null && seriesNorm && seriesNorm.map(({ sym, nrm }) => !hidden[sym] && nrm[n - 1] != null && (
+            <circle key={sym} cx={((n - 1) * dx).toFixed(1)} cy={yy(nrm[n - 1]).toFixed(1)} r="3" fill={EQ_COLOR[sym] || '#64748b'} />
+          ))}
+        </svg>
+
+        {/* Tooltip */}
+        {hover != null && data?.dates?.[hover] && seriesNorm && (
+          <div style={{
+            position: 'absolute', top: 10, pointerEvents: 'none', zIndex: 10,
+            ...(hover / Math.max(n - 1, 1) > 0.55
+              ? { right: `calc(${(1 - hover / Math.max(n - 1, 1)) * 100}% + 14px)` }
+              : { left:  `calc(${(hover / Math.max(n - 1, 1)) * 100}% + 14px)` }),
+            background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 10,
+            padding: '10px 14px', minWidth: 175, boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          }}>
+            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 600 }}>{data.dates[hover]}</div>
+            {[...seriesNorm]
+              .filter(({ sym }) => !hidden[sym])
+              .sort((a, b) => (b.raw[hover] ?? 0) - (a.raw[hover] ?? 0))
+              .map(({ sym, label, raw }) => raw[hover] != null && (
+                <div key={sym} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginBottom: 4 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: EQ_COLOR[sym], flexShrink: 0 }} />
+                    <span style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8' }}>{label}</span>
+                  </span>
+                  <span style={{ fontFamily: DMONO, fontSize: 12, color: '#e8edf5', fontWeight: 600 }}>{raw[hover].toFixed(1)}</span>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+
+      {/* Range buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 12, flexWrap: 'wrap' }}>
+        {RANGES.map(r => (
+          <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', padding: '5px 10px', borderRadius: 7,
+            fontFamily: DMONO, fontSize: 11.5, fontWeight: 600, color: r === range ? '#e8edf5' : '#64748b',
+            background: r === range ? '#1b2736' : 'transparent', border: `1px solid ${r === range ? '#243446' : 'transparent'}` }}>{r}</button>
+        ))}
+      </div>
+
+      {/* Legend — wrapping grid, click to toggle */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 22px', marginTop: 14 }}>
+        {EQ_META.map(([sym, label, c]) => {
+          const isHidden = hidden[sym];
+          return (
+            <button key={sym} onClick={() => setHidden(h => ({ ...h, [sym]: !h[sym] }))}
+              style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, opacity: isHidden ? 0.3 : 1, transition: 'opacity .15s' }}>
+              <svg width="18" height="4" viewBox="0 0 18 4" style={{ flexShrink: 0 }}><rect x="0" y="0" width="18" height="4" rx="2" fill={c} /></svg>
+              <span style={{ fontFamily: DSANS, fontSize: 11.5, color: isHidden ? '#475569' : '#94a3b8' }}>{label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -776,6 +950,42 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     );
   }
 
+  if (cardId === 'equities') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+        <div>
+          {sectionLabel('Watchlist Summary — MA Position')}
+          <EquitiesMASummary rows={card.rows} />
+        </div>
+        <EquitiesChart />
+        <div>
+          {sectionLabel('Equities History')}
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
+            <RegimeTimeline card={card} cardId={cardId} asOf={asOf} liveData={null} />
+          </div>
+        </div>
+        <div>
+          {sectionLabel('Indicators')}
+          <IndicatorTable rows={card.rows} />
+        </div>
+        {card.stats && card.stats.length > 0 && (
+          <div>
+            {sectionLabel('Key Metrics')}
+            <StatBoxes stats={card.stats} />
+          </div>
+        )}
+        {card.note && (
+          <div>
+            {sectionLabel('Summary')}
+            <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
+              <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       {/* chart card */}
@@ -834,4 +1044,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, EquitiesMASummary, EquitiesChart, DeepDiveContent });
