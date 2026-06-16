@@ -41,9 +41,9 @@ function monthLabels(endLabel, n) {
 }
 
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
-function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live }) {
+function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live, ranges: rangesProp }) {
   const color = live?.lineColor || colorProp;
-  const ranges = ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+  const ranges = rangesProp || ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [hidden, setHidden] = useStateD({});
   const [hover, setHover] = useStateD(null);
   const svgRef = useRefD(null);
@@ -546,8 +546,9 @@ function BreadthStatBoxes({ sectorCount = null, sectorTotal = 11 }) {
 }
 
 // ── NYSE Breadth — $MMTH & $MMFI V2-style chart (breadth card only) ──
+const NYSE_BREADTH_RANGES = ['1M', '3M', '6M', '1Y', '5Y', '10Y'];
 function NyseBreadthChart() {
-  const RMAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RMAP = { '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
   const [range, setRange] = useStateD('5Y');
   const [live, setLive] = useStateD(null);
   const [summary, setSummary] = useStateD(null);
@@ -601,12 +602,12 @@ function NyseBreadthChart() {
             <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#334155' }}>$MMTH / $MMFI data needs a TradingView CSV refresh</div>
           </div>
         )
-        : <DeepChartLg card={fakeCard} cardId="breadth" color="#f59e0b" height={230} range={range} setRange={setRange} live={live} />
+        : <DeepChartLg card={fakeCard} cardId="breadth" color="#f59e0b" height={230} range={range} setRange={setRange} live={live} ranges={NYSE_BREADTH_RANGES} />
       }
       {/* range buttons still show so user can switch away from the empty range */}
       {noData && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 12, flexWrap: 'wrap' }}>
-          {['1W','1M','3M','6M','1Y','5Y','10Y'].map((r) => (
+          {NYSE_BREADTH_RANGES.map((r) => (
             <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', padding: '5px 10px', borderRadius: 7,
               background: r === range ? '#1e2d3d' : 'transparent',
               color: r === range ? '#e8edf5' : '#64748b',
