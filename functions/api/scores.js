@@ -277,7 +277,31 @@ function buildRegime(q, ctx) {
       : v200 > 14 ? ` SPY ${pct(v200)} above 200d — overextended, pullback risk elevated.`
       : v200 >= 0 ? ` SPY ${pct(v200)} above 200d — normal bull range.`
       : ` SPY ${pct(v200)} below 200d — bear regime active; read all cards defensively.`;
-    return crossStr + stretchStr;
+
+    let ctxStr = '';
+    if (ctx) {
+      const { percentile, duration, velocity } = ctx;
+      if (percentile != null) {
+        ctxStr += ` Current stretch sits in the ${ordinalSuffix(percentile)} percentile of all historical readings`;
+        ctxStr += percentile >= 90 ? ' — among the most extended readings on record.'
+          : percentile >= 70 ? ', a historically elevated level.'
+          : percentile <= 10 ? ' — among the most oversold readings on record.'
+          : percentile <= 30 ? ', a historically depressed level.'
+          : '.';
+      }
+      if (duration != null) {
+        ctxStr += ` The current regime has held for ${duration} trading day${duration === 1 ? '' : 's'}`;
+        ctxStr += duration > 250 ? ' — a mature, well-established trend.'
+          : duration > 60 ? ', an established trend.'
+          : duration < 10 ? ' — a freshly formed regime, not yet confirmed.'
+          : '.';
+      }
+      if (velocity != null && Math.abs(velocity) > 0.05) {
+        ctxStr += ` Extension is ${velocity > 0 ? 'accelerating' : 'decelerating'} (10d ROC ${velocity >= 0 ? '+' : ''}${velocity.toFixed(1)}%).`;
+      }
+    }
+
+    return crossStr + stretchStr + ctxStr;
   })();
   const stats = ctx ? (() => {
     const { percentile, duration, velocity, bull: ctxBull } = ctx;
