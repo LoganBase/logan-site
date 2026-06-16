@@ -252,27 +252,34 @@ function buildRegime(q, ctx) {
     status: stretchStatus,
   };
 
-  // Row 3: Trend Cross — Golden Cross / Death Cross
+  // Row 3: Trend Cross — Golden Cross / Death Cross, classified by spread strength.
+  // A sub-1% spread means the 50d/200d lines are essentially touching — too close
+  // to call a confirmed cross, so it reads neutral rather than forcing bull/bear.
   const s50 = spy.sma50, s200 = spy.sma200;
-  const isGolden = s50 != null && s200 != null ? s50 > s200 : null;
   const crossSpread = s50 != null && s200 != null ? ((s50 - s200) / s200) * 100 : null;
-  const spreadStr = crossSpread != null ? ` (${crossSpread >= 0 ? '+' : ''}${crossSpread.toFixed(1)}%)` : '';
+  let crossStatus, crossCondition;
+  if (crossSpread == null)    { crossStatus = 'neutral'; crossCondition = '—'; }
+  else if (crossSpread > 1)   { crossStatus = 'bullish'; crossCondition = 'Golden Cross — Confirmed'; }
+  else if (crossSpread >= -1) { crossStatus = 'neutral'; crossCondition = 'Cross Forming — Awaiting Confirmation'; }
+  else                        { crossStatus = 'bearish'; crossCondition = 'Death Cross — De-Risk'; }
   const r3 = {
     label: 'Trend Cross',
     indicator: '50d SMA vs 200d SMA',
-    value: s50 != null ? `50d: $${s50.toFixed(2)}` : '—',
-    condition: isGolden == null ? '—' : isGolden ? `Golden Cross — Confirmed${spreadStr}` : `Death Cross — De-Risk${spreadStr}`,
-    status: isGolden == null ? 'neutral' : isGolden ? 'bullish' : 'bearish',
+    value: pct(crossSpread, 1),
+    condition: crossCondition,
+    status: crossStatus,
   };
 
   const rows = [r1, r2, r3];
   // Card is bearish only when SPY is in a secular bear (below 200d SMA)
   const status = isBull ? cardStatus(rows) : 'bearish';
   const regimeNote = (() => {
-    const crossStr = isGolden == null ? ''
-      : isGolden
-      ? `Golden Cross in place${crossSpread != null ? ` (50d ${pct(crossSpread, 1)} above 200d)` : ''} — trend confirmed.`
-      : `Death Cross in effect${crossSpread != null ? ` (50d ${pct(Math.abs(crossSpread), 1)} below 200d)` : ''} — trend broken.`;
+    const crossStr = crossSpread == null ? ''
+      : crossStatus === 'bullish'
+      ? `Golden Cross in place (50d ${pct(crossSpread, 1)} above 200d) — trend confirmed.`
+      : crossStatus === 'bearish'
+      ? `Death Cross in effect (50d ${pct(Math.abs(crossSpread), 1)} below 200d) — trend broken.`
+      : `50d/200d cross still forming (spread ${pct(crossSpread, 1)}) — trend not yet confirmed either way.`;
     const stretchStr = v200 == null ? ''
       : v200 > 14 ? ` SPY ${pct(v200)} above 200d — overextended, pullback risk elevated.`
       : v200 >= 0 ? ` SPY ${pct(v200)} above 200d — normal bull range.`
