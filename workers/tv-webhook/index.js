@@ -10,7 +10,10 @@
  *   BUFFETT — Total Mkt Cap / GDP ratio (qtrly) → buffett_data.ratio
  *
  * TradingView alert message body (JSON):
- *   {"ticker": "MMTH", "value": {{close}}, "time": {{time}}}
+ *   {"ticker": "MMTH", "value": {{close}}, "time": "{{time}}", "secret": "<TV_SECRET>"}
+ *   {{time}} MUST be quoted — TradingView substitutes it with an ISO string
+ *   (e.g. 2026-06-15T13:30:00Z), and an unquoted ISO string is invalid JSON,
+ *   which fails JSON.parse below and always returns 400 regardless of the secret.
  *   BUFFETT uses alert() in Pine Script with the computed ratio embedded.
  *
  * Webhook URL format:
