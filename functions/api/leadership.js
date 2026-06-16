@@ -3,7 +3,8 @@
  * GET /api/leadership?range=5y
  *
  * Returns cumulative relative performance of RSP vs SPY (breadth quality),
- * QQEW vs QQQ (tech breadth), and IVW vs IVE (growth/value style bias).
+ * QQEW vs QQQ (tech breadth), and IVW vs IVE (growth/value style bias), plus
+ * the raw close-price series for all 6 symbols (for the price history chart).
  *
  * Primary: Cloudflare D1. Fallback: Yahoo Finance v8 HTTP API.
  */
@@ -132,12 +133,22 @@ function compute(rows) {
     }
   }
 
+  const prices = {
+    SPY:  dates.map(d => maps.SPY[d]  ?? null),
+    RSP:  dates.map(d => maps.RSP[d]  ?? null),
+    QQQ:  dates.map(d => maps.QQQ[d]  ?? null),
+    QQEW: dates.map(d => maps.QQEW[d] ?? null),
+    IVW:  dates.map(d => maps.IVW[d]  ?? null),
+    IVE:  dates.map(d => maps.IVE[d]  ?? null),
+  };
+
   const n = dates.length;
   return {
     dates,
     rspVsSpy,
     qqewVsQqq,
     ivwVsIve,
+    prices,
     summary: {
       currentRspVsSpy:  rspVsSpy[n - 1],
       currentQqewVsQqq: qqewVsQqq[n - 1],
