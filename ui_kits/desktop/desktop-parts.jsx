@@ -437,19 +437,28 @@ function IndicatorTable({ rows }) {
 function SectorBreakdown({ sectorTable }) {
   if (!sectorTable || !sectorTable.length) return null;
   const sorted = [...sectorTable].sort((a, b) => b.vs200 - a.vs200);
+  const hdr = { fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569' };
+  const fmt = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 18px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0 7px', borderBottom: '1px solid #1e2d3d' }}>
+        <span style={{ width: 8, flexShrink: 0 }} />
+        <span style={{ ...hdr, flex: 1 }}>Sector</span>
+        <span style={{ ...hdr, width: 44, textAlign: 'right', flexShrink: 0 }}>ETF</span>
+        <span style={{ ...hdr, width: 72, textAlign: 'right', flexShrink: 0 }}>vs 50d</span>
+        <span style={{ ...hdr, width: 72, textAlign: 'right', flexShrink: 0 }}>vs 200d</span>
+      </div>
       {sorted.map((s, i) => {
-        const c = s.bull ? '#22c55e' : '#ef4444';
-        const glow = s.bull ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)';
+        const c200  = s.bull ? '#22c55e' : '#ef4444';
+        const glow  = s.bull ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)';
+        const c50   = s.vs50 == null ? '#475569' : s.vs50 > 0 ? '#22c55e' : '#ef4444';
         return (
           <div key={s.ticker} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < sorted.length - 1 ? '1px solid #16202e' : 'none' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, boxShadow: `0 0 5px ${glow}`, flexShrink: 0 }} />
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: c200, boxShadow: `0 0 5px ${glow}`, flexShrink: 0 }} />
             <span style={{ fontFamily: DSANS, fontSize: 13.5, color: '#e8edf5', flex: 1 }}>{s.name}</span>
             <span style={{ fontFamily: DMONO, fontSize: 11, color: '#64748b', width: 44, textAlign: 'right', flexShrink: 0 }}>{s.ticker}</span>
-            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: c, width: 72, textAlign: 'right', flexShrink: 0 }}>
-              {(s.vs200 >= 0 ? '+' : '') + s.vs200.toFixed(1) + '%'}
-            </span>
+            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: c50, width: 72, textAlign: 'right', flexShrink: 0 }}>{fmt(s.vs50)}</span>
+            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: c200, width: 72, textAlign: 'right', flexShrink: 0 }}>{fmt(s.vs200)}</span>
           </div>
         );
       })}

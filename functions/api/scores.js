@@ -454,7 +454,8 @@ function buildBreadth(q, breadthData) {
     const d = q[s];
     if (!d?.price || !d?.sma200) return null;
     const vs200 = d.vs200 ?? ((d.price - d.sma200) / d.sma200 * 100);
-    return { ticker: s, name: SECTOR_NAMES[s], vs200: +vs200.toFixed(2), bull: d.price > d.sma200 };
+    const vs50  = d.vs50  ?? (d.sma50 ? ((d.price - d.sma50) / d.sma50) * 100 : null);
+    return { ticker: s, name: SECTOR_NAMES[s], vs200: +vs200.toFixed(2), vs50: vs50 != null ? +vs50.toFixed(2) : null, bull: d.price > d.sma200 };
   }).filter(Boolean);
 
   const stats = [
