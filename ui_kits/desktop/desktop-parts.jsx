@@ -49,7 +49,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   const svgRef = useRefD(null);
 
   const W = 720, H = height, top = 12, bot = 26, padR = 4;
-  const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07] };
+  const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07], '20Y': [90, 0.06] };
 
   // ── Normalise all series into the same 0..1 plot space ──
   let primaryArr = [], overlayArrs = [], zeroY = null, normThresholds = [];
@@ -1020,7 +1020,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           </div>
           <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
         </div>
-        <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live} />
+        <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live}
+          ranges={cardId === 'regime' ? ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'] : undefined} />
       </div>
       {/* regime timeline — always 1Y, never tied to chart range */}
       <div>
