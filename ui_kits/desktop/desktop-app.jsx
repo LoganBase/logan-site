@@ -222,8 +222,10 @@ function OptionWorkspace({ D }) {
 }
 
 // ════ OPTION C — Glance → dedicated deep-dive page ════
-function OptionGlancePage({ D }) {
-  const [open, setOpen] = useStateA(null);
+function OptionGlancePage({ D, open: openProp, onSetOpen }) {
+  const [openState, setOpenState] = useStateA(null);
+  const open = openProp !== undefined ? openProp : openState;
+  const setOpen = onSetOpen || setOpenState;
   if (open) {
     const card = D.cards[open];
     return (
@@ -359,7 +361,9 @@ window.SoloShell = SoloShell;
 function ToggleShell() {
   const D = useGlance();
   const [mode, setMode] = useStateA(() => { try { return localStorage.getItem('mh-bc') || 'workspace'; } catch (e) { return 'workspace'; } });
+  const [glanceOpen, setGlanceOpen] = useStateA(null);
   const pick = (m) => { setMode(m); try { localStorage.setItem('mh-bc', m); } catch (e) {} };
+  const goHome = () => { if (mode === 'glance') setGlanceOpen(null); };
   const TABS = [
     { id: 'workspace', label: 'Workspace', sub: 'List + live deep-dive' },
     { id: 'glance', label: 'Glance', sub: 'Scan, then drill in' },
@@ -367,11 +371,13 @@ function ToggleShell() {
   return (
     <div style={{ minHeight: '100vh', background: '#080c14' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 50, display: 'flex', alignItems: 'center', gap: 18, height: 58, padding: '0 24px', background: 'rgba(8,12,20,.86)', backdropFilter: 'blur(10px)', borderBottom: '1px solid #16202e' }}>
-        <svg width="24" height="21" viewBox="0 0 30 26"><rect x="0" y="14" width="7" height="12" rx="1.5" fill="#ef4444" /><rect x="11.5" y="7" width="7" height="19" rx="1.5" fill="#f59e0b" /><rect x="23" y="0" width="7" height="26" rx="1.5" fill="#22c55e" /></svg>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <span style={{ fontFamily: DSANS, fontSize: 15, fontWeight: 700, color: '#e8edf5', lineHeight: 1.1 }}>Market Hub</span>
-          <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
-        </div>
+        <button onClick={goHome} title="Back to home" style={{ all: 'unset', cursor: mode === 'glance' ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <svg width="24" height="21" viewBox="0 0 30 26"><rect x="0" y="14" width="7" height="12" rx="1.5" fill="#ef4444" /><rect x="11.5" y="7" width="7" height="19" rx="1.5" fill="#f59e0b" /><rect x="23" y="0" width="7" height="26" rx="1.5" fill="#22c55e" /></svg>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ fontFamily: DSANS, fontSize: 15, fontWeight: 700, color: '#e8edf5', lineHeight: 1.1 }}>Market Hub</span>
+            <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
+          </div>
+        </button>
         {/* the toggle — right-aligned, replaces date */}
         <div style={{ marginLeft: 'auto', display: 'flex', padding: 3, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 8 }}>
           {TABS.map((t) => (
@@ -382,7 +388,7 @@ function ToggleShell() {
           ))}
         </div>
       </div>
-      {mode === 'workspace' ? <OptionWorkspace D={D} /> : <OptionGlancePage D={D} />}
+      {mode === 'workspace' ? <OptionWorkspace D={D} /> : <OptionGlancePage D={D} open={glanceOpen} onSetOpen={setGlanceOpen} />}
     </div>
   );
 }
