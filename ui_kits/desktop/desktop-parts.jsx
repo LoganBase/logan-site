@@ -416,7 +416,7 @@ function StatBoxes({ stats }) {
         const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#f59e0b';
         return (
           <div key={i} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '14px 14px' }}>
-            <div style={{ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: tone }}>{st[1]}</div>
+            <div style={{ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: tone, whiteSpace: 'pre-line', lineHeight: 1.3 }}>{st[1]}</div>
             <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', marginTop: 5 }}>{st[0]}</div>
             <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>{st[2]}</div>
           </div>
@@ -978,10 +978,10 @@ function buildRegimeQA(card) {
 function buildRegimeRowStats(card) {
   const rows = card.rows || [];
   return rows.slice(0, 3).map((r) => {
-    const [label, , condition, status] = r;
-    const [main, sub] = (condition || '—').split(' — ');
+    const [label, value, condition, status] = r;
+    const [, sub] = (condition || '—').split(' — ');
     const tone = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
-    return [label, main, sub || '', tone];
+    return [label, value, sub || '', tone];
   });
 }
 
