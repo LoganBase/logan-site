@@ -974,6 +974,17 @@ function buildRegimeQA(card) {
   ];
 }
 
+// ── Regime card — SPY Regime / Stretch Risk / Trend Cross stat boxes, derived from rows[0..2] ──
+function buildRegimeRowStats(card) {
+  const rows = card.rows || [];
+  return rows.slice(0, 3).map((r) => {
+    const [label, , condition, status] = r;
+    const [main, sub] = (condition || '—').split(' — ');
+    const tone = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
+    return [label, main, sub || '', tone];
+  });
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -1142,6 +1153,11 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {card.stats && card.stats.length > 0 && (
         <div>
           {sectionLabel(cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics')}
+          {cardId === 'regime' && (
+            <div style={{ marginBottom: 10 }}>
+              <StatBoxes stats={buildRegimeRowStats(card)} />
+            </div>
+          )}
           <StatBoxes stats={cardId === 'leadership' ? leadershipStats : card.stats} />
         </div>
       )}
