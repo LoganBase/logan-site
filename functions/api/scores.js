@@ -304,7 +304,7 @@ function buildRegime(q, ctx) {
           : '.';
       }
       if (velocity != null && Math.abs(velocity) > 0.05) {
-        ctxStr += ` Extension is ${velocity > 0 ? 'accelerating' : 'decelerating'} (10d ROC ${velocity >= 0 ? '+' : ''}${velocity.toFixed(1)}%).`;
+        ctxStr += ` Extension is ${velocity > 0 ? 'accelerating' : 'decelerating'} (10d Rate of Change ${velocity >= 0 ? '+' : ''}${velocity.toFixed(1)}%).`;
       }
     }
 
@@ -317,7 +317,7 @@ function buildRegime(q, ctx) {
     return [
       ['Percentile Rank',    percentile != null ? ordinalSuffix(percentile) : '—',  'of all historical days',                  percentile != null && percentile >= 70 ? 'pos' : percentile != null && percentile <= 30 ? 'neg' : null],
       ['Regime Duration',    duration   != null ? String(duration) : '—',           ctxBull ? 'days above 200d SMA' : 'days below 200d SMA', null],
-      ['Extension Velocity', velStr,                                                 '10d ROC of stretch',                      velTone],
+      ['Extension Velocity', velStr,                                                 '10d Rate of Change of stretch',           velTone],
     ];
   })() : null;
   return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, stats, hideIndicator: true, note: regimeNote };
