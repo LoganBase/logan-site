@@ -603,8 +603,11 @@ function NyseBreadthChart() {
             <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>NYSE Breadth — $MMTH &amp; $MMFI</div>
             <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>% NYSE stocks above key moving averages</div>
           </div>
-          <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: curMmth != null ? col(curMmth) : '#f59e0b' }}>
-            {curMmth != null ? curMmth.toFixed(1) + '%' : '—'}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>MMTH</span>
+            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: curMmth != null ? col(curMmth) : '#f59e0b' }}>
+              {curMmth != null ? curMmth.toFixed(1) + '%' : '—'}
+            </span>
           </div>
         </div>
         {noData
@@ -688,8 +691,11 @@ function SectorBreadthChart({ liveSectorCount = null }) {
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Sector ETF Breadth — Historical</div>
           <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}># of 11 SPDR sectors above their 200d MA</div>
         </div>
-        <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: curVal != null ? col(curVal) : '#64748b' }}>
-          {curVal != null ? `${curVal} / 11` : '—'}
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+          <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569' }}>Sectors</span>
+          <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: curVal != null ? col(curVal) : '#64748b' }}>
+            {curVal != null ? `${curVal} / 11` : '—'}
+          </span>
         </div>
       </div>
       <DeepChartLg card={fakeCard} cardId="breadth-etf" color={curVal != null ? col(curVal) : '#f59e0b'} height={200} range={range} setRange={setRange} live={live} />
