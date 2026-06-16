@@ -1154,7 +1154,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
                 {buildRegimeQA(card).map(({ q, a, c }) => (
                   <div key={q}>
-                    <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#64748b', fontWeight: 600, marginBottom: 4 }}>{q}</div>
+                    <div style={{ fontFamily: DSANS, fontSize: 13.5, color: '#64748b', fontWeight: 600, marginBottom: 4, lineHeight: 1.5 }}>{q}</div>
                     <div style={{ fontFamily: DSANS, fontSize: 13.5, color: c, fontWeight: 500, lineHeight: 1.5 }}>{a}</div>
                   </div>
                 ))}
