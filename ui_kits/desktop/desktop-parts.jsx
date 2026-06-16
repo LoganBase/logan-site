@@ -1106,7 +1106,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{card.metric}</div>
-            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{card.metricUnit}</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{cardId === 'leadership' ? 'Rebased to 100 at range start' : card.metricUnit}</div>
           </div>
           <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>
         </div>
