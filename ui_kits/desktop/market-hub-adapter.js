@@ -74,7 +74,18 @@
         };
       },
     },
-    breadth:     { url: (r) => `/api/breadth-history?range=${r}`,       field: 'mmth'      },
+    breadth: {
+      url: (r) => `/api/breadth-history?range=${r}`,
+      extract: (data) => {
+        const mmth = data.mmth;
+        if (!Array.isArray(mmth) || !mmth.length) return null;
+        return {
+          values:  mmth.map(Number),
+          dates:   data.dates || [],
+          colorBy: mmth.map(v => v == null ? null : v - 50), // >0 when MMTH>50% (green), <0 when MMTH<50% (red)
+        };
+      },
+    },
     valuations:  { url: (r) => `/api/valuations-history?range=${r}`,    field: 'capes'     },
     yield:       { url: (r) => `/api/history?symbol=%5ETNX&range=${r}`, field: 'closes'    },
     credit:      { url: (r) => `/api/history?symbol=HYG&range=${r}`,    field: 'closes'    },
