@@ -54,6 +54,11 @@
             { label: '200d SMA', values: (data.sma200 || []).map(Number), color: '#f59e0b', dash: [5, 3] },
           ],
           colorBy: (data.vs200  || []).map(Number),
+          vs200:   (data.vs200  || []).map(Number),
+          vs50:    data.closes.map((c, i) => {
+            const s = Number((data.sma50 || [])[i]);
+            return (c != null && s) ? ((Number(c) - s) / s) * 100 : null;
+          }),
           rsi:     (data.rsi14  || []).map(Number),
         };
       },

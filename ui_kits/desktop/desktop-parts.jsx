@@ -218,6 +218,21 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
                 <span style={{ fontFamily: DMONO, fontSize: 12.5, color: '#e8edf5', fontWeight: 600 }}>{fmtVal(value)}</span>
               </div>
             ))}
+            {(live?.vs200 || live?.vs50) && (
+              <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #1e2d3d' }}>
+                {[
+                  { label: '% above 200d', value: live?.vs200?.[hover] },
+                  { label: '% above 50d',  value: live?.vs50?.[hover] },
+                ].filter(({ value }) => value != null && !isNaN(value)).map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginBottom: 5 }}>
+                    <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>{label}</span>
+                    <span style={{ fontFamily: DMONO, fontSize: 12.5, fontWeight: 600, color: value >= 0 ? '#22c55e' : '#ef4444' }}>
+                      {(value >= 0 ? '+' : '') + value.toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {rsiData && rsiData[hover] != null && !isNaN(rsiData[hover]) && (() => {
               const rv = rsiData[hover];
               const rc = rsiCol(rv);
