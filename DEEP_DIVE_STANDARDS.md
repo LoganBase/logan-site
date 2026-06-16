@@ -1,103 +1,126 @@
-# Market Hub — Deep Dive (Modal) Standards
+# Market Hub — Deep Dive Standards (V2 React/SVG Desktop Kit)
 
-Standards for all chart modals across the 10 cards.
+Documents the conventions for each card's expanded deep-dive view — `DeepDiveContent` in `ui_kits/desktop/desktop-parts.jsx`, built on the shared `DeepChartLg` SVG chart. Supersedes the old Chart.js/V1 standards (solid-square legend config, `.modal-section-title` CSS class, `range-btn` class) — none of that applies to V2. Card 1 (Regime) is the reference implementation.
 
 ---
 
-## Chart Legend
+## Section order (`DeepDiveContent`, desktop-parts.jsx)
 
-All multi-line charts must use **solid filled square** legend markers — no outline borders, no dashes.
+Default path (most cards):
 
-| Property | Value | Reason |
-|---|---|---|
-| `backgroundColor` | same as `borderColor` | Chart.js fills the legend box with `backgroundColor` |
-| `boxWidth` | `12` | Compact; consistent across all charts |
-| `boxHeight` | `12` | Forces a perfect square (without it Chart.js renders a wide rectangle) |
-| `usePointStyle` | `false` | Prevents point-style shapes overriding the box |
-| `generateLabels` | strip `lineDash` | Datasets with `borderDash` cause Chart.js to draw a dashed stroke through the legend box even with `usePointStyle: false`; must be cleared explicitly |
+1. **Chart card** — title/subtitle/value header + `DeepChartLg`.
+2. **`{Card Title} History`** — `RegimeTimeline`, always pinned to **1Y** data, independent of the chart's own range selector.
+3. **Flags row** — Global Flows only (`card.flags`).
+4. **Indicators** — `IndicatorTable` (`card.rows`).
+5. **Country Breakdown** — Global Flows only (`card.details`).
+6. **Key Metrics** (or **Regime Metrics** for Regime specifically) — `StatBoxes` (`card.stats`).
+7. **Summary** — `card.note`, with Regime's Q&A box (`buildRegimeQA`) prepended above the note paragraph.
 
-**Full standard legend config (copy-paste):**
+Breadth and Equities have fully custom paths (`cardId === 'breadth'` / `'equities'` branches) — they replace the chart card with a dedicated component (`NyseBreadthChart` / `EquitiesChart`) and reorder sections to fit. Breadth's order: NYSE Breadth chart → Breadth History → Sector ETF Breadth chart → Sector Breakdown → Indicators → Key Metrics → Summary. A new card only needs a custom path if it has more than one chart or a non-standard breakdown table; otherwise use the default path.
 
-```js
-legend: {
-  labels: {
-    color: '#94a3b8', font: { size: 10 }, boxWidth: 12, boxHeight: 12, padding: 10,
-    usePointStyle: false,
-    generateLabels: chart =>
-      Chart.defaults.plugins.legend.labels.generateLabels(chart)
-        .map(item => ({ ...item, lineDash: [] })),
-  },
-}
+---
+
+## `DeepChartLg` (desktop-parts.jsx)
+
+Shared SVG line/area chart. Key props: `card, cardId, color, height, range, setRange, live, ranges`.
+
+- `ranges` defaults to `['1W','1M','3M','6M','1Y','5Y','10Y']`. Override per-card via the `cardId`-scoped ternary at the call site (see "Scoping a feature to one card" below) — Regime currently adds `'20Y'`.
+- `conf` is the fallback `{ range: [n, vol] }` map used to generate a synthetic series when `live` data is absent — add an entry here for any new range token before wiring it into the UI.
+- `live` object shape (built by `market-hub-adapter.js`'s `HISTORY[cardId].extract()`):
+  ```js
+  {
+    values: number[],            // primary series
+    dates: string[],
+    label: string,                 // primary series legend label, default 'SPY'
+    format: 'price'|'pct'|'pct_abs'|'count',  // controls tooltip value formatting
+    lineColor: string,             // optional override of the primary line color
+    overlays: [{ label, values, color, dash }],  // e.g. 50d/200d SMA lines
+    colorBy: number[],             // optional — drives segment-by-segment line coloring
+    colorByFn: (v) => color,       // optional custom function for colorBy
+    thresholds: [{ y, color }],    // optional dashed horizontal reference lines
+    rsi: number[],                 // optional — renders the RSI sub-panel + tooltip row
+    vs200, vs50: number[],         // Regime-specific — drive the tooltip's % rows (see below)
+  }
+  ```
+- Legend renders only when `overlays.length > 0`; clicking a legend item toggles that series via internal `hidden` state.
+- Hover tooltip always shows: date header, then primary + overlay rows (dot-colored, formatted per `live.format` via `fmtVal`). Below that, two **optional** sections:
+  1. **Percentage rows** — rendered only if `live.vs200` or `live.vs50` is present. Each row gets its **own independently-defined** banding/tone function — do not reuse another row's tone function just because the values or names look similar; two metrics can legitimately have different thresholds even when they sound alike (e.g. "% above 200d" vs. the Trend Cross row's 50d-vs-200d spread are two different numbers). Pattern:
+     ```js
+     const someTone = (v) => v > HI ? 'bearish' : v > MID ? 'neutral' : v >= 0 ? 'bullish' : v >= -MID ? 'neutral' : 'bearish';
+     // then: color: DSIG[someTone(value)].c
+     ```
+  2. **RSI row** — rendered only if `rsiData` is present. Fixed bands: `>70` Overbought, `>50` Bullish Momentum, `>40` Neutral, `>30` Bearish Momentum, else Oversold; color via `rsiCol(v)`.
+- Range buttons + a "Live"/"Sample" data-source indicator render below the chart; the legend (if any) renders below that.
+
+---
+
+## Established Regime (Card 1) banding reference
+
+Copy the *shape* of these — not necessarily the exact numbers — when a new card needs a 3- or 5-band classifier on its chart or tooltip:
+
+- Row 1 "SPY Regime" (binary, no neutral): `price > sma200` → bullish, else bearish.
+- Row 2 "Stretch Risk" (vs200, 5-band): `>14` bearish, `>10` neutral, `>=0` bullish, `>=-10` neutral, else bearish.
+- Row 3 "Trend Cross" (50d-vs-200d spread, 3-band): `>8` bullish, `>=-8` neutral, else bearish.
+- Tooltip-only "% above 50d" (price vs 50d SMA, 5-band — a distinct metric from Row 3): `>8` bearish, `>5` neutral, `>=0` bullish, `>=-5` neutral, else bearish.
+- Card-level master override: `status = isBull ? cardStatus(rows) : 'bearish'`.
+
+---
+
+## Scoping a feature to a single card
+
+When adding a feature (extra range button, extra tooltip row, upgraded sparkline) that should apply to only one card, scope it with a ternary on `cardId` (or `id`) at the call site — don't change the shared component's default behavior for every card.
+
+```jsx
+ranges={cardId === 'regime' ? ['1W','1M','3M','6M','1Y','5Y','10Y','20Y'] : undefined}
+```
+```jsx
+{id === 'regime' ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} .../> : <SparkD seed={c.seed} trend={c.trend} color={sg.c} .../>}
 ```
 
-Set `backgroundColor: borderColor` on **every dataset**:
-
-```js
-datasets: items.map(s => ({
-  borderColor: COLORS[s.sym],
-  backgroundColor: COLORS[s.sym],   // ← fills the legend box
-  ...
-}))
-```
-
-**Why `generateLabels`?** When a dataset has `borderDash` (dashed line), Chart.js propagates that dash pattern to the legend item's `lineDash` property. This renders as a dashed stroke *through* the box, making it look like a non-square shape. The override strips `lineDash` to `[]` on every item, guaranteeing solid filled squares regardless of line style. This approach is safe — it delegates to the default generator and only clears one property.
+This is the established pattern for both the 20Y range button and the live-data sparkline (`RegimeMiniSpark` in `desktop-app.jsx` — fetches real 1W SPY history and falls back to the synthetic `SparkD` while loading). New cards should follow the same scoping approach rather than forking the shared component or adding card-specific branches inside it.
 
 ---
 
-## Chart Tooltip
+## Adapter wiring (`market-hub-adapter.js`)
 
-Standard dark tooltip style applied to all charts:
-
-```js
-tooltip: {
-  backgroundColor: '#0d1520', borderColor: '#1e2d3d', borderWidth: 1,
-  titleColor: '#64748b', bodyColor: '#e8edf5', padding: 10,
-}
-```
+- Add any new range token to `RANGE_MAP` (UI label → API token) before wiring a new range button.
+- Add an entry to `HISTORY[cardId]` — either `{ url, field }` for a flat numeric series, or `{ url, extract(data) }` when building overlays/colorBy/percentage fields. `HISTORY.regime` is the fullest example to copy from.
+- Verify the underlying API/D1 source actually has the history before exposing a new range in the UI — for Regime's 20Y option this was confirmed via a direct D1 query showing `daily_prices` has SPY history back to 2006-06-05.
 
 ---
 
-## Section Title
+## Summary Q&A box pattern (`buildRegimeQA`, desktop-parts.jsx)
 
-Modal section headings use the `.modal-section-title` CSS class:
+Currently Regime-only. Generates 3 fixed framing questions, answered dynamically from `card.rows` / `card.stats`:
 
-```html
-<div class="modal-section-title" style="margin-top:24px">TITLE TEXT</div>
-```
+1. "Classification of the current market?" ← Row 1's condition text, toned by Row 1's status.
+2. "Define the current period in context to historical precedents?" ← built from the `Percentile Rank` + `Regime Duration` stats.
+3. "Assess the strength and maturity of the prevailing trend?" ← built from Row 2 + Row 3 condition text plus the `Extension Velocity` stat.
 
-- All caps, spaced tracking, muted color — defined globally in CSS
-- `margin-top: 24px` between consecutive sections, `margin-top: 20px` for the first
-
----
-
-## Range Selector
-
-- Range buttons use class `range-btn` (shared active state via `.range-btn.active`)
-- Default range: `5y` for price/performance charts, `30y` for valuation charts
-- Selecting a range reloads **all charts** in the modal simultaneously
+If a new card needs a similar Q&A framing box, write an analogous `buildXQA(card)` function and gate its rendering the same way Regime's is gated in `DeepDiveContent` (`cardId === 'x' && (...)`). Don't generalize this into one shared function until at least 2–3 cards actually need it.
 
 ---
 
-## Normalized Price Charts
+## Compliance Tracker (V2)
 
-- Rebase to 100 at period start
-- Y-axis label: `v.toFixed(0)` (no % suffix)
-- Zero-line equivalent is 100 — highlight with `rgba(148,163,184,0.35)` at `tick.value === 100`
-- Use `spanGaps: true` on all datasets to bridge missing trading days
+| # | Card | `DeepChartLg` wired (live + ranges) | Tooltip extra rows documented | Custom `DeepDiveContent` path | Reviewed |
+|---|------|---|---|---|---|
+| 01 | Regime | ✅ (incl. 20Y, RSI, % above 200d/50d rows) | ✅ | No (default path + Q&A box) | ✅ |
+| 02 | Leadership | ✅ (RSP vs SPY + QQEW overlay) | — | No | — |
+| 03 | Breadth | ✅ (custom `NyseBreadthChart` + `SectorBreadthChart`) | — | Yes | — |
+| 04 | Valuations | — | — | — | — |
+| 05 | Yield | — | — | — | — |
+| 06 | Credit | — | — | — | — |
+| 07 | Global Flows | ✅ (ACWI series) | — | No | — |
+| 08 | Sectors | ✅ (cycVsDef series) | — | No | — |
+| 09 | Commodities | ✅ (USCI series) | — | No | — |
+| 10 | Equities | ✅ (custom `EquitiesChart`, multi-series) | — | Yes | — |
 
 ---
 
-## Compliance Tracker
+## Update Process
 
-| # | Card | Solid Legend | Std Tooltip | Section Titles | Range Selector |
-|---|---|:-:|:-:|:-:|:-:|
-| 01 | Regime | ✅ | ✅ | ✅ | ✅ |
-| 02 | Leadership | ✅ | ✅ | ✅ | ✅ |
-| 03 | Breadth | ✅ | ✅ | ✅ | ✅ |
-| 04 | Valuations | ✅ | ✅ | ✅ | ✅ |
-| 05 | Yield | ✅ | ✅ | ✅ | ✅ |
-| 06 | Credit | ✅ | ✅ | ✅ | ✅ |
-| 07 | Global Flows | ✅ | ✅ | ✅ | ✅ |
-| 08 | Sectors | ✅ | ✅ | ✅ | ✅ |
-| 09 | Commodities | ✅ | ✅ | ✅ | ✅ |
-| 10 | Equities | ⏸ | ⏸ | ⏸ | ⏸ |
+1. Build/extend the chart wiring in `market-hub-adapter.js` (`HISTORY[cardId]`).
+2. Reuse `DeepChartLg` via the default `DeepDiveContent` path unless the card genuinely needs multiple charts or a non-standard breakdown table.
+3. Scope any card-specific chart feature (extra range, extra tooltip row, custom legend) via a `cardId` ternary, per "Scoping a feature to a single card" above.
+4. Update the Compliance Tracker row above once verified live in the browser.

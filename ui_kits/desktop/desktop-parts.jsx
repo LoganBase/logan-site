@@ -930,7 +930,7 @@ function buildRegimeQA(card) {
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
-  const [range, setRange] = useStateD('1Y');
+  const [range, setRange] = useStateD(cardId === 'leadership' ? '1W' : '1Y');
   const [live, setLive] = useStateD(null);
   const [regimeLive, setRegimeLive] = useStateD(null);
 
@@ -956,6 +956,26 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     }
     return () => { alive = false; };
   }, [cardId]);
+
+  // Leadership: the chart's live series for this card is already a cumulative spread
+  // over the selected range, so tie the "Spread" key metrics to that same range instead
+  // of always showing the server's fixed 5Y figure. Daily Streak / Growth vs Value (no
+  // chart equivalent) pass through untouched.
+  const leadershipStats = (() => {
+    if (cardId !== 'leadership' || !card.stats) return card.stats;
+    if (!live || !live.values?.length) return card.stats;
+    const rspSpread  = live.values[live.values.length - 1];
+    const qqewArr    = live.overlays?.[0]?.values || [];
+    const qqewSpread = qqewArr.length ? qqewArr[qqewArr.length - 1] : null;
+    const fmt  = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+    const tone = (v) => v == null ? null : v > 0 ? 'pos' : v < 0 ? 'neg' : null;
+    return card.stats.map((s) => {
+      const desc = (s[2] || '').toLowerCase();
+      if (desc.includes('rsp vs spy'))  return [`${range} Spread`,      fmt(rspSpread),  'RSP vs SPY cumulative',  tone(rspSpread)];
+      if (desc.includes('qqew vs qqq')) return [`${range} Tech Spread`, fmt(qqewSpread), 'QQEW vs QQQ cumulative', tone(qqewSpread)];
+      return s;
+    });
+  })();
 
   const sectionLabel = (txt) => (
     <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{txt}</div>
@@ -1073,7 +1093,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {card.stats && card.stats.length > 0 && (
         <div>
           {sectionLabel(cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics')}
-          <StatBoxes stats={card.stats} />
+          <StatBoxes stats={cardId === 'leadership' ? leadershipStats : card.stats} />
         </div>
       )}
       {/* summary note */}
