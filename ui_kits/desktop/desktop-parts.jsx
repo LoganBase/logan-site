@@ -968,12 +968,6 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           {sectionLabel('Indicators')}
           <IndicatorTable rows={card.rows} />
         </div>
-        {card.stats && card.stats.length > 0 && (
-          <div>
-            {sectionLabel('Key Metrics')}
-            <StatBoxes stats={card.stats} />
-          </div>
-        )}
         {card.note && (
           <div>
             {sectionLabel('Summary')}
