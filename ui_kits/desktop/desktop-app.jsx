@@ -67,6 +67,34 @@ function BreadthBar({ exec, cats }) {
   );
 }
 
+// ── Regime list sparkline — real 1W SPY data, falls back to the synthetic spark while loading ──
+function RegimeMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [vals, setVals] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    if (window.MarketHubData) {
+      window.MarketHubData.loadHistory('regime', '1W').then((r) => {
+        if (alive && r && r.values && r.values.length > 1) setVals(r.values);
+      });
+    }
+    return () => { alive = false; };
+  }, []);
+  if (!vals) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
+  const pts = vals.map((v) => (v - lo) / span);
+  const dx = w / Math.max(pts.length - 1, 1);
+  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${(i * dx).toFixed(1)},${(h - p * h).toFixed(1)}`).join(' ');
+  const area = `${line} L${w},${h} L0,${h} Z`;
+  const gid = 'rmsGrad';
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity="0.26" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
+      <path d={area} fill={`url(#${gid})`} />
+      <path d={line} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ── Scorecard tile (grid) ──
 function ScoreTile({ card, onOpen, active }) {
   const sg = DSIG[card.status];
@@ -197,7 +225,9 @@ function OptionWorkspace({ D }) {
                     background: on ? '#141f2e' : 'transparent', border: `1px solid ${on ? '#24364a' : 'transparent'}`, borderLeft: `3px solid ${on ? sg.c : 'transparent'}` }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: sg.c, boxShadow: `0 0 6px ${sg.glow}`, flexShrink: 0 }} />
                     <span style={{ fontFamily: DSANS, fontSize: 13.5, color: on ? '#e8edf5' : '#cbd5e1', fontWeight: on ? 600 : 400, flex: 1 }}>{c.title}</span>
-                    <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                    {id === 'regime'
+                      ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                      : <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />}
                   </button>
                 );
               })}
@@ -269,7 +299,9 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
                     );
                   })}
                 </div>
-                <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                {id === 'regime'
+                  ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />}
                 <StatusPill status={c.status} size="sm" />
                 <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
