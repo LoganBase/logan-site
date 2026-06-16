@@ -218,15 +218,16 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
                 <span style={{ fontFamily: DMONO, fontSize: 12.5, color: '#e8edf5', fontWeight: 600 }}>{fmtVal(value)}</span>
               </div>
             ))}
-            {(live?.vs200 || live?.crossSpread) && (() => {
-              // Mirrors the Stretch Risk and Trend Cross bands from /api/scores.
+            {(live?.vs200 || live?.vs50) && (() => {
+              // % above 200d mirrors the Stretch Risk bands from /api/scores.
               const stretchTone = (v) => v > 14 ? 'bearish' : v > 10 ? 'neutral' : v >= 0 ? 'bullish' : v >= -10 ? 'neutral' : 'bearish';
-              const crossTone   = (v) => v > 8 ? 'bullish' : v >= -8 ? 'neutral' : 'bearish';
+              // % above 50d: the 50d is a faster, noisier average, so bands are tighter than the 200d's.
+              const vs50Tone    = (v) => v > 8 ? 'bearish' : v > 5 ? 'neutral' : v >= 0 ? 'bullish' : v >= -5 ? 'neutral' : 'bearish';
               return (
                 <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid #1e2d3d' }}>
                   {[
-                    { label: '% above 200d', value: live?.vs200?.[hover],       tone: stretchTone },
-                    { label: '% above 50d',  value: live?.crossSpread?.[hover], tone: crossTone },
+                    { label: '% above 200d', value: live?.vs200?.[hover], tone: stretchTone },
+                    { label: '% above 50d',  value: live?.vs50?.[hover],  tone: vs50Tone },
                   ].filter(({ value }) => value != null && !isNaN(value)).map(({ label, value, tone }) => (
                     <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginBottom: 5 }}>
                       <span style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8' }}>{label}</span>

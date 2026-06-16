@@ -55,10 +55,10 @@
           ],
           colorBy: (data.vs200  || []).map(Number),
           vs200:   (data.vs200  || []).map(Number),
-          // 50d-vs-200d spread (matches the "Trend Cross" indicator row, not price-vs-50d).
-          crossSpread: (data.sma50 || []).map((s50, i) => {
-            const s200 = Number((data.sma200 || [])[i]);
-            return (s50 != null && s200) ? ((Number(s50) - s200) / s200) * 100 : null;
+          // Price's % distance above/below the 50d SMA (not the 50d-vs-200d cross spread).
+          vs50: data.closes.map((c, i) => {
+            const s50 = Number((data.sma50 || [])[i]);
+            return (c != null && s50) ? ((Number(c) - s50) / s50) * 100 : null;
           }),
           rsi:     (data.rsi14  || []).map(Number),
         };
