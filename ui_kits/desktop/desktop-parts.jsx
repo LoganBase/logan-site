@@ -953,10 +953,6 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   if (cardId === 'equities') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-        <div>
-          {sectionLabel('Watchlist Summary — MA Position')}
-          <EquitiesMASummary rows={card.rows} />
-        </div>
         <EquitiesChart />
         <div>
           {sectionLabel('Equities History')}
@@ -967,6 +963,10 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <div>
           {sectionLabel('Indicators')}
           <IndicatorTable rows={card.rows} />
+        </div>
+        <div>
+          {sectionLabel('Watchlist Summary — MA Position')}
+          <EquitiesMASummary rows={card.rows} />
         </div>
         {card.note && (
           <div>
