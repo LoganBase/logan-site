@@ -877,6 +877,35 @@ function EquitiesChart() {
   );
 }
 
+// ── Regime card — 3 static framing questions answered dynamically from rows/stats ──
+function buildRegimeQA(card) {
+  const rows = card.rows || [];   // [label, value, condition, status, indicator]
+  const stats = card.stats || []; // [label, value, desc, tone]
+  const r1 = rows[0], r2 = rows[1], r3 = rows[2];
+  const findStat = (label) => stats.find((s) => s[0] === label);
+  const pctStat = findStat('Percentile Rank');
+  const durStat = findStat('Regime Duration');
+  const velStat = findStat('Extension Velocity');
+  const toneOf = (status) => status === 'bullish' ? '#22c55e' : status === 'bearish' ? '#ef4444' : '#f59e0b';
+
+  const periodAnswer = [
+    pctStat ? `${pctStat[1]} percentile of all historical days` : null,
+    durStat ? `${durStat[1]} ${durStat[2]}` : null,
+  ].filter(Boolean).join(' — ') + (pctStat || durStat ? '.' : '—');
+
+  const trendAnswer = [
+    r2 ? r2[2] : null,
+    r3 ? r3[2] : null,
+    velStat ? `extension velocity ${velStat[1]} (${velStat[2]})` : null,
+  ].filter(Boolean).join(' · ') || '—';
+
+  return [
+    { q: 'Classification of the current market?', a: r1 ? r1[2] : '—', c: r1 ? toneOf(r1[3]) : '#94a3b8' },
+    { q: 'Define the current period in context to historical precedents?', a: periodAnswer, c: '#94a3b8' },
+    { q: 'Assess the strength and maturity of the prevailing trend?', a: trendAnswer, c: r2 ? toneOf(r2[3]) : '#94a3b8' },
+  ];
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -1030,6 +1059,16 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <div>
           {sectionLabel('Summary')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
+            {cardId === 'regime' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
+                {buildRegimeQA(card).map(({ q, a, c }) => (
+                  <div key={q}>
+                    <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#64748b', fontWeight: 600, marginBottom: 4 }}>{q}</div>
+                    <div style={{ fontFamily: DSANS, fontSize: 13.5, color: c, fontWeight: 500, lineHeight: 1.5 }}>{a}</div>
+                  </div>
+                ))}
+              </div>
+            )}
             <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
           </div>
         </div>
