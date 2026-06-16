@@ -114,9 +114,11 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   ] : null;
 
   // ── Hover / tooltip ──
-  const isPrice = live?.format !== 'pct' && overlayArrs.length > 0;
+  const isPrice = live?.format !== 'pct' && live?.format !== 'pct_abs' && overlayArrs.length > 0;
   const fmtVal = (v) => live?.format === 'pct'
     ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%'
+    : live?.format === 'pct_abs'
+    ? v.toFixed(1) + '%'
     : live?.format === 'count'
     ? String(Math.round(v))
     : isPrice ? `$${v.toFixed(2)}` : v.toFixed(3);
@@ -567,6 +569,7 @@ function NyseBreadthChart() {
             values: j.mmth,
             dates:  j.dates || [],
             label:  '$MMTH (200d)',
+            format: 'pct_abs',
             lineColor: '#f59e0b',
             overlays: [{ label: '$MMFI (50d)', values: j.mmfi || [], color: '#60a5fa', dash: null }],
             thresholds: [{ y: 70, color: '#22c55e' }, { y: 40, color: '#ef4444' }],
