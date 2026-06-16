@@ -957,13 +957,34 @@ function buildRegimeDiagnostics(card) {
   const toneOfStatus = (status) => status === 'bullish' ? '#22c55e' : status === 'bearish' ? '#ef4444' : '#f59e0b';
   const toneOfStat = (tone) => tone === 'pos' ? '#22c55e' : tone === 'neg' ? '#ef4444' : '#f59e0b';
 
+  // Parse the raw numbers back out of the formatted stat strings so we can attach an action.
+  const pctNum = pctStat ? parseInt(pctStat[1], 10) : null;
+  const durNum = durStat ? parseInt(durStat[1], 10) : null;
+  const velNum = velStat ? parseFloat(velStat[1]) : null;
+
+  const pctAction = pctNum == null ? null
+    : pctNum >= 90 ? 'Reduce Exposure'
+    : pctNum >= 70 ? 'Monitor for Reversion'
+    : pctNum <= 10 ? 'Watch for Bounce'
+    : pctNum <= 30 ? 'Watch for Reversal'
+    : 'No Action';
+  const durAction = durNum == null ? null
+    : durNum > 250 ? 'Trail Stops'
+    : durNum > 60  ? 'Hold Core'
+    : durNum < 10  ? 'Await Confirmation'
+    : 'Monitor';
+  const velAction = velNum == null ? null
+    : velNum > 0.05  ? 'Monitor Stretch'
+    : velNum < -0.05 ? 'Pressure Easing'
+    : 'No Signal Change';
+
   return [
     { label: 'SPY Regime', q: 'How is the prevailing market environment categorized?', a: r1 ? r1[2] : '—', c: r1 ? toneOfStatus(r1[3]) : '#94a3b8' },
     { label: 'Stretch Risk', q: 'To what degree has the market become overextended?', a: r2 ? r2[2] : '—', c: r2 ? toneOfStatus(r2[3]) : '#94a3b8' },
     { label: 'Trend Cross', q: 'Has the present market trend been confirmed?', a: r3 ? r3[2] : '—', c: r3 ? toneOfStatus(r3[3]) : '#94a3b8' },
-    { label: 'Percentile Rank', q: 'Define the current period in context to historical precedents?', a: pctStat ? `${pctStat[1]} percentile of all historical days` : '—', c: pctStat ? toneOfStat(pctStat[3]) : '#94a3b8' },
-    { label: 'Regime Duration', q: 'How persistent is the present market cycle?', a: durStat ? `${durStat[1]} ${durStat[2]}` : '—', c: durStat ? toneOfStat(durStat[3]) : '#94a3b8' },
-    { label: 'Extension Velocity', q: 'Is market momentum accelerating or decelerating?', a: velStat ? `${velStat[1]} (${velStat[2]})` : '—', c: velStat ? toneOfStat(velStat[3]) : '#94a3b8' },
+    { label: 'Percentile Rank', q: 'Define the current period in context to historical precedents?', a: pctStat ? `${pctStat[1]} percentile of all historical days — ${pctAction}` : '—', c: pctStat ? toneOfStat(pctStat[3]) : '#94a3b8' },
+    { label: 'Regime Duration', q: 'How persistent is the present market cycle?', a: durStat ? `${durStat[1]} ${durStat[2]} — ${durAction}` : '—', c: durStat ? toneOfStat(durStat[3]) : '#94a3b8' },
+    { label: 'Extension Velocity', q: 'Is market momentum accelerating or decelerating?', a: velStat ? `${velStat[1]} (${velStat[2]}) — ${velAction}` : '—', c: velStat ? toneOfStat(velStat[3]) : '#94a3b8' },
   ];
 }
 
