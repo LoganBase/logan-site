@@ -1038,7 +1038,13 @@ function buildRegimeMetrics(card) {
 
   const row1Triggers = [
     [{ label: 'Bullish', text: 'SPY > 200d SMA', color: '#22c55e' }, { label: 'Bearish', text: 'SPY < 200d SMA', color: '#ef4444' }],
-    null,
+    [
+      { label: 'Bearish', text: 'Overextended  > +14%',          color: '#ef4444' },
+      { label: 'Neutral', text: 'Extended  +10% to +14%',        color: '#f59e0b' },
+      { label: 'Bullish', text: 'Normal Bull  0% to +10%',       color: '#22c55e' },
+      { label: 'Neutral', text: 'Bearish Retest  -10% to 0%',   color: '#f59e0b' },
+      { label: 'Bearish', text: 'Deeply Oversold  < -10%',       color: '#ef4444' },
+    ],
     null,
   ];
 
