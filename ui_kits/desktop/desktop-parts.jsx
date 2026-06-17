@@ -767,9 +767,16 @@ function SectorBreadthChart({ liveSectorCount = null }) {
   );
 }
 
-// ── Leadership price history chart — SPY vs RSP rebased to 0%, selectable 20/50/200d window ──
+// ── Leadership price history chart — pair selector (Market/Tech/Style) + 20/50/200d range ──
+const LP_PAIRS = {
+  market: { label: 'Market Breadth', primary: 'SPY',  pColor: '#22d3ee', overlay: 'RSP',  oColor: '#a855f7', note: 'RSP vs SPY' },
+  tech:   { label: 'Tech Breadth',   primary: 'QQQ',  pColor: '#22c55e', overlay: 'QQEW', oColor: '#818cf8', note: 'QQEW vs QQQ' },
+  style:  { label: 'Style Bias',     primary: 'IVE',  pColor: '#f59e0b', overlay: 'IVW',  oColor: '#ef4444', note: 'IVW vs IVE' },
+};
+
 function LeadershipPriceChart() {
   const [range, setRange] = useStateD('20D');
+  const [pair,  setPair]  = useStateD('market');
   const [rawData, setRawData] = useStateD(null);
 
   useEffectD(() => {
@@ -778,7 +785,7 @@ function LeadershipPriceChart() {
       .then(r => r.json())
       .then(j => {
         if (!alive || !j.prices || !Array.isArray(j.dates) || !j.dates.length) return;
-        setRawData({ dates: j.dates, spy: j.prices.SPY || [], rsp: j.prices.RSP || [] });
+        setRawData({ dates: j.dates, prices: j.prices });
       })
       .catch(() => {});
     return () => { alive = false; };
@@ -788,35 +795,49 @@ function LeadershipPriceChart() {
 
   const live = (() => {
     if (!rawData) return null;
-    const n = Math.min(DAYS[range] || 20, rawData.dates.length);
-    const rebase = (arr) => {
-      const sliced = arr.slice(-n);
-      const first = sliced.find(v => v != null && v > 0);
+    const cfg = LP_PAIRS[pair];
+    const n   = Math.min(DAYS[range] || 20, rawData.dates.length);
+    const rebase = (sym) => {
+      const sliced = (rawData.prices[sym] || []).slice(-n);
+      const first  = sliced.find(v => v != null && v > 0);
       if (!first) return sliced;
       return sliced.map(v => v == null ? null : ((v - first) / first) * 100);
     };
     return {
-      values:     rebase(rawData.spy),
+      values:     rebase(cfg.primary),
       dates:      rawData.dates.slice(-n),
-      label:      'SPY',
+      label:      cfg.primary,
       format:     'pct',
-      lineColor:  '#22d3ee',
-      overlays:   [{ label: 'RSP', values: rebase(rawData.rsp), color: '#a855f7', dash: null }],
+      lineColor:  cfg.pColor,
+      overlays:   [{ label: cfg.overlay, values: rebase(cfg.overlay), color: cfg.oColor, dash: null }],
       thresholds: [{ y: 0, color: '#475569' }],
     };
   })();
 
-  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: '% return from window open', metricVal: '' };
+  const cfg = LP_PAIRS[pair];
+  const fakeCard = { seed: 6, trend: 0, metric: cfg.label, metricUnit: '% return from window open', metricVal: '' };
+  const btnStyle = (active) => ({
+    all: 'unset', cursor: 'pointer', padding: '4px 11px', borderRadius: 7,
+    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600,
+    color: active ? '#e8edf5' : '#64748b',
+    background: active ? '#1b2736' : 'transparent',
+    border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  });
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>SPY / RSP</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>% return from window open</div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{cfg.label}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{cfg.note} · % return from window open</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {[['market','Market'],['tech','Tech'],['style','Style']].map(([key, lbl]) => (
+            <button key={key} style={btnStyle(pair === key)} onClick={() => setPair(key)}>{lbl}</button>
+          ))}
         </div>
       </div>
-      <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range={range} setRange={setRange} live={live} ranges={['20D', '50D', '200D']} />
+      <DeepChartLg card={fakeCard} cardId={`leadership-prices-${pair}`} color={cfg.pColor} height={230} range={range} setRange={setRange} live={live} ranges={['20D', '50D', '200D']} />
     </div>
   );
 }
