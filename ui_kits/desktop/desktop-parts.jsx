@@ -410,24 +410,46 @@ function SparkD({ seed, trend, color, w = 72, h = 26 }) {
 // ── Stat boxes row ──
 // 4-field tuple [label, value, desc, tone]: renders value / label / desc (original format)
 // 5-field tuple [label, value, indicator, tone, condition]: renders value / label / — indicator / — condition
+// 6-field tuple [..., triggers]: triggers = [{label, text, color}] shown on hover
 function StatBoxes({ stats }) {
   if (!stats || !stats.length) return null;
+  const [hoveredIdx, setHoveredIdx] = useStateD(null);
+  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${stats.length}, 1fr)`, gap: 10 }}>
       {stats.map((st, i) => {
         const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#f59e0b';
         const extended = st[4] != null;
+        const triggers = st[5] || null;
+        const showTriggers = triggers && hoveredIdx === i;
         return (
-          <div key={i} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '14px 14px' }}>
-            <div style={{ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: tone, whiteSpace: 'pre-line', lineHeight: 1.3 }}>{st[1]}</div>
-            <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', marginTop: 5 }}>{st[0]}</div>
-            {extended ? (
-              <>
-                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: tone, marginTop: 4 }}>— {st[2] ? st[2].charAt(0).toUpperCase() + st[2].slice(1) : ''}</div>
-                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: tone, marginTop: 2 }}>— {st[4] ? st[4].charAt(0).toUpperCase() + st[4].slice(1) : ''}</div>
-              </>
+          <div key={i}
+            style={{ background: '#0d1520', border: `1px solid ${showTriggers ? '#2a3f57' : '#1e2d3d'}`, borderRadius: 12, padding: '14px 14px', position: 'relative', transition: 'border-color .15s' }}
+            onMouseEnter={() => triggers && setHoveredIdx(i)}
+            onMouseLeave={() => setHoveredIdx(null)}>
+            {showTriggers ? (
+              <div>
+                <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Triggers</div>
+                {triggers.map((t, j) => (
+                  <div key={j} style={{ marginBottom: j < triggers.length - 1 ? 8 : 0 }}>
+                    <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, color: t.color }}>{t.label}: </span>
+                    <span style={{ fontFamily: DMONO, fontSize: 11, color: t.color }}>{t.text}</span>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>{st[2]}</div>
+              <>
+                <div style={{ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: tone, whiteSpace: 'pre-line', lineHeight: 1.3 }}>{st[1]}</div>
+                <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', marginTop: 5 }}>{st[0]}</div>
+                {extended ? (
+                  <>
+                    <div style={{ fontFamily: DSANS, fontSize: 10.5, color: tone, marginTop: 4 }}>— {cap(st[2])}</div>
+                    <div style={{ fontFamily: DSANS, fontSize: 10.5, color: tone, marginTop: 2 }}>— {cap(st[4])}</div>
+                  </>
+                ) : (
+                  <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>{st[2]}</div>
+                )}
+              </>
             )}
           </div>
         );
@@ -1014,10 +1036,16 @@ function buildRegimeMetrics(card) {
   const durAction = durNum == null ? '—' : durNum > 250 ? 'Trail Stops' : durNum > 60 ? 'Hold Core' : durNum < 10 ? 'Await Confirmation' : 'Monitor';
   const velAction = velNum == null ? '—' : velNum > 0.05 ? 'Monitor Stretch' : velNum < -0.05 ? 'Pressure Easing' : 'No Signal Change';
 
-  const row1 = rows.slice(0, 3).map((r) => {
+  const row1Triggers = [
+    [{ label: 'Bullish', text: 'SPY > 200d SMA', color: '#22c55e' }, { label: 'Bearish', text: 'SPY < 200d SMA', color: '#ef4444' }],
+    null,
+    null,
+  ];
+
+  const row1 = rows.slice(0, 3).map((r, idx) => {
     const [label, value, condition, status, indicator] = r;
     const tone = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
-    return [label, value, indicator || '', tone, condition || '—'];
+    return [label, value, indicator || '', tone, condition || '—', row1Triggers[idx]];
   });
 
   const row2 = [
