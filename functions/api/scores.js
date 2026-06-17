@@ -230,7 +230,7 @@ function buildRegime(q, ctx) {
   const r1 = {
     label: 'SPY Regime',
     indicator: 'SPY vs 200d SMA',
-    value: spy.sma200 != null ? `SPY&nbsp;$${spy.price.toFixed(2)}<br>200d&nbsp;$${spy.sma200.toFixed(2)}` : usd(spy.price),
+    value: spy.sma200 != null ? `$${spy.price.toFixed(2)}&nbsp;vs&nbsp;$${spy.sma200.toFixed(2)}` : usd(spy.price),
     condition: isBull ? 'Secular Bull — Stay Long' : 'Secular Bear — Reduce Exposure',
     status: isBull ? 'bullish' : 'bearish',
   };
