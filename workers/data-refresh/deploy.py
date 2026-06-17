@@ -110,9 +110,9 @@ def set_cron():
 
 def main():
     check_env()
-    print('─' * 55)
+    print('-' * 55)
     print('  Deploy: market-hub-data-refresh')
-    print('─' * 55 + '\n')
+    print('-' * 55 + '\n')
     upload_worker()
     print('Setting secrets...')
     set_secret('HUB_TOKEN', HUB_TOKEN)
@@ -122,7 +122,7 @@ def main():
     print(f'\n  Cron fires : {CRON_SCHEDULE} (Mon–Fri 22:00 UTC = 6 PM ET)')
     print(f'  Manual run : curl https://{WORKER_NAME}.shane-logan.workers.dev/run')
     print(f'               -H "Authorization: Bearer <CRON_SECRET>"')
-    print('─' * 55)
+    print('-' * 55)
 
 
 if __name__ == '__main__':

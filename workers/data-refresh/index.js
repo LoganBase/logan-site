@@ -14,23 +14,22 @@
  *   Header: Authorization: Bearer <CRON_SECRET>
  */
 
-// Call /api/refresh?start=N and return parsed JSON, or an error object.
-async function callRefresh(siteUrl, hubToken, start) {
-  const url = `${siteUrl}/api/refresh?start=${start}`;
+// Call an authenticated hub endpoint and return parsed JSON, or an error object.
+async function callHub(url, hubToken) {
   let res;
   try {
     res = await fetch(url, { headers: { 'X-Hub-Token': hubToken } });
   } catch (err) {
-    return { error: `network error: ${err.message}`, start };
+    return { error: `network error: ${err.message}`, url };
   }
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    return { error: `HTTP ${res.status}`, body: body.slice(0, 200), start };
+    return { error: `HTTP ${res.status}`, body: body.slice(0, 200), url };
   }
   try {
     return await res.json();
   } catch {
-    return { error: 'invalid JSON', start };
+    return { error: 'invalid JSON', url };
   }
 }
 
@@ -46,15 +45,28 @@ async function runRefresh(env) {
   // Split 70 symbols into two batches of 35 to stay under Cloudflare's
   // 50 subrequest-per-invocation limit (each symbol calls Yahoo Finance).
   console.log(`[data-refresh] batch 1 (symbols 0-34)`);
-  const b1 = await callRefresh(siteUrl, hubToken, 0);
+  const b1 = await callHub(`${siteUrl}/api/refresh?start=0`, hubToken);
 
   console.log(`[data-refresh] batch 2 (symbols 35-69)`);
-  const b2 = await callRefresh(siteUrl, hubToken, 35);
+  const b2 = await callHub(`${siteUrl}/api/refresh?start=35`, hubToken);
 
   const totalAdded = (b1.totalAdded ?? 0) + (b2.totalAdded ?? 0);
   const symbols    = [...(b1.symbols ?? []), ...(b2.symbols ?? [])];
-  console.log(`[data-refresh] done — ${totalAdded} rows added across ${symbols.length} symbols`);
-  return { timestamp: b1.timestamp ?? new Date().toISOString(), totalAdded, symbols, batch1: b1.error, batch2: b2.error };
+  console.log(`[data-refresh] refresh done — ${totalAdded} rows added across ${symbols.length} symbols`);
+
+  // Run signals after refresh — records card statuses and scores outcomes.
+  console.log(`[data-refresh] running signals`);
+  const sig = await callHub(`${siteUrl}/api/signals`, hubToken);
+  console.log(`[data-refresh] signals done — wrote: ${sig.signalsWritten ?? '?'}, scored: ${sig.outcomesScored ?? '?'}`);
+
+  return {
+    timestamp:      b1.timestamp ?? new Date().toISOString(),
+    totalAdded,
+    symbols,
+    batch1Error:    b1.error,
+    batch2Error:    b2.error,
+    signals:        sig,
+  };
 }
 
 export default {
@@ -68,7 +80,7 @@ export default {
     const url = new URL(request.url);
     if (url.pathname !== '/run') {
       return new Response(
-        'Market Hub Data Refresh Worker\n\nGET /run  with  Authorization: Bearer <CRON_SECRET>',
+        'Market Hub Data Refresh Worker\n\nGET /run  with  Authorization: Bearer <CRON_SECRET>\n\nRuns /api/refresh (2 batches) then /api/signals.',
         { status: 200, headers: { 'Content-Type': 'text/plain' } }
       );
     }
@@ -87,7 +99,7 @@ export default {
     }
 
     return new Response(JSON.stringify(result, null, 2), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   },
 };
