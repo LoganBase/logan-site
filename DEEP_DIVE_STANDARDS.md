@@ -89,15 +89,33 @@ This is the established pattern for both the 20Y range button and the live-data 
 
 ---
 
-## Summary Q&A box pattern (`buildRegimeQA`, desktop-parts.jsx)
+## Market Diagnostics box (`buildRegimeDiagnostics`, desktop-parts.jsx)
 
-Currently Regime-only. Generates 3 fixed framing questions, answered dynamically from `card.rows` / `card.stats`:
+Currently Regime-only. Renders immediately above the Market Narrative paragraph in the Summary section. Generates 3 diagnostic items, each answered dynamically from `card.rows` / `card.stats`.
 
-1. "Classification of the current market?" ← Row 1's condition text, toned by Row 1's status.
-2. "Define the current period in context to historical precedents?" ← built from the `Percentile Rank` + `Regime Duration` stats.
-3. "Assess the strength and maturity of the prevailing trend?" ← built from Row 2 + Row 3 condition text plus the `Extension Velocity` stat.
+**3-tier layout per item** (rendered in this order, top to bottom):
 
-If a new card needs a similar Q&A framing box, write an analogous `buildXQA(card)` function and gate its rendering the same way Regime's is gated in `DeepDiveContent` (`cardId === 'x' && (...)`). Don't generalize this into one shared function until at least 2–3 cards actually need it.
+```
+LABEL           ← 10px, 700 weight, letterspaced uppercase, color #334155 (muted slate)
+Answer text     ← 13px, 600 weight, colored by status (DSIG[status].c), lineHeight 1.4
+Question text   ← 11px, color #3d5166, lineHeight 1.4
+```
+
+Items are separated by a `1px solid #0d1e2e` divider (bottom border on all but the last). No divider after the last item.
+
+The three diagnostics and their sources:
+
+| # | Label | Answer source | Question |
+|---|---|---|---|
+| 1 | Market Classification | Row 0 condition text (e.g. "Secular Bull"), toned by Row 0 status | "How is the current market classified?" |
+| 2 | Historical Context | Percentile Rank + Regime Duration stats combined into one sentence | "Where does the current period fit historically?" |
+| 3 | Trend Strength | Row 1 + Row 2 condition text + Extension Velocity stat | "How strong and mature is the prevailing trend?" |
+
+`buildRegimeDiagnostics(card)` returns `[{ label, q, a, c }]` where `c` is the color string (not a status token). `DeepDiveContent` maps over this array directly.
+
+The section label **"Market Diagnostics"** renders above the items as a standard section header. The section label **"Market Narrative"** renders between the diagnostics and `card.note`.
+
+If a new card needs a similar diagnostics box, write an analogous `buildXDiagnostics(card)` and gate it with `cardId === 'x'`. Do not generalize into a shared function until at least 2–3 cards need it.
 
 ---
 

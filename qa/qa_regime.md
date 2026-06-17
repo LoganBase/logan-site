@@ -167,12 +167,52 @@ CHECK X1: Does SPY_PRICE (from Market Hub API) match YAHOO_PRICE?
 
 ---
 
-## STEP 11 — Delta Field
+## STEP 11 — Delta Fields
 
-CHECK D1: Is the `delta` field present on the card?
+Two separate delta fields exist on the regime card — check both.
+
+CHECK D1: Is the top-level `delta` field present on the card?
   Expected values: "up" | "down" | "same"
   PASS = field exists and contains one of these three values
   NOTE = if "same", that is normal (delta compares today vs previous trading day)
+
+CHECK D2: Is the `deltas` object present on the card?
+  The `deltas` object drives the directional arrows on the Regime Metrics stat boxes.
+  Expected shape: { v200, crossSpread, duration, velocity }
+  Each sub-field: "up" | "down" | "flat" | null
+  PASS = object present with at least one non-null sub-field
+  FAIL = object absent or all sub-fields null (5-day delta computation failed)
+
+CHECK D3: Are the `deltas` sub-field values plausible given current trend?
+  v200 = 5-day direction of (SPY price vs 200d SMA) percentage
+  crossSpread = 5-day direction of (50d vs 200d) spread percentage
+  duration = direction of regime duration (always "up" within same regime; "down" on flip)
+  velocity = 5-day direction of ROC-10
+  PASS = each non-null sub-field is directionally consistent with current market state
+  NOTE = null is acceptable if fewer than 6 rows exist in D1 for SPY
+
+---
+
+## STEP 12 — Visual Indicators on Regime Metrics Boxes
+
+Open the live dashboard at https://www.loganbase.com/market-hub and expand Card 01.
+Scroll to the "Regime Metrics" section (6 stat boxes).
+
+CHECK V1: Do directional arrows render on the stat boxes?
+  Each box should show a small arrow badge (▲ green / ▼ red / — grey) in the top-right corner.
+  PASS = at least 4 of 6 boxes show an arrow (some may be null if delta unavailable)
+  FAIL = no boxes show arrows
+
+CHECK V2: When a value is approaching a threshold, does the warning badge appear?
+  The ⚠ badge (amber) appears in the top-right corner alongside the arrow when:
+    - SPY vs 200d is within ±2% of 0 and trending toward 0
+    - Stretch Risk is within 1.5% of any of: 14%, 10%, 0%, -10%
+    - Trend Cross spread is within 1% of 0 and trending toward 0
+    - Percentile Rank is within 5 points of 80 or 20
+    - Regime Duration is within 10 days of 30, 150, or 400
+    - Extension Velocity is within 0.5 of any key level
+  PASS = badge appears on any box meeting the above conditions (or PASS/N-A if none currently qualify)
+  NOTE = amber border also appears on the box when ⚠ is active; confirm border color changes
 
 ---
 
@@ -201,10 +241,14 @@ Produce your findings in this format:
 | O1  | Override rule (bear) | PASS/FAIL/N-A | N/A if SPY in bull |
 | O2  | Majority-wins logic | PASS/FAIL | |
 | X1  | Price vs Yahoo | PASS/FAIL | Hub: $X, Yahoo: $Y |
-| D1  | Delta field present | PASS/FAIL | Value: up/down/same |
+| D1  | Card delta field present | PASS/FAIL | Value: up/down/same |
+| D2  | Deltas object present | PASS/FAIL | |
+| D3  | Deltas sub-fields plausible | PASS/NOTE | Values: v200=X, crossSpread=X, duration=X, velocity=X |
+| V1  | Directional arrows on stat boxes | PASS/FAIL | |
+| V2  | Warning badge on approaching thresholds | PASS/N-A | Note which box(es) if active |
 
 ### Summary
-- Total checks: 18
+- Total checks: 22
 - Passed: X
 - Failed: X
 - Notes: [anything unexpected not covered by a specific check]

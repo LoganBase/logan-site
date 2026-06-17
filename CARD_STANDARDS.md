@@ -43,6 +43,9 @@ Each card builder in `scores.js` returns:
   stats,              // optional [[label, value, desc, tone], ...]  tone: 'pos' | 'neg' | null
   hideIndicator: true,
   note,               // dynamic narrative string for the Summary box
+  deltas,             // Regime-only: { v200, crossSpread, duration, velocity } — 5-day directional deltas
+                      //   each value: 'up' | 'down' | 'flat' | null
+                      //   drives the ▲/▼/— arrows and ⚠ warnings on Regime Metrics stat boxes
   sectorTable, details, flags, allRows,  // card-specific extras (Breadth, Global Flows, Sectors)
 }
 ```
@@ -54,6 +57,35 @@ Each card builder in `scores.js` returns:
 ```
 
 `IndicatorTable`, `ScoreTile`, and `OptionGlancePage` all read this tuple form directly (`r[0]`, `r[1]`, …) — never the original `{label, value, condition, status, indicator}` object shape from `scores.js`.
+
+---
+
+## StatBoxes (Regime Metrics) — extended 8-field tuple
+
+The `stats` array for the Regime card uses an **8-field tuple** rather than the standard 4-field form. `buildRegimeMetrics(card)` in `desktop-parts.jsx` constructs these — they are not built in `scores.js` or `mapCard`.
+
+```
+[label, value, indicator, tone, condition, triggers, direction, warn]
+//  0       1       2       3       4         5          6        7
+```
+
+- `[6]` **direction** — `'up' | 'down' | 'flat' | null`; source: `card.deltas.*`; drives the ▲/▼/— arrow badge
+- `[7]` **warn** — `boolean`; drives the ⚠ amber badge + amber border (`#78350f`) on the box
+
+`StatBoxes` reads `st[6]` and `st[7]` and renders both badges in the top-right corner of the box (hidden when trigger overlay is open). The border is `#78350f` when `warn` is true, normal `#1e2d3d` otherwise.
+
+**Warning thresholds** (defined in `buildRegimeMetrics`, `desktop-parts.jsx`):
+
+| Box | Trigger margin |
+|---|---|
+| SPY Regime | within ±2% of 0, trending toward 0 |
+| Stretch Risk | within 1.5% of 14%, 10%, 0%, or -10% |
+| Trend Cross | within 1% of 0, trending toward 0 |
+| Percentile Rank | within 5 points of 80 or 20 |
+| Regime Duration | within 10 days of 30, 150, or 400 |
+| Extension Velocity | within 0.5 of any key ROC level |
+
+Do **not** apply the 8-field form to other cards' `stats` arrays — it is Regime-specific. Other cards keep the standard `[label, value, desc, tone]` 4-field form.
 
 ---
 
