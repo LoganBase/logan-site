@@ -767,47 +767,56 @@ function SectorBreadthChart({ liveSectorCount = null }) {
   );
 }
 
-// ── Leadership price history chart — SPY vs RSP rebased to 0%, locked to 20 days ──
+// ── Leadership price history chart — SPY vs RSP rebased to 0%, selectable 20/50/200d window ──
 function LeadershipPriceChart() {
-  const [live, setLive] = useStateD(null);
+  const [range, setRange] = useStateD('20D');
+  const [rawData, setRawData] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
-    setLive(null);
-    fetch('/api/leadership?range=1mo')
+    fetch('/api/leadership?range=1y')
       .then(r => r.json())
       .then(j => {
         if (!alive || !j.prices || !Array.isArray(j.dates) || !j.dates.length) return;
-        const rebase = (arr) => {
-          const first = (arr || []).find(v => v != null && v > 0);
-          if (!first) return arr || [];
-          return (arr || []).map(v => v == null ? null : ((v - first) / first) * 100);
-        };
-        setLive({
-          values:     rebase(j.prices.SPY || []),
-          dates:      j.dates,
-          label:      'SPY',
-          format:     'pct',
-          lineColor:  '#22d3ee',
-          overlays:   [{ label: 'RSP', values: rebase(j.prices.RSP || []), color: '#a855f7', dash: null }],
-          thresholds: [{ y: 0, color: '#475569' }],
-        });
+        setRawData({ dates: j.dates, spy: j.prices.SPY || [], rsp: j.prices.RSP || [] });
       })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
 
-  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: '% return — 20-day window', metricVal: '' };
+  const DAYS = { '20D': 20, '50D': 50, '200D': 200 };
+
+  const live = (() => {
+    if (!rawData) return null;
+    const n = Math.min(DAYS[range] || 20, rawData.dates.length);
+    const rebase = (arr) => {
+      const sliced = arr.slice(-n);
+      const first = sliced.find(v => v != null && v > 0);
+      if (!first) return sliced;
+      return sliced.map(v => v == null ? null : ((v - first) / first) * 100);
+    };
+    return {
+      values:     rebase(rawData.spy),
+      dates:      rawData.dates.slice(-n),
+      label:      'SPY',
+      format:     'pct',
+      lineColor:  '#22d3ee',
+      overlays:   [{ label: 'RSP', values: rebase(rawData.rsp), color: '#a855f7', dash: null }],
+      thresholds: [{ y: 0, color: '#475569' }],
+    };
+  })();
+
+  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: '% return from window open', metricVal: '' };
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>SPY / RSP</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>% return — 20-day window</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>% return from window open</div>
         </div>
       </div>
-      <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range="1M" setRange={() => {}} live={live} ranges={[]} />
+      <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range={range} setRange={setRange} live={live} ranges={['20D', '50D', '200D']} />
     </div>
   );
 }
