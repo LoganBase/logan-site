@@ -1129,6 +1129,32 @@ function buildRegimeMetrics(card) {
   return { row1, row2 };
 }
 
+function buildLeadershipMetrics(card, computedStats) {
+  const rows = card.rows || [];
+
+  const parseSpread = (val) => {
+    const nums = (val || '').match(/[+-]?\d+\.?\d*/g);
+    if (!nums || nums.length < 2) return null;
+    const a = parseFloat(nums[0]);
+    const b = parseFloat(nums[1]);
+    return isNaN(a) || isNaN(b) ? null : a - b;
+  };
+  const fmtSpread = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+
+  const row1 = rows.slice(0, 3).map((r) => {
+    const [label, rawVal, condition, status, indicator] = r;
+    const spread   = parseSpread(rawVal);
+    const value    = fmtSpread(spread);
+    const tone     = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
+    const indShort = (indicator || '').replace(/\s*—\s*20d Return/, ' 20d');
+    return [label, value, indShort, tone, condition || '—', null];
+  });
+
+  const row2 = (computedStats || card.stats || []).slice(0, 3);
+
+  return { row1, row2 };
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -1281,8 +1307,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 30, height: 20, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
         </div>
       )}
-      {/* indicators — hidden for regime (superseded by Regime Metrics boxes) */}
-      {cardId !== 'regime' && (
+      {/* indicators — hidden for regime and leadership (superseded by metrics boxes) */}
+      {cardId !== 'regime' && cardId !== 'leadership' && (
         <div>
           {sectionLabel('Indicators')}
           <IndicatorTable rows={card.rows} />
@@ -1302,8 +1328,11 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           {cardId === 'regime' ? (() => {
             const { row1, row2 } = buildRegimeMetrics(card);
             return (<><div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div><StatBoxes stats={row2} /></>);
+          })() : cardId === 'leadership' ? (() => {
+            const { row1, row2 } = buildLeadershipMetrics(card, leadershipStats);
+            return (<><div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div><StatBoxes stats={row2} /></>);
           })() : (
-            <StatBoxes stats={cardId === 'leadership' ? leadershipStats : card.stats} />
+            <StatBoxes stats={card.stats} />
           )}
         </div>
       )}
