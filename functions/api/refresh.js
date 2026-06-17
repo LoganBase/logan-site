@@ -185,6 +185,7 @@ export async function onRequest(context) {
     });
   }
 
+  const url = new URL(context.request.url);
   const db = context.env.DB;
   if (!db) {
     return new Response(JSON.stringify({
@@ -195,16 +196,23 @@ export async function onRequest(context) {
     });
   }
 
+  // ?start=N lets callers split the 70-symbol list into batches to stay
+  // under Cloudflare's 50 subrequest-per-invocation limit (each symbol
+  // makes at least one Yahoo Finance fetch).
+  const startIdx = Math.max(0, parseInt(url.searchParams.get('start') || '0', 10));
+  const batch    = ALL_SYMBOLS.slice(startIdx);
+
   const results   = [];
   let totalAdded  = 0;
 
-  for (const symbol of ALL_SYMBOLS) {
+  for (const symbol of batch) {
     try {
       const r  = await refreshSymbol(db, symbol);
       results.push(r);
       totalAdded += r.added;
     } catch (err) {
       results.push({ symbol, added: 0, status: 'error', error: err.message });
+      break; // stop on subrequest-limit errors so status is accurate
     }
   }
 

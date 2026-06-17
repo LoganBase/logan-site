@@ -14,6 +14,26 @@
  *   Header: Authorization: Bearer <CRON_SECRET>
  */
 
+// Call /api/refresh?start=N and return parsed JSON, or an error object.
+async function callRefresh(siteUrl, hubToken, start) {
+  const url = `${siteUrl}/api/refresh?start=${start}`;
+  let res;
+  try {
+    res = await fetch(url, { headers: { 'X-Hub-Token': hubToken } });
+  } catch (err) {
+    return { error: `network error: ${err.message}`, start };
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    return { error: `HTTP ${res.status}`, body: body.slice(0, 200), start };
+  }
+  try {
+    return await res.json();
+  } catch {
+    return { error: 'invalid JSON', start };
+  }
+}
+
 async function runRefresh(env) {
   const hubToken = env.HUB_TOKEN;
   const siteUrl  = (env.SITE_URL || 'https://www.loganbase.com').replace(/\/$/, '');
@@ -23,32 +43,18 @@ async function runRefresh(env) {
     return { error: 'HUB_TOKEN not configured' };
   }
 
-  console.log(`[data-refresh] calling ${siteUrl}/api/refresh`);
-  let res;
-  try {
-    res = await fetch(`${siteUrl}/api/refresh`, {
-      headers: { 'X-Hub-Token': hubToken },
-    });
-  } catch (err) {
-    console.error('[data-refresh] network error:', err.message);
-    return { error: `network error: ${err.message}` };
-  }
+  // Split 70 symbols into two batches of 35 to stay under Cloudflare's
+  // 50 subrequest-per-invocation limit (each symbol calls Yahoo Finance).
+  console.log(`[data-refresh] batch 1 (symbols 0-34)`);
+  const b1 = await callRefresh(siteUrl, hubToken, 0);
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    console.error(`[data-refresh] HTTP ${res.status}:`, body.slice(0, 200));
-    return { error: `HTTP ${res.status}`, body: body.slice(0, 200) };
-  }
+  console.log(`[data-refresh] batch 2 (symbols 35-69)`);
+  const b2 = await callRefresh(siteUrl, hubToken, 35);
 
-  let data;
-  try {
-    data = await res.json();
-  } catch (err) {
-    return { error: 'invalid JSON response from /api/refresh' };
-  }
-
-  console.log(`[data-refresh] done — ${data.totalAdded ?? '?'} rows added across ${data.symbols?.length ?? '?'} symbols`);
-  return data;
+  const totalAdded = (b1.totalAdded ?? 0) + (b2.totalAdded ?? 0);
+  const symbols    = [...(b1.symbols ?? []), ...(b2.symbols ?? [])];
+  console.log(`[data-refresh] done — ${totalAdded} rows added across ${symbols.length} symbols`);
+  return { timestamp: b1.timestamp ?? new Date().toISOString(), totalAdded, symbols, batch1: b1.error, batch2: b2.error };
 }
 
 export default {
