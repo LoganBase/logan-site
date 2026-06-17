@@ -41,7 +41,7 @@ function monthLabels(endLabel, n) {
 }
 
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
-function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live, ranges: rangesProp }) {
+function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live, ranges: rangesProp, logScale = false }) {
   const color = live?.lineColor || colorProp;
   const ranges = rangesProp || ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [hidden, setHidden] = useStateD({});
@@ -60,7 +60,10 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
       ...(live.thresholds || []).map((t) => t.y),
     ].filter((v) => v != null && !isNaN(v));
     const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
-    const norm = (v) => (v != null && !isNaN(v)) ? 0.07 + ((v - lo) / span) * 0.86 : null;
+    const logLo = Math.log(Math.max(lo, 1e-9)), logSpan = Math.log(Math.max(hi, 1e-9)) - logLo || 1;
+    const norm = logScale && lo > 0
+      ? (v) => (v != null && !isNaN(v) && v > 0) ? 0.07 + ((Math.log(v) - logLo) / logSpan) * 0.86 : null
+      : (v) => (v != null && !isNaN(v)) ? 0.07 + ((v - lo) / span) * 0.86 : null;
     primaryArr = live.values.map(norm);
     overlayArrs = (live.overlays || []).map((o) => ({ ...o, arr: (o.values || []).map(norm) }));
     if (live.format === 'pct' && lo <= 0 && hi >= 0) zeroY = norm(0);
@@ -764,16 +767,14 @@ function SectorBreadthChart({ liveSectorCount = null }) {
   );
 }
 
-// ── Leadership price history chart — raw price levels for all 6 underlying symbols (leadership card only) ──
+// ── Leadership price history chart — SPY vs RSP, locked to 20 days, log scale ──
 function LeadershipPriceChart() {
-  const RMAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
-  const [range, setRange] = useStateD('1Y');
   const [live, setLive] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
     setLive(null);
-    fetch(`/api/leadership?range=${RMAP[range]}`)
+    fetch('/api/leadership?range=1mo')
       .then(r => r.json())
       .then(j => {
         if (!alive || !j.prices || !Array.isArray(j.dates) || !j.dates.length) return;
@@ -790,19 +791,19 @@ function LeadershipPriceChart() {
       })
       .catch(() => {});
     return () => { alive = false; };
-  }, [range]);
+  }, []);
 
-  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: 'Price history', metricVal: '' };
+  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: '20-day price history · log scale', metricVal: '' };
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>SPY / RSP</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>Price history</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>20-day price history · log scale</div>
         </div>
       </div>
-      <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range={range} setRange={setRange} live={live} />
+      <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range="1M" setRange={() => {}} live={live} ranges={[]} logScale={true} />
     </div>
   );
 }
