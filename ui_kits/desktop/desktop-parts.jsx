@@ -784,11 +784,7 @@ function LeadershipPriceChart() {
           format:    'price',
           lineColor: '#22d3ee',
           overlays: [
-            { label: 'RSP',  values: j.prices.RSP  || [], color: '#a855f7', dash: null },
-            { label: 'QQQ',  values: j.prices.QQQ  || [], color: '#22c55e', dash: null },
-            { label: 'QQEW', values: j.prices.QQEW || [], color: '#60a5fa', dash: null },
-            { label: 'IVW',  values: j.prices.IVW  || [], color: '#f59e0b', dash: null },
-            { label: 'IVE',  values: j.prices.IVE  || [], color: '#ef4444', dash: null },
+            { label: 'RSP', values: j.prices.RSP || [], color: '#a855f7', dash: null },
           ],
         });
       })
@@ -796,13 +792,13 @@ function LeadershipPriceChart() {
     return () => { alive = false; };
   }, [range]);
 
-  const fakeCard = { seed: 6, trend: 0, metric: 'RSP / SPY / QQEW / QQQ / IVW / IVE', metricUnit: 'Price history', metricVal: '' };
+  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: 'Price history', metricVal: '' };
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
-          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>RSP / SPY / QQEW / QQQ / IVW / IVE</div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>SPY / RSP</div>
           <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>Price history</div>
         </div>
       </div>
