@@ -1315,20 +1315,26 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {card.note && (
         <div>
           {sectionLabel(cardId === 'regime' ? 'Market Diagnostics' : 'Summary')}
-          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '18px 20px' }}>
             {cardId === 'regime' && (
               <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  {buildRegimeDiagnostics(card).map(({ label, q, a, c }) => (
-                    <div key={label}>
-                      <div style={{ fontFamily: DSANS, fontSize: 13.5, color: '#64748b', fontWeight: 600, marginBottom: 4, lineHeight: 1.5 }}>{label}: {q}</div>
-                      <div style={{ fontFamily: DSANS, fontSize: 13.5, color: c, fontWeight: 500, lineHeight: 1.5 }}>{a}</div>
-                    </div>
-                  ))}
-                </div>
+                {buildRegimeDiagnostics(card).map(({ label, q, a, c }, idx, arr) => (
+                  <div key={label} style={{
+                    paddingTop: idx === 0 ? 0 : 11,
+                    paddingBottom: idx < arr.length - 1 ? 11 : 0,
+                    borderBottom: idx < arr.length - 1 ? '1px solid #0d1e2e' : 'none',
+                  }}>
+                    <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 3 }}>{label}</div>
+                    <div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div>
+                    <div style={{ fontFamily: DSANS, fontSize: 11, color: '#3d5166', lineHeight: 1.4 }}>{q}</div>
+                  </div>
+                ))}
               </div>
             )}
-            <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
+            {cardId === 'regime' && (
+              <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 7 }}>Market Narrative</div>
+            )}
+            <p style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.7, margin: 0 }}>{card.note}</p>
           </div>
         </div>
       )}
