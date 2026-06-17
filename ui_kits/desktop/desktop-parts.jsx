@@ -1057,10 +1057,20 @@ function buildRegimeMetrics(card) {
     return [label, value, indicator || '', tone, condition || '—', row1Triggers[idx]];
   });
 
+  const row2Triggers = [
+    [
+      { label: 'Extreme High', text: 'Historically extreme extension  > 80th Percentile',  color: '#f59e0b' },
+      { label: 'Normal',       text: 'Normal historical range  20th – 80th Percentile',     color: '#22c55e' },
+      { label: 'Extreme Low',  text: 'Historically extreme oversold  < 20th Percentile',    color: '#ef4444' },
+    ],
+    null,
+    null,
+  ];
+
   const row2 = [
-    pctStat ? [pctStat[0], pctStat[1], pctStat[2], pctStat[3], pctAction] : ['Percentile Rank', '—', '', null, '—'],
-    durStat ? [durStat[0], durStat[1], durStat[2], durStat[3], durAction] : ['Regime Duration',  '—', '', null, '—'],
-    velStat ? [velStat[0], velStat[1], velStat[2], velStat[3], velAction] : ['Extension Velocity','—', '', null, '—'],
+    pctStat ? [pctStat[0], pctStat[1], pctStat[2], pctStat[3], pctAction, row2Triggers[0]] : ['Percentile Rank',   '—', '', null, '—', null],
+    durStat ? [durStat[0], durStat[1], durStat[2], durStat[3], durAction, row2Triggers[1]] : ['Regime Duration',    '—', '', null, '—', null],
+    velStat ? [velStat[0], velStat[1], velStat[2], velStat[3], velAction, row2Triggers[2]] : ['Extension Velocity', '—', '', null, '—', null],
   ];
 
   return { row1, row2 };
