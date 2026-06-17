@@ -185,21 +185,22 @@ function ordinalSuffix(n) {
 // ── REGIME HISTORICAL CONTEXT (D1 queries) ────────────────────────────────────
 async function loadRegimeContext(db) {
   try {
-    // roc10 is pre-computed by the seeder as vs200[i] - vs200[i-10], matching history.js exactly
-    const currentRow = await db.prepare(
-      `SELECT vs200_pct, roc10 FROM indicators WHERE symbol='SPY' ORDER BY date DESC LIMIT 1`
-    ).first();
-    if (!currentRow || currentRow.vs200_pct == null) return null;
-    const v = currentRow.vs200_pct;
+    // Fetch last 6 trading days for current values + 5-day deltas
+    const { results: histRows } = await db.prepare(
+      `SELECT vs200_pct, roc10, sma50, sma200 FROM indicators WHERE symbol='SPY' ORDER BY date DESC LIMIT 6`
+    ).all();
+    if (!histRows.length || histRows[0].vs200_pct == null) return null;
+
+    const r0 = histRows[0];                              // today
+    const r5 = histRows[Math.min(5, histRows.length - 1)]; // 5 trading days ago (or earliest)
+    const v    = r0.vs200_pct;
     const bull = v >= 0;
 
     const [pctRow, durRow] = await Promise.all([
-      // Percentile rank of current vs200 among all history
       db.prepare(
         `SELECT ROUND(COUNT(*) * 100.0 / (SELECT COUNT(*) FROM indicators WHERE symbol='SPY')) AS pct
          FROM indicators WHERE symbol='SPY' AND vs200_pct <= ?`
       ).bind(v).first(),
-      // Consecutive trading days in current regime (above OR below 200d SMA)
       db.prepare(bull
         ? `SELECT COUNT(*) AS days FROM indicators WHERE symbol='SPY' AND vs200_pct >= 0
            AND date > COALESCE((SELECT MAX(date) FROM indicators WHERE symbol='SPY' AND vs200_pct < 0), '1900-01-01')`
@@ -208,11 +209,31 @@ async function loadRegimeContext(db) {
       ).first(),
     ]);
 
+    // 5-day deltas — direction helper: >threshold='up', <-threshold='down', else='flat'
+    const dir = (d, thr = 0.1) => d == null ? null : d > thr ? 'up' : d < -thr ? 'down' : 'flat';
+    const have5 = histRows.length >= 6;
+
+    const v200Delta    = have5 && r5.vs200_pct != null ? v - r5.vs200_pct : null;
+    const crossToday   = r0.sma50 && r0.sma200 ? (r0.sma50 - r0.sma200) / r0.sma200 * 100 : null;
+    const cross5d      = r5.sma50 && r5.sma200 ? (r5.sma50 - r5.sma200) / r5.sma200 * 100 : null;
+    const crossDelta   = crossToday != null && cross5d != null ? crossToday - cross5d : null;
+    const velDelta     = have5 && r0.roc10 != null && r5.roc10 != null ? r0.roc10 - r5.roc10 : null;
+    // Duration always increments while in same regime; flip = regime just changed
+    const durationDir  = have5 && r5.vs200_pct != null
+      ? ((v >= 0) === (r5.vs200_pct >= 0) ? 'up' : 'down')
+      : 'up';
+
     return {
       percentile: pctRow?.pct ?? null,
       duration:   durRow?.days ?? null,
-      velocity:   currentRow.roc10 ?? null,
+      velocity:   r0.roc10 ?? null,
       bull,
+      deltas: {
+        v200:        dir(v200Delta, 0.3),    // SPY Regime / Stretch Risk / Percentile Rank
+        crossSpread: dir(crossDelta, 0.05),  // Trend Cross
+        duration:    durationDir,            // Regime Duration
+        velocity:    dir(velDelta, 0.05),    // Extension Velocity
+      },
     };
   } catch (e) {
     return null;
@@ -320,7 +341,7 @@ function buildRegime(q, ctx) {
       ['Extension Velocity', velStr,                                                 '10d Rate of Change of stretch',           velTone],
     ];
   })() : null;
-  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, stats, hideIndicator: true, note: regimeNote };
+  return { id: 'regime', number: 1, title: 'Regime', subtitle: 'The Anchor', status, rows, stats, hideIndicator: true, note: regimeNote, deltas: ctx?.deltas ?? null };
 }
 
 function buildLeadership(q, ctx) {

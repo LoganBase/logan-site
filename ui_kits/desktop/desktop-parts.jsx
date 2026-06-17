@@ -421,12 +421,18 @@ function StatBoxes({ stats }) {
         const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#f59e0b';
         const extended = st[4] != null;
         const triggers = st[5] || null;
+        const direction = st[6] || null;
         const showTriggers = triggers && hoveredIdx === i;
         return (
           <div key={i}
             style={{ background: '#0d1520', border: `1px solid ${showTriggers ? '#2a3f57' : '#1e2d3d'}`, borderRadius: 12, padding: '14px 14px', position: 'relative', transition: 'border-color .15s' }}
             onMouseEnter={() => triggers && setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}>
+            {direction && !showTriggers && (
+              <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 10, color: direction === 'up' ? '#22c55e' : direction === 'down' ? '#ef4444' : '#64748b' }}>
+                {direction === 'up' ? '▲' : direction === 'down' ? '▼' : '—'}
+              </div>
+            )}
             {showTriggers ? (
               <div>
                 <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Triggers</div>
@@ -1051,10 +1057,13 @@ function buildRegimeMetrics(card) {
     ],
   ];
 
+  const d = card.deltas || {};
+  const row1Dirs = [d.v200 || null, d.v200 || null, d.crossSpread || null];
+
   const row1 = rows.slice(0, 3).map((r, idx) => {
     const [label, value, condition, status, indicator] = r;
     const tone = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
-    return [label, value, indicator || '', tone, condition || '—', row1Triggers[idx]];
+    return [label, value, indicator || '', tone, condition || '—', row1Triggers[idx], row1Dirs[idx]];
   });
 
   const row2Triggers = [
@@ -1083,9 +1092,9 @@ function buildRegimeMetrics(card) {
   ];
 
   const row2 = [
-    pctStat ? [pctStat[0], pctStat[1], pctStat[2], pctStat[3], pctAction, row2Triggers[0]] : ['Percentile Rank',   '—', '', null, '—', null],
-    durStat ? [durStat[0], durStat[1], durStat[2], durStat[3], durAction, row2Triggers[1]] : ['Regime Duration',    '—', '', null, '—', null],
-    velStat ? [velStat[0], velStat[1], velStat[2], velStat[3], velAction, row2Triggers[2]] : ['Extension Velocity', '—', '', null, '—', null],
+    pctStat ? [pctStat[0], pctStat[1], pctStat[2], pctStat[3], pctAction, row2Triggers[0], d.v200    || null] : ['Percentile Rank',   '—', '', null, '—', null, null],
+    durStat ? [durStat[0], durStat[1], durStat[2], durStat[3], durAction, row2Triggers[1], d.duration || null] : ['Regime Duration',    '—', '', null, '—', null, null],
+    velStat ? [velStat[0], velStat[1], velStat[2], velStat[3], velAction, row2Triggers[2], d.velocity || null] : ['Extension Velocity', '—', '', null, '—', null, null],
   ];
 
   return { row1, row2 };
