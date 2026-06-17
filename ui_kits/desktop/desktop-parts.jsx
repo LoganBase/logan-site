@@ -423,8 +423,8 @@ function StatBoxes({ stats }) {
             <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', marginTop: 5 }}>{st[0]}</div>
             {extended ? (
               <>
-                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 4 }}>— {st[2]}</div>
-                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>— {st[4]}</div>
+                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: tone, marginTop: 4 }}>— {st[2]}</div>
+                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: tone, marginTop: 2 }}>— {st[4]}</div>
               </>
             ) : (
               <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>{st[2]}</div>
