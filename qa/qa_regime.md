@@ -79,11 +79,14 @@ CHECK M1: Recalculate vs200
   PASS = values match within tolerance
   FAIL = values diverge by more than 0.05%
 
-CHECK M2: Recalculate 50d vs 200d spread
-  FORMULA: ((SMA50 - SMA200) / SMA200) × 100
-  Verify the sign matches row 2 condition text:
-    Positive spread → condition should contain "Golden Cross"
-    Negative spread → condition should contain "Death Cross"
+CHECK M2: Recalculate 50d vs 200d spread and verify condition band
+  FORMULA: spread = ((SMA50 - SMA200) / SMA200) × 100
+  Row 2 uses a 3-tier band (not binary). Match spread to expected condition:
+    spread > +8%   → status = "bullish",  condition contains "Golden Cross"
+    spread >= -8%  → status = "neutral",  condition contains "Cross Forming"
+    spread < -8%   → status = "bearish",  condition contains "Death Cross"
+  PASS = rows[2].status and condition text match the band above
+  FAIL = status or condition text does not match the band
 
 ---
 
@@ -121,17 +124,22 @@ CHECK R1B: Does rows[1].condition contain the expected zone text?
 
 Using SMA50 and SMA200 from Step 4:
 
-CHECK R2A: Is status correct?
-  IF SMA50 > SMA200 → rows[2].status must = "bullish"
-  IF SMA50 < SMA200 → rows[2].status must = "bearish"
+CHECK R2A: Is status correct for the spread band?
+  Use spread calculated in M2:
+    spread > +8%  → rows[2].status must = "bullish"
+    spread >= -8% → rows[2].status must = "neutral"
+    spread < -8%  → rows[2].status must = "bearish"
 
-CHECK R2B: Is condition text correct?
-  IF bullish → rows[2].condition must contain "Golden Cross"
-  IF bearish → rows[2].condition must contain "Death Cross"
+CHECK R2B: Is condition text correct for the spread band?
+  Use spread calculated in M2:
+    spread > +8%  → condition must contain "Golden Cross"
+    spread >= -8% → condition must contain "Cross Forming"
+    spread < -8%  → condition must contain "Death Cross"
 
-CHECK R2C: Does the condition text include a spread percentage?
-  Expected format: "Golden Cross — Confirmed (+X.X%)" or "Death Cross — De-Risk (-X.X%)"
-  PASS = spread percentage is present in condition string
+CHECK R2C: For confirmed crosses (spread outside ±8%), does condition include a spread percentage?
+  Expected formats: "Golden Cross — Confirmed (+X.X%)" / "Death Cross — De-Risk (-X.X%)"
+  PASS = spread % present in condition string when status is bullish or bearish
+  N/A  = when status is neutral ("Cross Forming" — no spread % expected in that state)
 
 ---
 
