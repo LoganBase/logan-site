@@ -74,7 +74,10 @@
           label:     'RSP vs SPY',
           format:    'pct',
           lineColor: '#22d3ee',
-          overlays: [],
+          overlays: [
+            { label: 'QQEW vs QQQ', values: data.qqewVsQqq || [], color: '#a855f7', dash: null },
+            { label: 'IVW vs IVE',  values: data.ivwVsIve  || [], color: '#f59e0b', dash: [5, 3] },
+          ],
         };
       },
     },
