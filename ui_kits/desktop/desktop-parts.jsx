@@ -1210,7 +1210,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {/* summary note */}
       {card.note && (
         <div>
-          {sectionLabel('Summary')}
+          {sectionLabel(cardId === 'regime' ? 'Market Diagnostics' : 'Summary')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
             {cardId === 'regime' && (
               <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
