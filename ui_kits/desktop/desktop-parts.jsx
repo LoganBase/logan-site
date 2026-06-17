@@ -767,7 +767,7 @@ function SectorBreadthChart({ liveSectorCount = null }) {
   );
 }
 
-// ── Leadership price history chart — SPY vs RSP, locked to 20 days, log scale ──
+// ── Leadership price history chart — SPY vs RSP rebased to 0%, locked to 20 days ──
 function LeadershipPriceChart() {
   const [live, setLive] = useStateD(null);
 
@@ -778,32 +778,36 @@ function LeadershipPriceChart() {
       .then(r => r.json())
       .then(j => {
         if (!alive || !j.prices || !Array.isArray(j.dates) || !j.dates.length) return;
+        const rebase = (arr) => {
+          const first = (arr || []).find(v => v != null && v > 0);
+          if (!first) return arr || [];
+          return (arr || []).map(v => v == null ? null : ((v - first) / first) * 100);
+        };
         setLive({
-          values:    j.prices.SPY || [],
-          dates:     j.dates,
-          label:     'SPY',
-          format:    'price',
-          lineColor: '#22d3ee',
-          overlays: [
-            { label: 'RSP', values: j.prices.RSP || [], color: '#a855f7', dash: null },
-          ],
+          values:     rebase(j.prices.SPY || []),
+          dates:      j.dates,
+          label:      'SPY',
+          format:     'pct',
+          lineColor:  '#22d3ee',
+          overlays:   [{ label: 'RSP', values: rebase(j.prices.RSP || []), color: '#a855f7', dash: null }],
+          thresholds: [{ y: 0, color: '#475569' }],
         });
       })
       .catch(() => {});
     return () => { alive = false; };
   }, []);
 
-  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: '20-day price history · log scale', metricVal: '' };
+  const fakeCard = { seed: 6, trend: 0, metric: 'SPY / RSP', metricUnit: '% return — 20-day window', metricVal: '' };
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>SPY / RSP</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>20-day price history · log scale</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>% return — 20-day window</div>
         </div>
       </div>
-      <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range="1M" setRange={() => {}} live={live} ranges={[]} logScale={true} />
+      <DeepChartLg card={fakeCard} cardId="leadership-prices" color="#22d3ee" height={230} range="1M" setRange={() => {}} live={live} ranges={[]} />
     </div>
   );
 }
