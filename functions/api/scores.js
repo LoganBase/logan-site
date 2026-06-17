@@ -1,5 +1,5 @@
 /**
- * Market Hub — Scores API
+ * Market Hub \u2014 Scores API
  * Cloudflare Pages Function: GET /api/scores
  *
  * Returns scored JSON for all 9 cards. Sources:
@@ -22,10 +22,10 @@ const ALL_SYMBOLS = [
   'RSPD',                                          // Breadth proxy
   '^TYX','^TNX','^IRX','TLT','UUP',               // Yield
   'HYG','LQD','EMB',                               // Credit
-  'ACWI','FEZ','AIA','ILF','EEM',                  // Global Flows — regional
-  '^GSPTSE','EWU','EWG','EWQ','EWL','EWN','EWI','EWP',  // Global Flows — Europe countries
-  'EWJ','MCHI','EWT','EWY','INDA','EWA','EWH',   // Global Flows — Asia countries
-  'EWW','EWZ','ECH',                              // Global Flows — LatAm countries
+  'ACWI','FEZ','AIA','ILF','EEM',                  // Global Flows \u2014 regional
+  '^GSPTSE','EWU','EWG','EWQ','EWL','EWN','EWI','EWP',  // Global Flows \u2014 Europe countries
+  'EWJ','MCHI','EWT','EWY','INDA','EWA','EWH',   // Global Flows \u2014 Asia countries
+  'EWW','EWZ','ECH',                              // Global Flows \u2014 LatAm countries
   'XLI','XLK','XLF','XLE','XLU','XLRE','XLP',    // Sectors (7 existing)
   'XLV','XLC','XLY','XLB',                        // Sectors (4 added for breadth)
   'XME','GDX','COPX','KBE',
@@ -61,17 +61,17 @@ function vsMA(price, ma) {
 }
 
 function pct(n, dec = 2) {
-  if (n == null) return '—';
+  if (n == null) return '\u2014';
   return (n >= 0 ? '+' : '') + n.toFixed(dec) + '%';
 }
 
-function usd(n) { return n != null ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'; }
-function num(n, d = 1) { return n != null ? n.toFixed(d) : '—'; }
+function usd(n) { return n != null ? `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '\u2014'; }
+function num(n, d = 1) { return n != null ? n.toFixed(d) : '\u2014'; }
 
 // ── D1 SOURCE ─────────────────────────────────────────────────────────────────
 async function loadFromD1(db) {
   try {
-    // Last 35 calendar days covers ~25 trading days — enough for 20-day return + changePct
+    // Last 35 calendar days covers ~25 trading days \u2014 enough for 20-day return + changePct
     const { results: priceRows } = await db.prepare(
       `SELECT symbol, date, close FROM daily_prices
        WHERE date >= DATE('now', '-35 days')
@@ -128,7 +128,7 @@ async function loadFromD1(db) {
 async function fetchSymbol(symbol) {
   try {
     const encoded = encodeURIComponent(symbol);
-    // Single call with 300d — gives price + enough history for SMA200 + RSI
+    // Single call with 300d \u2014 gives price + enough history for SMA200 + RSI
     const res = await fetch(`${YF}/${encoded}?interval=1d&range=300d`, { headers: HEADERS });
     if (!res.ok) return null;
     const data = await res.json();
@@ -209,7 +209,7 @@ async function loadRegimeContext(db) {
       ).first(),
     ]);
 
-    // 5-day deltas — direction helper: >threshold='up', <-threshold='down', else='flat'
+    // 5-day deltas \u2014 direction helper: >threshold='up', <-threshold='down', else='flat'
     const dir = (d, thr = 0.1) => d == null ? null : d > thr ? 'up' : d < -thr ? 'down' : 'flat';
     const have5 = histRows.length >= 6;
 
@@ -246,25 +246,25 @@ function buildRegime(q, ctx) {
   const spy = q['SPY'];
   if (!spy) return placeholderCard(1, 'Regime', 'The Anchor');
 
-  // Row 1: SPY Regime — structural anchor
+  // Row 1: SPY Regime \u2014 structural anchor
   const isBull = spy.price > spy.sma200;
   const r1 = {
     label: 'SPY Regime',
     indicator: 'SPY vs 200d SMA',
     value: spy.sma200 != null ? `$${spy.price.toFixed(2)}&nbsp;vs&nbsp;$${spy.sma200.toFixed(2)}` : usd(spy.price),
-    condition: isBull ? 'Secular Bull — Stay Long' : 'Secular Bear — Reduce Exposure',
+    condition: isBull ? 'Secular Bull \u2014 Stay Long' : 'Secular Bear \u2014 Reduce Exposure',
     status: isBull ? 'bullish' : 'bearish',
   };
 
-  // Row 2: Stretch Risk — 4-band aligned with history.js zones
+  // Row 2: Stretch Risk \u2014 4-band aligned with history.js zones
   const v200 = spy.vs200;
   let stretchStatus, stretchCondition;
-  if (v200 == null)     { stretchStatus = 'neutral'; stretchCondition = '—'; }
-  else if (v200 > 14)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended — Protect Gains'; }
-  else if (v200 > 10)   { stretchStatus = 'neutral'; stretchCondition = 'Extended — Reduce New Adds'; }
-  else if (v200 >= 0)   { stretchStatus = 'bullish'; stretchCondition = 'Normal Bull — Full Risk-On'; }
-  else if (v200 >= -10) { stretchStatus = 'neutral'; stretchCondition = 'Bearish Retest — Hold'; }
-  else                  { stretchStatus = 'bearish'; stretchCondition = 'Deeply Oversold — Raise Cash'; }
+  if (v200 == null)     { stretchStatus = 'neutral'; stretchCondition = '\u2014'; }
+  else if (v200 > 14)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended \u2014 Protect Gains'; }
+  else if (v200 > 10)   { stretchStatus = 'neutral'; stretchCondition = 'Extended \u2014 Reduce New Adds'; }
+  else if (v200 >= 0)   { stretchStatus = 'bullish'; stretchCondition = 'Normal Bull \u2014 Full Risk-On'; }
+  else if (v200 >= -10) { stretchStatus = 'neutral'; stretchCondition = 'Bearish Retest \u2014 Hold'; }
+  else                  { stretchStatus = 'bearish'; stretchCondition = 'Deeply Oversold \u2014 Raise Cash'; }
   const r2 = {
     label: 'Stretch Risk',
     indicator: 'Distance from 200d SMA',
@@ -273,16 +273,16 @@ function buildRegime(q, ctx) {
     status: stretchStatus,
   };
 
-  // Row 3: Trend Cross — Golden Cross / Death Cross, classified by spread strength.
+  // Row 3: Trend Cross \u2014 Golden Cross / Death Cross, classified by spread strength.
   // A spread under +/-8% is too close to call a confirmed cross, so it reads
   // neutral rather than forcing bull/bear.
   const s50 = spy.sma50, s200 = spy.sma200;
   const crossSpread = s50 != null && s200 != null ? ((s50 - s200) / s200) * 100 : null;
   let crossStatus, crossCondition;
-  if (crossSpread == null)    { crossStatus = 'neutral'; crossCondition = '—'; }
-  else if (crossSpread > 8)   { crossStatus = 'bullish'; crossCondition = 'Golden Cross — Confirmed'; }
-  else if (crossSpread >= -8) { crossStatus = 'neutral'; crossCondition = 'Cross Forming — Awaiting Confirmation'; }
-  else                        { crossStatus = 'bearish'; crossCondition = 'Death Cross — De-Risk'; }
+  if (crossSpread == null)    { crossStatus = 'neutral'; crossCondition = '\u2014'; }
+  else if (crossSpread > 8)   { crossStatus = 'bullish'; crossCondition = 'Golden Cross \u2014 Confirmed'; }
+  else if (crossSpread >= -8) { crossStatus = 'neutral'; crossCondition = 'Cross Forming \u2014 Awaiting Confirmation'; }
+  else                        { crossStatus = 'bearish'; crossCondition = 'Death Cross \u2014 De-Risk'; }
   const r3 = {
     label: 'Trend Cross',
     indicator: '50d SMA vs 200d SMA',
@@ -297,31 +297,31 @@ function buildRegime(q, ctx) {
   const regimeNote = (() => {
     const crossStr = crossSpread == null ? ''
       : crossStatus === 'bullish'
-      ? `Golden Cross in place (50d ${pct(crossSpread, 1)} above 200d) — trend confirmed.`
+      ? `Golden Cross in place (50d ${pct(crossSpread, 1)} above 200d) \u2014 trend confirmed.`
       : crossStatus === 'bearish'
-      ? `Death Cross in effect (50d ${pct(Math.abs(crossSpread), 1)} below 200d) — trend broken.`
-      : `50d/200d cross still forming (spread ${pct(crossSpread, 1)}) — trend not yet confirmed either way.`;
+      ? `Death Cross in effect (50d ${pct(Math.abs(crossSpread), 1)} below 200d) \u2014 trend broken.`
+      : `50d/200d cross still forming (spread ${pct(crossSpread, 1)}) \u2014 trend not yet confirmed either way.`;
     const stretchStr = v200 == null ? ''
-      : v200 > 14 ? ` SPY ${pct(v200)} above 200d — overextended, pullback risk elevated.`
-      : v200 >= 0 ? ` SPY ${pct(v200)} above 200d — normal bull range.`
-      : ` SPY ${pct(v200)} below 200d — bear regime active; read all cards defensively.`;
+      : v200 > 14 ? ` SPY ${pct(v200)} above 200d \u2014 overextended, pullback risk elevated.`
+      : v200 >= 0 ? ` SPY ${pct(v200)} above 200d \u2014 normal bull range.`
+      : ` SPY ${pct(v200)} below 200d \u2014 bear regime active; read all cards defensively.`;
 
     let ctxStr = '';
     if (ctx) {
       const { percentile, duration, velocity } = ctx;
       if (percentile != null) {
         ctxStr += ` Current stretch sits in the ${ordinalSuffix(percentile)} percentile of all historical readings`;
-        ctxStr += percentile >= 90 ? ' — among the most extended readings on record.'
+        ctxStr += percentile >= 90 ? ' \u2014 among the most extended readings on record.'
           : percentile >= 70 ? ', a historically elevated level.'
-          : percentile <= 10 ? ' — among the most oversold readings on record.'
+          : percentile <= 10 ? ' \u2014 among the most oversold readings on record.'
           : percentile <= 30 ? ', a historically depressed level.'
           : '.';
       }
       if (duration != null) {
         ctxStr += ` The current regime has held for ${duration} trading day${duration === 1 ? '' : 's'}`;
-        ctxStr += duration > 250 ? ' — a mature, well-established trend.'
+        ctxStr += duration > 250 ? ' \u2014 a mature, well-established trend.'
           : duration > 60 ? ', an established trend.'
-          : duration < 10 ? ' — a freshly formed regime, not yet confirmed.'
+          : duration < 10 ? ' \u2014 a freshly formed regime, not yet confirmed.'
           : '.';
       }
       if (velocity != null && Math.abs(velocity) > 0.05) {
@@ -333,11 +333,11 @@ function buildRegime(q, ctx) {
   })();
   const stats = ctx ? (() => {
     const { percentile, duration, velocity, bull: ctxBull } = ctx;
-    const velStr  = velocity != null ? (velocity >= 0 ? '+' : '') + velocity.toFixed(1) + '%' : '—';
+    const velStr  = velocity != null ? (velocity >= 0 ? '+' : '') + velocity.toFixed(1) + '%' : '\u2014';
     const velTone = velocity == null ? null : velocity > 0.05 ? 'pos' : velocity < -0.05 ? 'neg' : null;
     return [
-      ['Percentile Rank',    percentile != null ? ordinalSuffix(percentile) : '—',  'of all historical days',                  percentile != null && percentile >= 70 ? 'pos' : percentile != null && percentile <= 30 ? 'neg' : null],
-      ['Regime Duration',    duration   != null ? String(duration) : '—',           ctxBull ? 'days above 200d SMA' : 'days below 200d SMA', null],
+      ['Percentile Rank',    percentile != null ? ordinalSuffix(percentile) : '\u2014',  'of all historical days',                  percentile != null && percentile >= 70 ? 'pos' : percentile != null && percentile <= 30 ? 'neg' : null],
+      ['Regime Duration',    duration   != null ? String(duration) : '\u2014',           ctxBull ? 'days above 200d SMA' : 'days below 200d SMA', null],
       ['Extension Velocity', velStr,                                                 '10d Rate of Change of stretch',           velTone],
     ];
   })() : null;
@@ -350,7 +350,7 @@ function buildLeadership(q, ctx) {
   const ivw  = q['IVW'],  ive  = q['IVE'];
   if (!spy || !rsp) return placeholderCard(2, 'Leadership', 'The Quality Check');
 
-  // 20-day return — falls back to daily changePct when price20d unavailable
+  // 20-day return \u2014 falls back to daily changePct when price20d unavailable
   function ret20(s) {
     return s?.price20d ? (s.price / s.price20d - 1) * 100 : s?.changePct ?? null;
   }
@@ -374,43 +374,43 @@ function buildLeadership(q, ctx) {
   const rows = [
     {
       label: 'Market Breadth',
-      indicator: 'RSP vs SPY — 20d Return',
-      value: rsp20 != null && spy20 != null ? `RSP&nbsp;${pct(rsp20, 1)}<br>SPY&nbsp;${pct(spy20, 1)}` : '—',
-      condition: rspLead ? 'Breadth Expanding — Add Broadly' : 'Rally Narrowing — Stay with Leaders',
+      indicator: 'RSP vs SPY \u2014 20d Return',
+      value: rsp20 != null && spy20 != null ? `RSP&nbsp;${pct(rsp20, 1)}<br>SPY&nbsp;${pct(spy20, 1)}` : '\u2014',
+      condition: rspLead ? 'Breadth Expanding \u2014 Add Broadly' : 'Rally Narrowing \u2014 Stay with Leaders',
       status: rspLead ? 'bullish' : 'bearish',
     },
     {
       label: 'Tech Breadth',
-      indicator: 'QQEW vs QQQ — 20d Return',
-      value: qqew20 != null && qqq20 != null ? `QQEW&nbsp;${pct(qqew20, 1)}<br>QQQ&nbsp;${pct(qqq20, 1)}` : '—',
-      condition: qqewLead == null ? '—' : (qqewLead ? 'Tech Broadening — Tech Healthy' : 'Mega-Cap Driven — Favour Large Cap'),
+      indicator: 'QQEW vs QQQ \u2014 20d Return',
+      value: qqew20 != null && qqq20 != null ? `QQEW&nbsp;${pct(qqew20, 1)}<br>QQQ&nbsp;${pct(qqq20, 1)}` : '\u2014',
+      condition: qqewLead == null ? '\u2014' : (qqewLead ? 'Tech Broadening \u2014 Tech Healthy' : 'Mega-Cap Driven \u2014 Favour Large Cap'),
       status: qqewLead == null ? 'neutral' : (qqewLead ? 'bullish' : 'bearish'),
     },
     {
       label: 'Style Bias',
-      indicator: 'IVW vs IVE — 20d Return',
-      value: ivw20 != null && ive20 != null ? `IVW&nbsp;${pct(ivw20, 1)}<br>IVE&nbsp;${pct(ive20, 1)}` : '—',
-      condition: growthLead == null ? '—' : (growthLead ? 'Growth Leading — Risk-On' : 'Value Rotating — Reduce Growth'),
+      indicator: 'IVW vs IVE \u2014 20d Return',
+      value: ivw20 != null && ive20 != null ? `IVW&nbsp;${pct(ivw20, 1)}<br>IVE&nbsp;${pct(ive20, 1)}` : '\u2014',
+      condition: growthLead == null ? '\u2014' : (growthLead ? 'Growth Leading \u2014 Risk-On' : 'Value Rotating \u2014 Reduce Growth'),
       status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'bearish'),
     },
   ];
   const leaderNote = (() => {
     const breadthStr = rspLead
-      ? `Breadth expanding — RSP leading SPY${rspSpreadStr}. Broad participation is healthy.`
-      : `Rally narrowing — SPY leading RSP${rspSpreadStr}. Concentration risk rising.`;
+      ? `Breadth expanding \u2014 RSP leading SPY${rspSpreadStr}. Broad participation is healthy.`
+      : `Rally narrowing \u2014 SPY leading RSP${rspSpreadStr}. Concentration risk rising.`;
     const styleStr = growthLead == null ? ''
-      : growthLead ? ' Growth over Value — risk appetite intact.'
-      : ' Value over Growth — defensive rotation underway.';
+      : growthLead ? ' Growth over Value \u2014 risk appetite intact.'
+      : ' Value over Growth \u2014 defensive rotation underway.';
     return breadthStr + styleStr;
   })();
   const stats = ctx ? [
-    ['5Y Spread',      ctx.spreadRsp  != null ? (ctx.spreadRsp  >= 0 ? '+' : '') + ctx.spreadRsp.toFixed(1)  + '%' : '—', 'RSP vs SPY cumulative',  ctx.spreadRsp  != null ? (ctx.spreadRsp  > 0 ? 'pos' : 'neg') : null],
-    ['Daily Streak',   ctx.streak     != null ? String(Math.abs(ctx.streak)) : '—', ctx.streak > 0 ? 'days RSP leading daily' : 'days RSP losing daily', ctx.streak > 0 ? 'pos' : ctx.streak < 0 ? 'neg' : null],
-    ['5Y Tech Spread', ctx.spreadQqew != null ? (ctx.spreadQqew >= 0 ? '+' : '') + ctx.spreadQqew.toFixed(1) + '%' : '—', 'QQEW vs QQQ cumulative', ctx.spreadQqew != null ? (ctx.spreadQqew > 0 ? 'pos' : 'neg') : null],
+    ['5Y Spread',      ctx.spreadRsp  != null ? (ctx.spreadRsp  >= 0 ? '+' : '') + ctx.spreadRsp.toFixed(1)  + '%' : '\u2014', 'RSP vs SPY cumulative',  ctx.spreadRsp  != null ? (ctx.spreadRsp  > 0 ? 'pos' : 'neg') : null],
+    ['Daily Streak',   ctx.streak     != null ? String(Math.abs(ctx.streak)) : '\u2014', ctx.streak > 0 ? 'days RSP leading daily' : 'days RSP losing daily', ctx.streak > 0 ? 'pos' : ctx.streak < 0 ? 'neg' : null],
+    ['5Y Tech Spread', ctx.spreadQqew != null ? (ctx.spreadQqew >= 0 ? '+' : '') + ctx.spreadQqew.toFixed(1) + '%' : '\u2014', 'QQEW vs QQQ cumulative', ctx.spreadQqew != null ? (ctx.spreadQqew > 0 ? 'pos' : 'neg') : null],
   ] : [
-    ['RSP vs SPY',      rspSpread   != null ? (rspSpread   >= 0 ? '+' : '') + rspSpread.toFixed(1)   + '%' : '—', '20d breadth spread', rspSpread   != null ? (rspSpread   > 0 ? 'pos' : 'neg') : null],
-    ['QQEW vs QQQ',    qqewSpread  != null ? (qqewSpread  >= 0 ? '+' : '') + qqewSpread.toFixed(1)  + '%' : '—', '20d tech breadth',   qqewSpread  != null ? (qqewSpread  > 0 ? 'pos' : 'neg') : null],
-    ['Growth vs Value', styleSpread != null ? (styleSpread >= 0 ? '+' : '') + styleSpread.toFixed(1) + '%' : '—', '20d style spread',  styleSpread != null ? (styleSpread > 0 ? 'pos' : 'neg') : null],
+    ['RSP vs SPY',      rspSpread   != null ? (rspSpread   >= 0 ? '+' : '') + rspSpread.toFixed(1)   + '%' : '\u2014', '20d breadth spread', rspSpread   != null ? (rspSpread   > 0 ? 'pos' : 'neg') : null],
+    ['QQEW vs QQQ',    qqewSpread  != null ? (qqewSpread  >= 0 ? '+' : '') + qqewSpread.toFixed(1)  + '%' : '\u2014', '20d tech breadth',   qqewSpread  != null ? (qqewSpread  > 0 ? 'pos' : 'neg') : null],
+    ['Growth vs Value', styleSpread != null ? (styleSpread >= 0 ? '+' : '') + styleSpread.toFixed(1) + '%' : '\u2014', '20d style spread',  styleSpread != null ? (styleSpread > 0 ? 'pos' : 'neg') : null],
   ];
   return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, stats, hideIndicator: true, note: leaderNote };
 }
@@ -437,69 +437,69 @@ function buildBreadth(q, breadthData) {
   // Row 1: NYSE 200d ($MMTH)
   const mmthStatus = mmth == null ? 'neutral' : mmth >= 70 ? 'bullish' : mmth >= 40 ? 'neutral' : 'bearish';
   const mmthCond   = mmth == null ? 'Awaiting Data'
-    : mmth >= 70 ? 'Broad Participation — Rally Has Legs'
-    : mmth >= 40 ? 'Mixed Breadth — Bifurcated Market'
-    :               'Breadth Breakdown — Risk Off';
+    : mmth >= 70 ? 'Broad Participation \u2014 Rally Has Legs'
+    : mmth >= 40 ? 'Mixed Breadth \u2014 Bifurcated Market'
+    :               'Breadth Breakdown \u2014 Risk Off';
 
   // Row 2: NYSE 50d ($MMFI)
   const mmfiStatus = mmfi == null ? 'neutral' : mmfi >= 70 ? 'bullish' : mmfi >= 40 ? 'neutral' : 'bearish';
   const mmfiCond   = mmfi == null ? 'Awaiting Data'
-    : mmfi >= 70 ? 'Momentum Expanding — Add Risk'
-    : mmfi >= 40 ? 'Mixed Momentum — Watch Leaders'
-    :               'Momentum Fading — Tighten Stops';
+    : mmfi >= 70 ? 'Momentum Expanding \u2014 Add Risk'
+    : mmfi >= 40 ? 'Mixed Momentum \u2014 Watch Leaders'
+    :               'Momentum Fading \u2014 Tighten Stops';
 
   // Row 3: Sector Check (coarser validation)
   const sectStatus = n200 < 7 ? 'neutral' : bull200 >= 8 ? 'bullish' : bull200 >= 5 ? 'neutral' : 'bearish';
   const sectCond   = n200 < 7 ? 'Insufficient Data'
-    : bull200 >= 8 ? 'Broad Participation — Stay Long'
-    : bull200 >= 5 ? 'Mixed Breadth — Be Selective'
-    :                'Sector Breakdown — Reduce Risk';
+    : bull200 >= 8 ? 'Broad Participation \u2014 Stay Long'
+    : bull200 >= 5 ? 'Mixed Breadth \u2014 Be Selective'
+    :                'Sector Breakdown \u2014 Reduce Risk';
 
   const rows = [
     {
       label: 'NYSE 200d Breadth',
-      indicator: '$MMTH — % NYSE Stocks Above 200d SMA',
-      value: mmth != null ? `${mmth.toFixed(1)}%` : '—',
+      indicator: '$MMTH \u2014 % NYSE Stocks Above 200d SMA',
+      value: mmth != null ? `${mmth.toFixed(1)}%` : '\u2014',
       condition: mmthCond,
       status: mmthStatus,
     },
     {
       label: 'NYSE 50d Breadth',
-      indicator: '$MMFI — % NYSE Stocks Above 50d SMA',
-      value: mmfi != null ? `${mmfi.toFixed(1)}%` : '—',
+      indicator: '$MMFI \u2014 % NYSE Stocks Above 50d SMA',
+      value: mmfi != null ? `${mmfi.toFixed(1)}%` : '\u2014',
       condition: mmfiCond,
       status: mmfiStatus,
     },
     {
       label: 'Sector Check',
       indicator: 'SPDR Sectors Above 200d SMA (11)',
-      value: n200 > 0 ? `${bull200} / ${n200}` : '—',
+      value: n200 > 0 ? `${bull200} / ${n200}` : '\u2014',
       condition: sectCond,
       status: sectStatus,
     },
     {
       label: 'Consumer Signal',
       indicator: 'RSPD (Equal-Weight Consumer Disc.)',
-      value: rspd ? usd(rspd.price) : '—',
-      condition: rspdBull == null ? '—' : (rspdBull ? 'Above 200d — Consumer Healthy' : 'Below 200d — Risk Rising'),
+      value: rspd ? usd(rspd.price) : '\u2014',
+      condition: rspdBull == null ? '\u2014' : (rspdBull ? 'Above 200d \u2014 Consumer Healthy' : 'Below 200d \u2014 Risk Rising'),
       status: rspdBull == null ? 'neutral' : (rspdBull ? 'bullish' : 'bearish'),
     },
   ];
 
   const breadthNote = (() => {
     if (mmth != null) {
-      const signal = mmth >= 70 ? 'broad participation across NYSE — rally is healthy.'
-        : mmth >= 40 ? 'mixed breadth — market bifurcating, stay with leaders.'
-        : 'breadth breaking down — reduce broad exposure.';
+      const signal = mmth >= 70 ? 'broad participation across NYSE \u2014 rally is healthy.'
+        : mmth >= 40 ? 'mixed breadth \u2014 market bifurcating, stay with leaders.'
+        : 'breadth breaking down \u2014 reduce broad exposure.';
       const moStr  = mmfi != null ? ` Short-term: ${mmfi.toFixed(1)}% of NYSE above 50d.` : '';
       const sectStr = n200 >= 7 ? ` Sector check: ${bull200}/${n200}.` : '';
-      return `${mmth.toFixed(1)}% of NYSE stocks above 200d SMA — ${signal}${moStr}${sectStr}`;
+      return `${mmth.toFixed(1)}% of NYSE stocks above 200d SMA \u2014 ${signal}${moStr}${sectStr}`;
     }
-    if (n200 < 7) return 'Breadth data loading — check back shortly.';
-    const signal = bull200 >= 8 ? 'broad support across sectors — rally is healthy.'
-      : bull200 >= 5 ? 'mixed sector participation — rally narrowing, stay with leaders.'
-      : 'sector breadth breaking down — reduce broad exposure.';
-    return `${bull200} of ${n200} S&P 500 sectors above 200d SMA — ${signal}`;
+    if (n200 < 7) return 'Breadth data loading \u2014 check back shortly.';
+    const signal = bull200 >= 8 ? 'broad support across sectors \u2014 rally is healthy.'
+      : bull200 >= 5 ? 'mixed sector participation \u2014 rally narrowing, stay with leaders.'
+      : 'sector breadth breaking down \u2014 reduce broad exposure.';
+    return `${bull200} of ${n200} S&P 500 sectors above 200d SMA \u2014 ${signal}`;
   })();
 
   const sectorTable = SECTORS.map(s => {
@@ -511,9 +511,9 @@ function buildBreadth(q, breadthData) {
   }).filter(Boolean);
 
   const stats = [
-    ['NYSE 200d',    mmth   != null ? mmth.toFixed(1)   + '%' : '—', '% stocks above 200d SMA',   mmth   != null ? (mmth   >= 70 ? 'pos' : mmth   < 40 ? 'neg' : null) : null],
-    ['NYSE 50d',     mmfi   != null ? mmfi.toFixed(1)   + '%' : '—', '% stocks above 50d SMA',    mmfi   != null ? (mmfi   >= 70 ? 'pos' : mmfi   < 40 ? 'neg' : null) : null],
-    ['Sector Count', n200   >  0    ? `${bull200} / ${n200}` : '—',  'SPDR sectors above 200d',   n200   >  0    ? (bull200 >= 8  ? 'pos' : bull200 <  5  ? 'neg' : null) : null],
+    ['NYSE 200d',    mmth   != null ? mmth.toFixed(1)   + '%' : '\u2014', '% stocks above 200d SMA',   mmth   != null ? (mmth   >= 70 ? 'pos' : mmth   < 40 ? 'neg' : null) : null],
+    ['NYSE 50d',     mmfi   != null ? mmfi.toFixed(1)   + '%' : '\u2014', '% stocks above 50d SMA',    mmfi   != null ? (mmfi   >= 70 ? 'pos' : mmfi   < 40 ? 'neg' : null) : null],
+    ['Sector Count', n200   >  0    ? `${bull200} / ${n200}` : '\u2014',  'SPDR sectors above 200d',   n200   >  0    ? (bull200 >= 8  ? 'pos' : bull200 <  5  ? 'neg' : null) : null],
   ];
   return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, stats, hideIndicator: true, note: breadthNote, sectorTable };
 }
@@ -529,7 +529,7 @@ async function loadShillerLatest(db) {
     ]);
     const row = capeRes.results?.[0] ?? null;
     if (!row) return null;
-    // Latest CAPE row may not have earnings yet — attach latest valid P/E separately
+    // Latest CAPE row may not have earnings yet \u2014 attach latest valid P/E separately
     if ((!row.earnings || row.earnings <= 0) && peRes.results?.[0]) {
       row.pePrice    = peRes.results[0].price;
       row.peEarnings = peRes.results[0].earnings;
@@ -643,11 +643,11 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
   const peVal    = price && earnings && earnings > 0 ? price / earnings : null;
   const peStr    = peVal != null ? `${peVal.toFixed(1)}×` : '~28×';
   const peStatus = peVal == null ? 'neutral' : peVal > 22 ? 'bearish' : peVal > 16 ? 'neutral' : 'bullish';
-  const peCond   = peVal == null ? 'Elevated — Monitor (hist avg ~16×)'
-    : peVal > 22 ? 'Elevated — Favour Value Over Growth'
-    : peVal > 18 ? 'Above Average — Quality Bias'
-    : peVal > 16 ? 'Near Average — Fully Valued'
-    :              'Below Average — Add on Weakness';
+  const peCond   = peVal == null ? 'Elevated \u2014 Monitor (hist avg ~16×)'
+    : peVal > 22 ? 'Elevated \u2014 Favour Value Over Growth'
+    : peVal > 18 ? 'Above Average \u2014 Quality Bias'
+    : peVal > 16 ? 'Near Average \u2014 Fully Valued'
+    :              'Below Average \u2014 Add on Weakness';
   const dateLabel = latestDate
     ? new Date(latestDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
     : 'Jun 2026';
@@ -656,11 +656,11 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     ? (cape > 35 ? 'bearish' : cape > 20 ? 'neutral' : 'bullish')
     : 'bearish';
   const capeCond = cape
-    ? (cape > 40 ? 'Extreme — Near 2000 Peak, Limit Exposure'
-      : cape > 35 ? 'Very High — Reduce Equity Allocation'
-      : cape > 25 ? 'Elevated — Quality Bias'
-      :             'Normal Range — Average Expected Returns')
-    : 'Very High — Limit New Exposure';
+    ? (cape > 40 ? 'Extreme \u2014 Near 2000 Peak, Limit Exposure'
+      : cape > 35 ? 'Very High \u2014 Reduce Equity Allocation'
+      : cape > 25 ? 'Elevated \u2014 Quality Bias'
+      :             'Normal Range \u2014 Average Expected Returns')
+    : 'Very High \u2014 Limit New Exposure';
 
   const japanPeVal  = japanPe?.pe ?? null;
   const japanPeStr  = japanPeVal != null ? `${japanPeVal.toFixed(1)}×` : '~15×';
@@ -671,9 +671,9 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     : 'bullish';
   const japanCond = japanPeVal != null && liveUsPe != null
     ? (japanPeVal < liveUsPe
-        ? `Compressed vs US (${liveUsPe.toFixed(0)}×) — Favour International`
-        : `In Line with US (${liveUsPe.toFixed(0)}×) — No Valuation Edge`)
-    : 'Compressed vs US — Favour International';
+        ? `Compressed vs US (${liveUsPe.toFixed(0)}×) \u2014 Favour International`
+        : `In Line with US (${liveUsPe.toFixed(0)}×) \u2014 No Valuation Edge`)
+    : 'Compressed vs US \u2014 Favour International';
 
   const rows = [
     { label: 'Trailing P/E',  indicator: 'S&P 500 Trailing P/E (Shiller, 1-2mo lag)', value: peStr, condition: peCond, status: peStatus },
@@ -681,15 +681,15 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     { label: 'Buffett Ind.',  indicator: 'Mkt Cap / GDP (Buffett)',
       value:     buffettRatio != null ? `${buffettRatio.toFixed(0)}%` : '~230%',
       condition: buffettRatio != null
-        ? (buffettRatio > 160 ? 'Extreme — Near Peak, Limit Exposure'
-          : buffettRatio > 115 ? 'Overvalued — Reduce Allocation'
-          : buffettRatio > 80  ? 'Fairly Valued — Neutral Allocation'
-          :                      'Undervalued — Accumulate on Dips')
-        : 'Extreme — Near Peak, Limit Exposure',
+        ? (buffettRatio > 160 ? 'Extreme \u2014 Near Peak, Limit Exposure'
+          : buffettRatio > 115 ? 'Overvalued \u2014 Reduce Allocation'
+          : buffettRatio > 80  ? 'Fairly Valued \u2014 Neutral Allocation'
+          :                      'Undervalued \u2014 Accumulate on Dips')
+        : 'Extreme \u2014 Near Peak, Limit Exposure',
       status: buffettRatio != null
         ? (buffettRatio > 115 ? 'bearish' : buffettRatio > 80 ? 'neutral' : 'bullish')
         : 'bearish' },
-    // Row 5 — deep-dive context only; excluded from card status
+    // Row 5 \u2014 deep-dive context only; excluded from card status
     { label: 'Japan P/E',     indicator: 'EWJ (Japan ETF) vs S&P 500', value: japanPeStr, condition: japanCond, status: japanStatus },
   ];
 
@@ -703,10 +703,10 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
     status: cardStatus(rows.slice(0, 3)),  // Japan P/E is deep-dive context only
     rows, stats, hideIndicator: true,
     note: [
-      'Valuations set return expectations, not entry points — combine with Regime and Credit before acting.',
-      cape != null ? `CAPE ${cape.toFixed(1)}× (${dateLabel}) — ${cape > 35 ? 'top decile historically; long-run returns compress from here' : cape > 25 ? 'elevated vs ~17× long-run avg' : 'near long-run average'}.` : null,
-      buffettRatio != null ? `Buffett Indicator ${buffettRatio.toFixed(0)}% — ${buffettRatio > 160 ? 'extreme overvaluation' : buffettRatio > 115 ? 'overvalued vs GDP' : 'fair-value range'}.` : null,
-      japanPeVal != null && liveUsPe != null ? `Japan (EWJ) ${japanPeVal.toFixed(1)}× vs US ${liveUsPe.toFixed(0)}× — ${japanPeVal < liveUsPe ? 'international valuation premium intact' : 'valuation gap has closed'}.` : null,
+      'Valuations set return expectations, not entry points \u2014 combine with Regime and Credit before acting.',
+      cape != null ? `CAPE ${cape.toFixed(1)}× (${dateLabel}) \u2014 ${cape > 35 ? 'top decile historically; long-run returns compress from here' : cape > 25 ? 'elevated vs ~17× long-run avg' : 'near long-run average'}.` : null,
+      buffettRatio != null ? `Buffett Indicator ${buffettRatio.toFixed(0)}% \u2014 ${buffettRatio > 160 ? 'extreme overvaluation' : buffettRatio > 115 ? 'overvalued vs GDP' : 'fair-value range'}.` : null,
+      japanPeVal != null && liveUsPe != null ? `Japan (EWJ) ${japanPeVal.toFixed(1)}× vs US ${liveUsPe.toFixed(0)}× \u2014 ${japanPeVal < liveUsPe ? 'international valuation premium intact' : 'valuation gap has closed'}.` : null,
     ].filter(Boolean).join(' '),
   };
 }
@@ -721,29 +721,29 @@ function buildYield(q) {
 
   const curveSpread  = tnx?.price != null && irx?.price != null ? tnx.price - irx.price : null;
   const curveStatus  = curveSpread == null ? 'neutral' : curveSpread < 0 ? 'bearish' : curveSpread < 1 ? 'neutral' : 'bullish';
-  const curveCond    = curveSpread == null ? '—'
-    : curveSpread < -0.5 ? 'Deeply Inverted — Recession Risk Elevated'
-    : curveSpread < 0    ? 'Inverted — Recession Warning'
-    : curveSpread < 1    ? 'Flat — Watch for Steepening'
-    :                      'Steepening — Growth Expectations Returning';
+  const curveCond    = curveSpread == null ? '\u2014'
+    : curveSpread < -0.5 ? 'Deeply Inverted \u2014 Recession Risk Elevated'
+    : curveSpread < 0    ? 'Inverted \u2014 Recession Warning'
+    : curveSpread < 1    ? 'Flat \u2014 Watch for Steepening'
+    :                      'Steepening \u2014 Growth Expectations Returning';
 
   const rows = [
     {
       label: '30Y Benchmark',
       indicator: 'US 30-Year Yield (^TYX)',
-      value: yieldVal ? yieldVal.toFixed(2) + '%' : '—',
-      condition: yieldRnd == null ? '—' : yieldRnd >= 5 ? 'At/Above 5% — Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% — Reduce Duration Risk' : 'Below 5% — Multiples Supported',
+      value: yieldVal ? yieldVal.toFixed(2) + '%' : '\u2014',
+      condition: yieldRnd == null ? '\u2014' : yieldRnd >= 5 ? 'At/Above 5% \u2014 Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% \u2014 Reduce Duration Risk' : 'Below 5% \u2014 Multiples Supported',
       status: yieldStat,
     },
     {
       label: '10Y Benchmark',
       indicator: 'US 10-Year Yield (^TNX)',
-      value: tnx?.price ? tnx.price.toFixed(2) + '%' : '—',
-      condition: tnx?.price == null ? '—'
-        : tnx.price >= 4.5 ? 'Restrictive — Compressing Equity Multiples'
-        : tnx.price >= 3.5 ? 'Elevated — Headwind for Growth'
-        : tnx.price >= 2.5 ? 'Neutral — Hold Duration'
-        :                    'Accommodative — Tailwind for Equities',
+      value: tnx?.price ? tnx.price.toFixed(2) + '%' : '\u2014',
+      condition: tnx?.price == null ? '\u2014'
+        : tnx.price >= 4.5 ? 'Restrictive \u2014 Compressing Equity Multiples'
+        : tnx.price >= 3.5 ? 'Elevated \u2014 Headwind for Growth'
+        : tnx.price >= 2.5 ? 'Neutral \u2014 Hold Duration'
+        :                    'Accommodative \u2014 Tailwind for Equities',
       status: tnx?.price == null ? 'neutral'
         : tnx.price >= 4.5 ? 'bearish'
         : tnx.price >= 3.5 ? 'neutral'
@@ -752,34 +752,34 @@ function buildYield(q) {
     {
       label: 'Yield Curve',
       indicator: '3m–10Y Spread (Recession Signal)',
-      value: curveSpread != null ? (curveSpread >= 0 ? '+' : '') + curveSpread.toFixed(2) + '%' : '—',
+      value: curveSpread != null ? (curveSpread >= 0 ? '+' : '') + curveSpread.toFixed(2) + '%' : '\u2014',
       condition: curveCond,
       status: curveStatus,
     },
     {
       label: 'Dollar Strength',
-      indicator: 'UUP — US Dollar ETF (DXY proxy)',
-      value: uup ? usd(uup.price) : '—',
-      condition: uupBull ? 'Weakening — EM Positive' : (uup ? 'Strengthening — Multinational & EM Headwind' : '—'),
+      indicator: 'UUP \u2014 US Dollar ETF (DXY proxy)',
+      value: uup ? usd(uup.price) : '\u2014',
+      condition: uupBull ? 'Weakening \u2014 EM Positive' : (uup ? 'Strengthening \u2014 Multinational & EM Headwind' : '\u2014'),
       status: uupBull ? 'bullish' : (uup ? 'bearish' : 'neutral'),
     },
   ];
   const status = yieldStat === 'bearish' ? 'bearish' : cardStatus(rows);
   const yieldNote = (() => {
     const threshStr = yieldRnd == null ? ''
-      : yieldRnd >= 5 ? `30Y at ${yieldRnd}% — above the 5% threshold; equity multiple compression in effect.`
-      : yieldRnd > 4.5 ? `30Y at ${yieldRnd}% — approaching the 5% danger zone; monitor closely.`
-      : `30Y at ${yieldRnd}% — below the 5% threshold; rate pressure contained.`;
+      : yieldRnd >= 5 ? `30Y at ${yieldRnd}% \u2014 above the 5% threshold; equity multiple compression in effect.`
+      : yieldRnd > 4.5 ? `30Y at ${yieldRnd}% \u2014 approaching the 5% danger zone; monitor closely.`
+      : `30Y at ${yieldRnd}% \u2014 below the 5% threshold; rate pressure contained.`;
     const curveStr = curveSpread == null ? ''
-      : curveSpread < 0 ? ` Curve inverted (${pct(curveSpread, 2)}) — NY Fed recession model elevated.`
-      : curveSpread < 1 ? ` Curve flat (${pct(curveSpread, 2)}) — transition phase; watch for steepening.`
-      : ` Curve steepening (${pct(curveSpread, 2)}) — growth expectations rebuilding.`;
+      : curveSpread < 0 ? ` Curve inverted (${pct(curveSpread, 2)}) \u2014 NY Fed recession model elevated.`
+      : curveSpread < 1 ? ` Curve flat (${pct(curveSpread, 2)}) \u2014 transition phase; watch for steepening.`
+      : ` Curve steepening (${pct(curveSpread, 2)}) \u2014 growth expectations rebuilding.`;
     return threshStr + curveStr;
   })();
   const stats = [
-    ['30Y Yield',    yieldVal   != null ? yieldVal.toFixed(2)          + '%' : '—', '5% = equity headwind',    yieldStat    === 'bearish' ? 'neg' : yieldStat   === 'bullish' ? 'pos' : null],
-    ['10Y Yield',    tnx?.price != null ? tnx.price.toFixed(2)         + '%' : '—', '4.5%+ = restrictive',     tnx?.price   != null ? (tnx.price >= 4.5 ? 'neg' : tnx.price < 3.5 ? 'pos' : null) : null],
-    ['Curve 3m–10Y', curveSpread != null ? (curveSpread >= 0 ? '+' : '') + curveSpread.toFixed(2) + '%' : '—', 'inversion = recession risk', curveStatus === 'bearish' ? 'neg' : curveStatus === 'bullish' ? 'pos' : null],
+    ['30Y Yield',    yieldVal   != null ? yieldVal.toFixed(2)          + '%' : '\u2014', '5% = equity headwind',    yieldStat    === 'bearish' ? 'neg' : yieldStat   === 'bullish' ? 'pos' : null],
+    ['10Y Yield',    tnx?.price != null ? tnx.price.toFixed(2)         + '%' : '\u2014', '4.5%+ = restrictive',     tnx?.price   != null ? (tnx.price >= 4.5 ? 'neg' : tnx.price < 3.5 ? 'pos' : null) : null],
+    ['Curve 3m–10Y', curveSpread != null ? (curveSpread >= 0 ? '+' : '') + curveSpread.toFixed(2) + '%' : '\u2014', 'inversion = recession risk', curveStatus === 'bearish' ? 'neg' : curveStatus === 'bullish' ? 'pos' : null],
   ];
   return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows, stats, hideIndicator: true, note: yieldNote };
 }
@@ -828,7 +828,7 @@ function buildGlobalFlows(q) {
     const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
     if (above) bull++;
     const vs200 = d?.vs200;
-    return { sym, label, region, above, vs200Str: vs200 != null ? pct(vs200) : '—', value: d ? usd(d.price) : '—' };
+    return { sym, label, region, above, vs200Str: vs200 != null ? pct(vs200) : '\u2014', value: d ? usd(d.price) : '\u2014' };
   });
 
   const total = cardSyms.length;
@@ -836,10 +836,10 @@ function buildGlobalFlows(q) {
 
   const rows = cardDetails.map(({ sym, label, region, above, vs200Str, value }) => {
     const condition = sym === 'ACWI'
-      ? (above ? `Bull Market Intact (${vs200Str}) — Stay Invested`  : `Bear Market Signal (${vs200Str}) — Raise Cash`)
+      ? (above ? `Bull Market Intact (${vs200Str}) \u2014 Stay Invested`  : `Bear Market Signal (${vs200Str}) \u2014 Raise Cash`)
       : sym === 'EEM'
-      ? (above ? `EM Risk-On (${vs200Str}) — Add EM Exposure`        : `EM Risk-Off (${vs200Str}) — Reduce EM`)
-      : (above ? `Uptrend (${vs200Str}) — Overweight`                : `Downtrend (${vs200Str}) — Underweight`);
+      ? (above ? `EM Risk-On (${vs200Str}) \u2014 Add EM Exposure`        : `EM Risk-Off (${vs200Str}) \u2014 Reduce EM`)
+      : (above ? `Uptrend (${vs200Str}) \u2014 Overweight`                : `Downtrend (${vs200Str}) \u2014 Underweight`);
     return { label: region, indicator: `${label} (${sym})`, value, condition, status: above ? 'bullish' : 'bearish' };
   });
 
@@ -848,24 +848,24 @@ function buildGlobalFlows(q) {
     const d = q[sym];
     const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
     const vs200 = d?.vs200;
-    return { group, label, sym, value: d ? usd(d.price) : '—', vs200: vs200 != null ? pct(vs200) : '—', above };
+    return { group, label, sym, value: d ? usd(d.price) : '\u2014', vs200: vs200 != null ? pct(vs200) : '\u2014', above };
   });
 
   // ── Note ──────────────────────────────────────────────────────────────────
   const acwi = cardDetails.find(d => d.sym === 'ACWI');
   const flowNote = (bull >= 6
-    ? `${bull}/${total} regional indexes above 200d — synchronized global expansion; broad risk-on.`
+    ? `${bull}/${total} regional indexes above 200d \u2014 synchronized global expansion; broad risk-on.`
     : bull >= 4
-    ? `${bull}/${total} regional indexes above 200d — partial expansion; favour the strongest regions.`
-    : `${bull}/${total} regional indexes above 200d — broad global weakness; defensive positioning warranted.`)
+    ? `${bull}/${total} regional indexes above 200d \u2014 partial expansion; favour the strongest regions.`
+    : `${bull}/${total} regional indexes above 200d \u2014 broad global weakness; defensive positioning warranted.`)
     + (acwi ? ` ACWI ${acwi.above ? 'above' : 'below'} 200d (${acwi.vs200Str}).` : '');
 
   const acwiDetail = cardDetails.find((d) => d.sym === 'ACWI');
   const eemDetail  = cardDetails.find((d) => d.sym === 'EEM');
   const stats = [
     ['Regional Bull', `${bull} / ${total}`,          'indexes above 200d SMA', bull >= 6 ? 'pos' : bull < 4 ? 'neg' : null],
-    ['ACWI vs 200d',  acwiDetail?.vs200Str || '—',   'global market proxy',    acwiDetail?.above ? 'pos' : 'neg'],
-    ['Emerg. Mkts',   eemDetail?.vs200Str  || '—',   'EM risk appetite',       eemDetail?.above  ? 'pos' : 'neg'],
+    ['ACWI vs 200d',  acwiDetail?.vs200Str || '\u2014',   'global market proxy',    acwiDetail?.above ? 'pos' : 'neg'],
+    ['Emerg. Mkts',   eemDetail?.vs200Str  || '\u2014',   'EM risk appetite',       eemDetail?.above  ? 'pos' : 'neg'],
   ];
   return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, stats, details, hideIndicator: true, note: flowNote };
 }
@@ -898,27 +898,27 @@ function buildSectors(q) {
     let condition, status;
     if (meta.type === 'cyclical') {
       if (abv200 && relPerf > 0) {
-        condition = `Leader (${pct(relPerf, 1)} vs SPY) — Overweight`;
+        condition = `Leader (${pct(relPerf, 1)} vs SPY) \u2014 Overweight`;
         status    = 'bullish';
       } else if (abv200) {
-        condition = `In Trend, Lagging (${pct(relPerf, 1)} vs SPY) — Hold`;
+        condition = `In Trend, Lagging (${pct(relPerf, 1)} vs SPY) \u2014 Hold`;
         status    = 'neutral';
       } else if (relPerf > 0) {
-        condition = `Below 200d, Outpacing SPY (${pct(relPerf, 1)}) — Reduce`;
+        condition = `Below 200d, Outpacing SPY (${pct(relPerf, 1)}) \u2014 Reduce`;
         status    = 'bearish';
       } else {
-        condition = `Trend Broken (${pct(relPerf, 1)} vs SPY) — Underweight`;
+        condition = `Trend Broken (${pct(relPerf, 1)} vs SPY) \u2014 Underweight`;
         status    = 'bearish';
       }
     } else {
       if (abv200 && relPerf > 0) {
-        condition = `Safe Haven Bid (${pct(relPerf, 1)} vs SPY) — Risk-Off Signal`;
+        condition = `Safe Haven Bid (${pct(relPerf, 1)} vs SPY) \u2014 Risk-Off Signal`;
         status    = 'bearish';
       } else if (abv200) {
-        condition = `Quiet Defensive (${pct(relPerf, 1)} vs SPY) — Risk-On Lean`;
+        condition = `Quiet Defensive (${pct(relPerf, 1)} vs SPY) \u2014 Risk-On Lean`;
         status    = 'neutral';
       } else {
-        condition = `No Safe Haven Bid (${pct(relPerf, 1)} vs SPY) — Risk-On`;
+        condition = `No Safe Haven Bid (${pct(relPerf, 1)} vs SPY) \u2014 Risk-On`;
         status    = 'bullish';
       }
     }
@@ -931,7 +931,7 @@ function buildSectors(q) {
   const defBull  = defRows.filter(r => r.abv200).length;
   const offenseLeading = cycBull > defBull;
 
-  // Card status: avg 20d relative performance (vs SPY) — cyclicals vs defensives
+  // Card status: avg 20d relative performance (vs SPY) \u2014 cyclicals vs defensives
   const avg   = arr => arr.length ? arr.reduce((s, r) => s + r.relPerf, 0) / arr.length : 0;
   const spread = avg(cycRows) - avg(defRows);   // positive = cyclicals leading
   const sectStatus = spread > 1 ? 'bullish' : spread < -1 ? 'bearish' : 'neutral';
@@ -959,10 +959,10 @@ function buildSectors(q) {
 
   const spreadStr = (spread >= 0 ? '+' : '') + spread.toFixed(1) + '%';
   const sectNote = spread > 1
-    ? `Cyclicals outpacing defensives by ${spreadStr} (20d avg vs SPY) — risk-on rotation; favour cyclical exposure.`
+    ? `Cyclicals outpacing defensives by ${spreadStr} (20d avg vs SPY) \u2014 risk-on rotation; favour cyclical exposure.`
     : spread < -1
-    ? `Defensives outpacing cyclicals by ${Math.abs(spread).toFixed(1)}% (20d avg vs SPY) — flight to safety underway; reduce cyclical exposure.`
-    : `Cyclicals and defensives near parity (${spreadStr} spread, 20d avg vs SPY) — no clear rotation signal; stay diversified.`;
+    ? `Defensives outpacing cyclicals by ${Math.abs(spread).toFixed(1)}% (20d avg vs SPY) \u2014 flight to safety underway; reduce cyclical exposure.`
+    : `Cyclicals and defensives near parity (${spreadStr} spread, 20d avg vs SPY) \u2014 no clear rotation signal; stay diversified.`;
 
   const stats = [
     ['Cyc vs Def',    (spread >= 0 ? '+' : '') + spread.toFixed(1) + '%', '20d avg rel perf vs SPY', spread > 1 ? 'pos' : spread < -1 ? 'neg' : null],
@@ -990,82 +990,82 @@ function buildCommodities(q) {
     const above = !!(d?.price && d?.sma200 && d.price > d.sma200);
     const v200  = d?.vs200 ?? null;
     const v200s = v200 != null ? pct(v200, 1) : null;
-    const val   = d ? (sym === 'HG=F' ? `$${d.price.toFixed(3)}/lb` : usd(d.price)) : '—';
+    const val   = d ? (sym === 'HG=F' ? `$${d.price.toFixed(3)}/lb` : usd(d.price)) : '\u2014';
     let condition, rowStatus;
 
     if (!d || v200s == null) {
-      condition = '—'; rowStatus = 'neutral';
+      condition = '\u2014'; rowStatus = 'neutral';
     } else if (role === 'safehaven') {
-      // Gold: macro signal is INVERTED — leading = risk-off warning, fading = risk-on confirmed
+      // Gold: macro signal is INVERTED \u2014 leading = risk-off warning, fading = risk-on confirmed
       if (above && v200 > 5) {
-        condition  = `Safe Haven Bid (${v200s} vs 200d) — Risk-Off Warning`;
+        condition  = `Safe Haven Bid (${v200s} vs 200d) \u2014 Risk-Off Warning`;
         rowStatus  = 'bearish';
       } else if (above) {
-        condition  = `Gold Holding (${v200s} vs 200d) — Watch`;
+        condition  = `Gold Holding (${v200s} vs 200d) \u2014 Watch`;
         rowStatus  = 'neutral';
       } else {
-        condition  = `Safe Haven Fading (${v200s} vs 200d) — Risk-On Confirmed`;
+        condition  = `Safe Haven Fading (${v200s} vs 200d) \u2014 Risk-On Confirmed`;
         rowStatus  = 'bullish';
       }
     } else if (role === 'silver') {
       // Silver: leads copper when industrial demand > fear; leads gold when growth > safety
       // Needs >2% above 200d to confirm industrial bid (same threshold as agriculture)
       if (above && v200 > 2) {
-        condition = `Industrial Metals Bid (${v200s} vs 200d) — Growth > Fear`;
+        condition = `Industrial Metals Bid (${v200s} vs 200d) \u2014 Growth > Fear`;
         rowStatus = 'bullish';
       } else if (above) {
-        condition = `Silver Holding (${v200s} vs 200d) — Neutral`;
+        condition = `Silver Holding (${v200s} vs 200d) \u2014 Neutral`;
         rowStatus = 'neutral';
       } else {
-        condition = `Silver Weak (${v200s} vs 200d) — Fear > Growth`;
+        condition = `Silver Weak (${v200s} vs 200d) \u2014 Fear > Growth`;
         rowStatus = 'bearish';
       }
     } else if (role === 'growth') {
       condition = above
-        ? `Growth Confirmed (${v200s} vs 200d) — Risk-On`
-        : `Growth Warning (${v200s} vs 200d) — Caution`;
+        ? `Growth Confirmed (${v200s} vs 200d) \u2014 Risk-On`
+        : `Growth Warning (${v200s} vs 200d) \u2014 Caution`;
       rowStatus = above ? 'bullish' : 'bearish';
     } else if (role === 'energy') {
       condition = above
-        ? `Energy Trending (${v200s} vs 200d) — Overweight Energy`
-        : `Energy Weak (${v200s} vs 200d) — Underweight Energy`;
+        ? `Energy Trending (${v200s} vs 200d) \u2014 Overweight Energy`
+        : `Energy Weak (${v200s} vs 200d) \u2014 Underweight Energy`;
       rowStatus = above ? 'bullish' : 'bearish';
     } else if (role === 'agriculture') {
       // Needs >2% above 200d to qualify as trending
       if (above && v200 > 2) {
-        condition = `Ag Trending (${v200s} vs 200d) — Food Inflation Watch`;
+        condition = `Ag Trending (${v200s} vs 200d) \u2014 Food Inflation Watch`;
         rowStatus = 'bullish';
       } else if (above) {
-        condition = `Ag At 200d (${v200s} vs 200d) — Neutral`;
+        condition = `Ag At 200d (${v200s} vs 200d) \u2014 Neutral`;
         rowStatus = 'neutral';
       } else {
-        condition = `Ag Weak (${v200s} vs 200d) — Benign Food Prices`;
+        condition = `Ag Weak (${v200s} vs 200d) \u2014 Benign Food Prices`;
         rowStatus = 'bearish';
       }
     } else if (role === 'industrial') {
       condition = above
-        ? `Capex Cycle Active (${v200s} vs 200d) — Overweight Industrials`
-        : `Capex Weak (${v200s} vs 200d) — Reduce Industrial Exposure`;
+        ? `Capex Cycle Active (${v200s} vs 200d) \u2014 Overweight Industrials`
+        : `Capex Weak (${v200s} vs 200d) \u2014 Reduce Industrial Exposure`;
       rowStatus = above ? 'bullish' : 'bearish';
     } else if (role === 'uranium') {
       if (above && v200 > 5) {
-        condition = `Nuclear Demand Active (${v200s} vs 200d) — Energy Transition Bid`;
+        condition = `Nuclear Demand Active (${v200s} vs 200d) \u2014 Energy Transition Bid`;
         rowStatus = 'bullish';
       } else if (above) {
-        condition = `Uranium Holding (${v200s} vs 200d) — Neutral`;
+        condition = `Uranium Holding (${v200s} vs 200d) \u2014 Neutral`;
         rowStatus = 'neutral';
       } else {
-        condition = `Uranium Weak (${v200s} vs 200d) — Nuclear Demand Fading`;
+        condition = `Uranium Weak (${v200s} vs 200d) \u2014 Nuclear Demand Fading`;
         rowStatus = 'bearish';
       }
     } else {
       condition = above
-        ? `Above 200d (${v200s}) — Real Assets Favourable`
-        : `Below 200d (${v200s}) — Real Assets Under Pressure`;
+        ? `Above 200d (${v200s}) \u2014 Real Assets Favourable`
+        : `Below 200d (${v200s}) \u2014 Real Assets Under Pressure`;
       rowStatus = above ? 'bullish' : 'bearish';
     }
 
-    // Count bullish signals — gold/silver use macro-signal status
+    // Count bullish signals \u2014 gold/silver use macro-signal status
     if (rowStatus === 'bullish') bull++;
     return { label, indicator: sym, value: val, condition, status: rowStatus };
   });
@@ -1075,12 +1075,12 @@ function buildCommodities(q) {
   const copperAbove = !!(copper?.price && copper?.sma200 && copper.price > copper.sma200);
   const goldAbove   = !!(gold?.price   && gold?.sma200   && gold.price   > gold.sma200);
   const commNote = `${bull}/${COM_META.length} macro-positive commodity signals.`
-    + (copper ? (copperAbove ? ' Copper above 200d — industrial growth confirmed.' : ' Copper below 200d — growth warning.') : '')
-    + (copperAbove && !goldAbove ? ' Gold fading — safe haven demand absent, risk-on confirmed.' : '')
-    + (!copperAbove && goldAbove ? ' Gold leading copper — safe haven demand with growth caution.' : '');
+    + (copper ? (copperAbove ? ' Copper above 200d \u2014 industrial growth confirmed.' : ' Copper below 200d \u2014 growth warning.') : '')
+    + (copperAbove && !goldAbove ? ' Gold fading \u2014 safe haven demand absent, risk-on confirmed.' : '')
+    + (!copperAbove && goldAbove ? ' Gold leading copper \u2014 safe haven demand with growth caution.' : '');
 
-  const copperVs200 = copper?.vs200 != null ? (copper.vs200 >= 0 ? '+' : '') + copper.vs200.toFixed(1) + '%' : '—';
-  const goldVs200   = gold?.vs200   != null ? (gold.vs200   >= 0 ? '+' : '') + gold.vs200.toFixed(1)   + '%' : '—';
+  const copperVs200 = copper?.vs200 != null ? (copper.vs200 >= 0 ? '+' : '') + copper.vs200.toFixed(1) + '%' : '\u2014';
+  const goldVs200   = gold?.vs200   != null ? (gold.vs200   >= 0 ? '+' : '') + gold.vs200.toFixed(1)   + '%' : '\u2014';
   const stats = [
     ['Bull Signals',  `${bull} / ${COM_META.length}`, 'macro-positive signals',   bull >= 6 ? 'pos' : bull < 4 ? 'neg' : null],
     ['Copper vs 200d', copperVs200,                    'industrial / growth proxy', copperAbove ? 'pos' : 'neg'],
@@ -1114,20 +1114,20 @@ function buildEquities(q) {
 
     let condition, status;
     if (!d || v200s == null) {
-      condition = '—'; status = 'neutral';
+      condition = '\u2014'; status = 'neutral';
     } else if (abvBoth) {
-      condition = `Trend Intact (${v200s} vs 200d) — Execute Long`;
+      condition = `Trend Intact (${v200s} vs 200d) \u2014 Execute Long`;
       status = 'bullish';
       bull++;
     } else if (abv200) {
-      condition = `Pulling Back (${v200s} vs 200d) — Wait for 50d Recapture`;
+      condition = `Pulling Back (${v200s} vs 200d) \u2014 Wait for 50d Recapture`;
       status = 'neutral';
     } else {
-      condition = `Below 200d (${v200s} vs 200d) — Step Aside`;
+      condition = `Below 200d (${v200s} vs 200d) \u2014 Step Aside`;
       status = 'bearish';
     }
 
-    return { label, indicator: sym, value: d ? usd(d.price) : '—', condition, status };
+    return { label, indicator: sym, value: d ? usd(d.price) : '\u2014', condition, status };
   });
 
   const total = watchList.length;
@@ -1147,14 +1147,14 @@ function buildEquities(q) {
   const equityNote = `${bull}/${total} names above both 50d & 200d. `
     + (firingThemes.length  ? `Themes firing: ${firingThemes.join(', ')}. ` : '')
     + (stalledThemes.length ? `Themes stalled: ${stalledThemes.join(', ')}.` : '')
-    || (bull >= 7 ? 'All themes active — execution environment favourable.'
-      : 'Broad weakness — wait for MA recapture before adding positions.');
+    || (bull >= 7 ? 'All themes active \u2014 execution environment favourable.'
+      : 'Broad weakness \u2014 wait for MA recapture before adding positions.');
 
   const iwm  = q['IWM'],  nvda = q['NVDA'];
   const iwmAbove  = !!(iwm?.price  && iwm?.sma200  && iwm.price  > iwm.sma200);
   const nvdaAbove = !!(nvda?.price && nvda?.sma200 && nvda.price > nvda.sma200);
-  const iwmVs200  = iwm?.vs200  != null ? (iwm.vs200  >= 0 ? '+' : '') + iwm.vs200.toFixed(1)  + '%' : '—';
-  const nvdaVs200 = nvda?.vs200 != null ? (nvda.vs200 >= 0 ? '+' : '') + nvda.vs200.toFixed(1) + '%' : '—';
+  const iwmVs200  = iwm?.vs200  != null ? (iwm.vs200  >= 0 ? '+' : '') + iwm.vs200.toFixed(1)  + '%' : '\u2014';
+  const nvdaVs200 = nvda?.vs200 != null ? (nvda.vs200 >= 0 ? '+' : '') + nvda.vs200.toFixed(1) + '%' : '\u2014';
   const stats = [
     ['Names Above MAs', `${bull} / ${total}`, 'above both 50d & 200d',  bull >= 7 ? 'pos' : bull < 5 ? 'neg' : null],
     ['Russell 2000',    iwmVs200,              'small-cap risk appetite', iwm?.vs200  != null ? (iwmAbove  ? 'pos' : 'neg') : null],
@@ -1182,44 +1182,44 @@ function buildCredit(q) {
   const rows = [
     {
       label: 'Risk Appetite',
-      indicator: 'HYG — High Yield Corp Bond ETF',
+      indicator: 'HYG \u2014 High Yield Corp Bond ETF',
       value: hyg
         ? (hyg.vs200 != null ? `${usd(hyg.price)}<br>vs200&nbsp;${pct(hyg.vs200)}` : usd(hyg.price))
-        : '—',
-      condition: hygBull == null ? '—' : hygBull ? 'Above 200d — Appetite Healthy' : 'Below 200d — Risk Signal',
+        : '\u2014',
+      condition: hygBull == null ? '\u2014' : hygBull ? 'Above 200d \u2014 Appetite Healthy' : 'Below 200d \u2014 Risk Signal',
       status: hygBull == null ? 'neutral' : hygBull ? 'bullish' : 'bearish',
     },
     {
       label: 'Spread Signal',
-      indicator: 'HYG vs LQD — HY vs IG (200d basis)',
+      indicator: 'HYG vs LQD \u2014 HY vs IG (200d basis)',
       value: hyg?.vs200 != null && lqd?.vs200 != null
         ? `HYG&nbsp;${pct(hyg.vs200)}<br>LQD&nbsp;${pct(lqd.vs200)}`
-        : '—',
-      condition: spreadTightening == null ? '—' : spreadTightening ? 'HY Outperforming IG — Rate-Driven' : 'IG Outperforming HY — Credit-Driven',
+        : '\u2014',
+      condition: spreadTightening == null ? '\u2014' : spreadTightening ? 'HY Outperforming IG \u2014 Rate-Driven' : 'IG Outperforming HY \u2014 Credit-Driven',
       status: spreadTightening == null ? 'neutral' : spreadTightening ? 'bullish' : 'bearish',
     },
     {
       label: 'IG Demand',
-      indicator: 'LQD — Investment Grade Bond ETF',
+      indicator: 'LQD \u2014 Investment Grade Bond ETF',
       value: lqd
         ? (lqd.vs200 != null ? `${usd(lqd.price)}<br>vs200&nbsp;${pct(lqd.vs200)}` : usd(lqd.price))
-        : '—',
-      condition: lqdBull == null ? '—' : lqdBull ? 'Above 200d — IG Demand Firm' : 'Below 200d — IG Demand Weak',
+        : '\u2014',
+      condition: lqdBull == null ? '\u2014' : lqdBull ? 'Above 200d \u2014 IG Demand Firm' : 'Below 200d \u2014 IG Demand Weak',
       status: lqdBull == null ? 'neutral' : lqdBull ? 'bullish' : 'bearish',
     },
     {
       label: 'Global Credit',
-      indicator: 'EMB — EM USD Bond ETF (JP Morgan)',
+      indicator: 'EMB \u2014 EM USD Bond ETF (JP Morgan)',
       value: emb
         ? (emb.vs200 != null ? `${usd(emb.price)}<br>vs200&nbsp;${pct(emb.vs200)}` : usd(emb.price))
-        : '—',
-      condition: embBull == null ? '—' : embBull
-        ? 'Above 200d — EM Credit Stable'
+        : '\u2014',
+      condition: embBull == null ? '\u2014' : embBull
+        ? 'Above 200d \u2014 EM Credit Stable'
         : emb.vs200 >= -2
-          ? 'Below 200d — Monitor EM Risk'
+          ? 'Below 200d \u2014 Monitor EM Risk'
           : emb.vs200 >= -5
-            ? 'Below 200d — Stress Spreading'
-            : 'Below 200d — Contagion Risk',
+            ? 'Below 200d \u2014 Stress Spreading'
+            : 'Below 200d \u2014 Contagion Risk',
       status: embBull == null ? 'neutral' : embBull ? 'bullish' : 'bearish',
     },
   ];
@@ -1229,21 +1229,21 @@ function buildCredit(q) {
   const creditNote = (() => {
     const hygStr = hygBull == null ? 'Credit data unavailable.'
       : hygBull
-      ? 'HYG above 200d — no leading credit stress signal.'
-      : 'HYG below 200d — leading stress signal active; historical lead of 4–6 weeks before equity drawdowns.';
+      ? 'HYG above 200d \u2014 no leading credit stress signal.'
+      : 'HYG below 200d \u2014 leading stress signal active; historical lead of 4–6 weeks before equity drawdowns.';
     const spreadStr = !hygBull && spreadTightening != null
       ? (spreadTightening
-        ? ' Spread is rate-driven (HY outperforming IG) — credit quality intact, rate sensitivity dominant.'
-        : ' Spread is credit-driven (IG outperforming HY) — true credit deterioration; more severe outlook.')
+        ? ' Spread is rate-driven (HY outperforming IG) \u2014 credit quality intact, rate sensitivity dominant.'
+        : ' Spread is credit-driven (IG outperforming HY) \u2014 true credit deterioration; more severe outlook.')
       : '';
     const embStr = !embBull && emb?.vs200 != null && emb.vs200 < -2
-      ? ' EMB below 200d — EM credit stress, watch for contagion beyond US markets.'
+      ? ' EMB below 200d \u2014 EM credit stress, watch for contagion beyond US markets.'
       : '';
     return hygStr + spreadStr + embStr;
   })();
-  const hygVs200 = hyg?.vs200 != null ? (hyg.vs200 >= 0 ? '+' : '') + hyg.vs200.toFixed(1) + '%' : '—';
-  const lqdVs200 = lqd?.vs200 != null ? (lqd.vs200 >= 0 ? '+' : '') + lqd.vs200.toFixed(1) + '%' : '—';
-  const embVs200 = emb?.vs200 != null ? (emb.vs200 >= 0 ? '+' : '') + emb.vs200.toFixed(1) + '%' : '—';
+  const hygVs200 = hyg?.vs200 != null ? (hyg.vs200 >= 0 ? '+' : '') + hyg.vs200.toFixed(1) + '%' : '\u2014';
+  const lqdVs200 = lqd?.vs200 != null ? (lqd.vs200 >= 0 ? '+' : '') + lqd.vs200.toFixed(1) + '%' : '\u2014';
+  const embVs200 = emb?.vs200 != null ? (emb.vs200 >= 0 ? '+' : '') + emb.vs200.toFixed(1) + '%' : '\u2014';
   const stats = [
     ['HYG vs 200d', hygVs200, 'high yield health',   hygBull == null ? null : hygBull ? 'pos' : 'neg'],
     ['LQD vs 200d', lqdVs200, 'investment grade',    lqdBull == null ? null : lqdBull ? 'pos' : 'neg'],
@@ -1257,7 +1257,7 @@ function buildCredit(q) {
 
 function placeholderCard(num, title, subtitle) {
   return { id: title.toLowerCase(), number: num, title, subtitle, status: 'neutral',
-    rows: [{ label: '—', indicator: 'Data unavailable', value: '—', condition: '—', status: 'neutral' }] };
+    rows: [{ label: '\u2014', indicator: 'Data unavailable', value: '\u2014', condition: '\u2014', status: 'neutral' }] };
 }
 
 // ── DELTA ─────────────────────────────────────────────────────────────────────
@@ -1312,7 +1312,7 @@ function buildAggregate(cards) {
                     + (byKey.macro?.pct          ?? 0) * 0.3;
 
   const glow  = weightedPct >= 0.75 ? 'green' : weightedPct >= 0.55 ? 'yellow' : 'red';
-  const label = weightedPct >= 0.75 ? 'Risk-On — Broad Participation' : weightedPct >= 0.55 ? 'Mixed Signals — Selective' : 'Risk-Off — Reduce Exposure';
+  const label = weightedPct >= 0.75 ? 'Risk-On \u2014 Broad Participation' : weightedPct >= 0.55 ? 'Mixed Signals \u2014 Selective' : 'Risk-Off \u2014 Reduce Exposure';
   const posture = weightedPct >= 0.75 ? 'Risk-On, Not Complacent' : weightedPct >= 0.55 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
 
   const regimeBearish = byId['regime']?.status === 'bearish';
@@ -1340,7 +1340,7 @@ export async function onRequest(context) {
     db ? loadLeadershipContext(db) : Promise.resolve(null),
   ]);
   const today = new Date().toISOString().slice(0, 10);
-  // Treat D1 data as stale only if >3 calendar days old — handles weekends + pre-seeder Monday
+  // Treat D1 data as stale only if >3 calendar days old \u2014 handles weekends + pre-seeder Monday
   const staleDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const missing = ALL_SYMBOLS.filter(s => !d1[s] || d1[s].latestDate < staleDate);
 
