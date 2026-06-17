@@ -1045,7 +1045,10 @@ function buildRegimeMetrics(card) {
       { label: 'Neutral', text: 'Bearish Retest  -10% to 0%',   color: '#f59e0b' },
       { label: 'Bearish', text: 'Deeply Oversold  < -10%',       color: '#ef4444' },
     ],
-    null,
+    [
+      { label: 'Bullish', text: 'Golden Cross  50d SMA > 200d SMA', color: '#22c55e' },
+      { label: 'Bearish', text: 'Death Cross  50d SMA < 200d SMA',  color: '#ef4444' },
+    ],
   ];
 
   const row1 = rows.slice(0, 3).map((r, idx) => {
