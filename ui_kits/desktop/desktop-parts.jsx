@@ -408,17 +408,27 @@ function SparkD({ seed, trend, color, w = 72, h = 26 }) {
 }
 
 // ── Stat boxes row ──
+// 4-field tuple [label, value, desc, tone]: renders value / label / desc (original format)
+// 5-field tuple [label, value, indicator, tone, condition]: renders value / label / — indicator / — condition
 function StatBoxes({ stats }) {
   if (!stats || !stats.length) return null;
   return (
     <div style={{ display: 'grid', gridTemplateColumns: `repeat(${stats.length}, 1fr)`, gap: 10 }}>
       {stats.map((st, i) => {
         const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#f59e0b';
+        const extended = st[4] != null;
         return (
           <div key={i} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '14px 14px' }}>
             <div style={{ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: tone, whiteSpace: 'pre-line', lineHeight: 1.3 }}>{st[1]}</div>
             <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', marginTop: 5 }}>{st[0]}</div>
-            <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>{st[2]}</div>
+            {extended ? (
+              <>
+                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 4 }}>— {st[2]}</div>
+                <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>— {st[4]}</div>
+              </>
+            ) : (
+              <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>{st[2]}</div>
+            )}
           </div>
         );
       })}
@@ -988,15 +998,35 @@ function buildRegimeDiagnostics(card) {
   ];
 }
 
-// ── Regime card — SPY Regime / Stretch Risk / Trend Cross stat boxes, derived from rows[0..2] ──
-function buildRegimeRowStats(card) {
-  const rows = card.rows || [];
-  return rows.slice(0, 3).map((r) => {
-    const [label, value, condition, status] = r;
-    const [, sub] = (condition || '—').split(' — ');
+// ── Regime card — builds both rows of 6 stat boxes with [label, value, indicator, tone, condition] ──
+function buildRegimeMetrics(card) {
+  const rows  = card.rows  || [];
+  const stats = card.stats || [];
+  const findStat = (label) => stats.find((s) => s[0] === label);
+  const pctStat = findStat('Percentile Rank');
+  const durStat = findStat('Regime Duration');
+  const velStat = findStat('Extension Velocity');
+
+  const pctNum = pctStat ? parseInt(pctStat[1], 10) : null;
+  const durNum = durStat ? parseInt(durStat[1], 10) : null;
+  const velNum = velStat ? parseFloat(velStat[1]) : null;
+  const pctAction = pctNum == null ? '—' : pctNum >= 90 ? 'Reduce Exposure' : pctNum >= 70 ? 'Monitor for Reversion' : pctNum <= 10 ? 'Watch for Bounce' : pctNum <= 30 ? 'Watch for Reversal' : 'No Action';
+  const durAction = durNum == null ? '—' : durNum > 250 ? 'Trail Stops' : durNum > 60 ? 'Hold Core' : durNum < 10 ? 'Await Confirmation' : 'Monitor';
+  const velAction = velNum == null ? '—' : velNum > 0.05 ? 'Monitor Stretch' : velNum < -0.05 ? 'Pressure Easing' : 'No Signal Change';
+
+  const row1 = rows.slice(0, 3).map((r) => {
+    const [label, value, condition, status, indicator] = r;
     const tone = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
-    return [label, value, sub || '', tone];
+    return [label, value, indicator || '', tone, condition || '—'];
   });
+
+  const row2 = [
+    pctStat ? [pctStat[0], pctStat[1], pctStat[2], pctStat[3], pctAction] : ['Percentile Rank', '—', '', null, '—'],
+    durStat ? [durStat[0], durStat[1], durStat[2], durStat[3], durAction] : ['Regime Duration',  '—', '', null, '—'],
+    velStat ? [velStat[0], velStat[1], velStat[2], velStat[3], velAction] : ['Extension Velocity','—', '', null, '—'],
+  ];
+
+  return { row1, row2 };
 }
 
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
@@ -1151,11 +1181,13 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 30, height: 20, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
         </div>
       )}
-      {/* indicators */}
-      <div>
-        {sectionLabel('Indicators')}
-        <IndicatorTable rows={card.rows} />
-      </div>
+      {/* indicators — hidden for regime (superseded by Regime Metrics boxes) */}
+      {cardId !== 'regime' && (
+        <div>
+          {sectionLabel('Indicators')}
+          <IndicatorTable rows={card.rows} />
+        </div>
+      )}
       {/* country breakdown — global flows card only */}
       {card.details && card.details.length > 0 && (
         <div>
@@ -1167,12 +1199,12 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {card.stats && card.stats.length > 0 && (
         <div>
           {sectionLabel(cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics')}
-          {cardId === 'regime' && (
-            <div style={{ marginBottom: 10 }}>
-              <StatBoxes stats={buildRegimeRowStats(card)} />
-            </div>
+          {cardId === 'regime' ? (() => {
+            const { row1, row2 } = buildRegimeMetrics(card);
+            return (<><div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div><StatBoxes stats={row2} /></>);
+          })() : (
+            <StatBoxes stats={cardId === 'leadership' ? leadershipStats : card.stats} />
           )}
-          <StatBoxes stats={cardId === 'leadership' ? leadershipStats : card.stats} />
         </div>
       )}
       {/* summary note */}
