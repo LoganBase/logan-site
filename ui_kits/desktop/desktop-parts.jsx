@@ -431,9 +431,9 @@ function StatBoxes({ stats }) {
               <div>
                 <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Triggers</div>
                 {triggers.map((t, j) => (
-                  <div key={j} style={{ marginBottom: j < triggers.length - 1 ? 8 : 0 }}>
-                    <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, color: t.color }}>{t.label}: </span>
-                    <span style={{ fontFamily: DMONO, fontSize: 11, color: t.color }}>{t.text}</span>
+                  <div key={j} style={{ marginBottom: j < triggers.length - 1 ? (triggers.length > 6 ? 4 : 8) : 0 }}>
+                    <span style={{ fontFamily: DSANS, fontSize: triggers.length > 6 ? 10 : 11, fontWeight: 700, color: t.color }}>{t.label}: </span>
+                    <span style={{ fontFamily: DMONO, fontSize: triggers.length > 6 ? 10 : 11, color: t.color }}>{t.text}</span>
                   </div>
                 ))}
               </div>
@@ -1069,7 +1069,17 @@ function buildRegimeMetrics(card) {
       { label: 'Extended',  text: '150 – 300+ days  Deeply entrenched',               color: '#22c55e' },
       { label: 'Very Long', text: '400+ days  Late-cycle characteristic',              color: '#f59e0b' },
     ],
-    null,
+    [
+      { label: 'Exhaustion',        text: '> +12%  Extreme risk — take profit',                 color: '#ef4444' },
+      { label: 'Overextended',      text: '+8% to +12%  High risk — tighten stops',             color: '#f59e0b' },
+      { label: 'Healthy Bullish',   text: '+2% to +8%  Sweet spot — buy pullbacks',             color: '#22c55e' },
+      { label: 'Macro Crossroads',  text: '0% to +2%  Market resting — watch breadth',          color: '#f59e0b' },
+      { label: 'Breakdown Zone',    text: '0% to -2%  Trend snapping — no new positions',       color: '#f59e0b' },
+      { label: 'Confirmed Bear',    text: '-2% to -6%  Structural downtrend — sell if 3 days',  color: '#ef4444' },
+      { label: 'Deep Correction',   text: '-6% to -10%  Systemic selling — rallies short-lived',color: '#ef4444' },
+      { label: 'Capitulation',      text: '-10% to -15%  Severe panic — expect bounce',         color: '#ef4444' },
+      { label: 'Systemic Bottom',   text: '< -15%  Generational value — deeply oversold',       color: '#f59e0b' },
+    ],
   ];
 
   const row2 = [
