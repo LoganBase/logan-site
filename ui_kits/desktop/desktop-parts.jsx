@@ -422,15 +422,17 @@ function StatBoxes({ stats }) {
         const extended = st[4] != null;
         const triggers = st[5] || null;
         const direction = st[6] || null;
+        const warn = st[7] || false;
         const showTriggers = triggers && hoveredIdx === i;
         return (
           <div key={i}
-            style={{ background: '#0d1520', border: `1px solid ${showTriggers ? '#2a3f57' : '#1e2d3d'}`, borderRadius: 12, padding: '14px 14px', position: 'relative', transition: 'border-color .15s' }}
+            style={{ background: '#0d1520', border: `1px solid ${showTriggers ? '#2a3f57' : warn ? '#78350f' : '#1e2d3d'}`, borderRadius: 12, padding: '14px 14px', position: 'relative', transition: 'border-color .15s' }}
             onMouseEnter={() => triggers && setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}>
-            {direction && !showTriggers && (
-              <div style={{ position: 'absolute', top: 8, right: 10, fontSize: 10, color: direction === 'up' ? '#22c55e' : direction === 'down' ? '#ef4444' : '#64748b' }}>
-                {direction === 'up' ? '▲' : direction === 'down' ? '▼' : '—'}
+            {(direction || warn) && !showTriggers && (
+              <div style={{ position: 'absolute', top: 8, right: 10, display: 'flex', gap: 4, alignItems: 'center' }}>
+                {warn && <span style={{ fontSize: 10, color: '#f59e0b' }}>⚠</span>}
+                {direction && <span style={{ fontSize: 10, color: direction === 'up' ? '#22c55e' : direction === 'down' ? '#ef4444' : '#64748b' }}>{direction === 'up' ? '▲' : direction === 'down' ? '▼' : '—'}</span>}
               </div>
             )}
             {showTriggers ? (
@@ -1060,10 +1062,41 @@ function buildRegimeMetrics(card) {
   const d = card.deltas || {};
   const row1Dirs = [d.v200 || null, d.v200 || null, d.crossSpread || null];
 
+  // ── Warning: value within margin of a status-change threshold AND trending toward it ──
+  // Approaching: (val < threshold && dir === 'up') || (val > threshold && dir === 'down')
+  const approaching = (val, threshold, dir) =>
+    val != null && dir != null && dir !== 'flat' &&
+    ((val < threshold && dir === 'up') || (val > threshold && dir === 'down'));
+  const nearAny = (val, thresholds, dir, margin) =>
+    thresholds.some(t => Math.abs(val - t) <= margin && approaching(val, t, dir));
+
+  // SPY Regime: parse "755.14 vs 684.67" to compute raw v200 pct, warn within 2% of 0
+  const spyM = (rows[0]?.[1] || '').match(/([\d.]+)\s+vs\s+([\d.]+)/);
+  const spyV200pct = spyM ? (parseFloat(spyM[1]) - parseFloat(spyM[2])) / parseFloat(spyM[2]) * 100 : null;
+  const warnSpy = spyV200pct != null && Math.abs(spyV200pct) <= 2 && approaching(spyV200pct, 0, d.v200);
+
+  // Stretch Risk: parse "+10.29%" → float, warn within 1.5% of 14, 10, 0, -10
+  const stretchVal = parseFloat((rows[1]?.[1] || '').replace('%', ''));
+  const warnStretch = !isNaN(stretchVal) && nearAny(stretchVal, [14, 10, 0, -10], d.v200, 1.5);
+
+  // Trend Cross: parse "+5.9%" → float, warn within 1% of 0
+  const crossVal = parseFloat((rows[2]?.[1] || '').replace('%', ''));
+  const warnCross = !isNaN(crossVal) && Math.abs(crossVal) <= 1 && approaching(crossVal, 0, d.crossSpread);
+
+  // Percentile Rank: parse "78th" → int, warn within 5 pts of 80 or 20
+  const warnPct = pctNum != null && nearAny(pctNum, [80, 20], d.v200, 5);
+
+  // Regime Duration: parse days int, warn within 10 days of 30, 150, 400
+  const warnDur = durNum != null && nearAny(durNum, [30, 150, 400], d.duration, 10);
+
+  // Extension Velocity: velNum already a float, warn within 0.5% of any zone boundary
+  const warnVel = velNum != null && nearAny(velNum, [12, 8, 2, 0, -2, -6, -10, -15], d.velocity, 0.5);
+
   const row1 = rows.slice(0, 3).map((r, idx) => {
     const [label, value, condition, status, indicator] = r;
     const tone = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
-    return [label, value, indicator || '', tone, condition || '—', row1Triggers[idx], row1Dirs[idx]];
+    const warn = [warnSpy, warnStretch, warnCross][idx];
+    return [label, value, indicator || '', tone, condition || '—', row1Triggers[idx], row1Dirs[idx], warn];
   });
 
   const row2Triggers = [
@@ -1092,9 +1125,9 @@ function buildRegimeMetrics(card) {
   ];
 
   const row2 = [
-    pctStat ? [pctStat[0], pctStat[1], pctStat[2], pctStat[3], pctAction, row2Triggers[0], d.v200    || null] : ['Percentile Rank',   '—', '', null, '—', null, null],
-    durStat ? [durStat[0], durStat[1], durStat[2], durStat[3], durAction, row2Triggers[1], d.duration || null] : ['Regime Duration',    '—', '', null, '—', null, null],
-    velStat ? [velStat[0], velStat[1], velStat[2], velStat[3], velAction, row2Triggers[2], d.velocity || null] : ['Extension Velocity', '—', '', null, '—', null, null],
+    pctStat ? [pctStat[0], pctStat[1], pctStat[2], pctStat[3], pctAction, row2Triggers[0], d.v200     || null, warnPct]  : ['Percentile Rank',   '—', '', null, '—', null, null, false],
+    durStat ? [durStat[0], durStat[1], durStat[2], durStat[3], durAction, row2Triggers[1], d.duration || null, warnDur]  : ['Regime Duration',    '—', '', null, '—', null, null, false],
+    velStat ? [velStat[0], velStat[1], velStat[2], velStat[3], velAction, row2Triggers[2], d.velocity || null, warnVel]  : ['Extension Velocity', '—', '', null, '—', null, null, false],
   ];
 
   return { row1, row2 };
