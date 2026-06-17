@@ -256,7 +256,7 @@ export async function onRequest(context) {
         fromD1(db, symbol, cfg.days),
         computeRegimeDuration(db, symbol),
       ]);
-      if (rows.length >= 5 && rows.some(r => r.sma200 != null)) {
+      if (rows.length >= 2 && rows.some(r => r.sma200 != null)) {
         return new Response(JSON.stringify(buildFromD1Rows(symbol, range, rows, regimeDays)), {
           headers: {
             'Content-Type': 'application/json',
