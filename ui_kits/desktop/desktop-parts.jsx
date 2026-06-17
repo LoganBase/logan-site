@@ -1063,7 +1063,12 @@ function buildRegimeMetrics(card) {
       { label: 'Normal',       text: 'Normal historical range  20th – 80th Percentile',     color: '#22c55e' },
       { label: 'Extreme Low',  text: 'Historically extreme oversold  < 20th Percentile',    color: '#ef4444' },
     ],
-    null,
+    [
+      { label: 'Short',     text: '< 30 days  Freshly established, fragile',          color: '#f59e0b' },
+      { label: 'Moderate',  text: '30 – 150 days  Building credibility',               color: '#22c55e' },
+      { label: 'Extended',  text: '150 – 300+ days  Deeply entrenched',               color: '#22c55e' },
+      { label: 'Very Long', text: '400+ days  Late-cycle characteristic',              color: '#f59e0b' },
+    ],
     null,
   ];
 
