@@ -391,7 +391,7 @@ function buildLeadership(q, ctx) {
       indicator: 'IVW vs IVE \u2014 20d Return',
       value: ivw20 != null && ive20 != null ? `IVW&nbsp;${pct(ivw20, 1)}<br>IVE&nbsp;${pct(ive20, 1)}` : '\u2014',
       condition: growthLead == null ? '\u2014' : (growthLead ? 'Growth Leading \u2014 Risk-On' : 'Value Rotating \u2014 Reduce Growth'),
-      status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'bearish'),
+      status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'neutral'),
     },
   ];
   const leaderNote = (() => {
