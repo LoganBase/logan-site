@@ -1253,6 +1253,28 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     });
   })();
 
+  // Leadership "Quality Check": pick the spread with the largest absolute 1Y divergence
+  const qualityCheck = (() => {
+    if (cardId !== 'leadership' || !live) return { live, label: null, spread: null };
+    const candidates = [
+      { label: 'RSP vs SPY',  values: live.values,                     color: '#22d3ee' },
+      { label: 'QQEW vs QQQ', values: live.overlays?.[0]?.values || [], color: '#a855f7' },
+      { label: 'IVW vs IVE',  values: live.overlays?.[1]?.values || [], color: '#f59e0b' },
+    ];
+    const dom = candidates.reduce((best, c) => {
+      const bv = Math.abs(best.values[best.values.length - 1] ?? 0);
+      const cv = Math.abs(c.values[c.values.length - 1]    ?? 0);
+      return cv > bv ? c : best;
+    });
+    const last = dom.values[dom.values.length - 1] ?? 0;
+    const fmt  = (v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+    return {
+      live:   { ...live, values: dom.values, label: dom.label, lineColor: dom.color, overlays: [] },
+      label:  dom.label,
+      spread: fmt(last),
+    };
+  })();
+
   const sectionLabel = (txt) => (
     <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{txt}</div>
   );
@@ -1334,12 +1356,19 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
-            <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{card.metric}</div>
-            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{cardId === 'leadership' ? 'Rebased to 100 at range start' : card.metricUnit}</div>
+            <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>
+              {cardId === 'leadership' ? (qualityCheck.label || 'The Quality Check') : card.metric}
+            </div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>
+              {cardId === 'leadership'
+                ? `Largest ${range} divergence · ${qualityCheck.spread || ''}`
+                : card.metricUnit}
+            </div>
           </div>
           {cardId !== 'leadership' && <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>}
         </div>
-        <DeepChartLg card={card} cardId={cardId} color={sg.c} height={chartHeight} range={range} setRange={setRange} live={live}
+        <DeepChartLg card={card} cardId={cardId} color={cardId === 'leadership' ? (qualityCheck.live?.lineColor || sg.c) : sg.c} height={chartHeight} range={range} setRange={setRange}
+          live={cardId === 'leadership' ? qualityCheck.live : live}
           ranges={cardId === 'regime' ? ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'] : undefined} />
       </div>
       {/* regime timeline — always 1Y, never tied to chart range */}
