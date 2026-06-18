@@ -41,7 +41,7 @@ function monthLabels(endLabel, n) {
 }
 
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
-function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live, ranges: rangesProp, logScale = false }) {
+function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live, ranges: rangesProp, logScale = false, showDelta = false }) {
   const color = live?.lineColor || colorProp;
   const ranges = rangesProp || ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [hidden, setHidden] = useStateD({});
@@ -221,6 +221,19 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
                 <span style={{ fontFamily: DMONO, fontSize: 12.5, color: '#e8edf5', fontWeight: 600 }}>{fmtVal(value)}</span>
               </div>
             ))}
+            {showDelta && live?.overlays?.length > 0 && (() => {
+              const pv = live.values[hover];
+              const ov = (live.overlays[0].values || [])[hover];
+              if (pv == null || ov == null || isNaN(pv) || isNaN(ov)) return null;
+              const delta = ov - pv;
+              const dc = delta > 0.01 ? '#22c55e' : delta < -0.01 ? '#ef4444' : '#f59e0b';
+              return (
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d3d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20 }}>
+                  <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b' }}>Spread</span>
+                  <span style={{ fontFamily: DMONO, fontSize: 12.5, fontWeight: 700, color: dc }}>{(delta >= 0 ? '+' : '') + delta.toFixed(2) + '%'}</span>
+                </div>
+              );
+            })()}
             {(live?.vs200 || live?.vs50) && (() => {
               // % above 200d mirrors the Stretch Risk bands from /api/scores.
               const stretchTone = (v) => v > 14 ? 'bearish' : v > 10 ? 'neutral' : v >= 0 ? 'bullish' : v >= -10 ? 'neutral' : 'bearish';
@@ -837,7 +850,7 @@ function LeadershipPriceChart() {
           ))}
         </div>
       </div>
-      <DeepChartLg card={fakeCard} cardId={`leadership-prices-${pair}`} color={cfg.pColor} height={230} range={range} setRange={setRange} live={live} ranges={['20D', '50D', '200D']} />
+      <DeepChartLg card={fakeCard} cardId={`leadership-prices-${pair}`} color={cfg.pColor} height={230} range={range} setRange={setRange} live={live} ranges={['20D', '50D', '200D']} showDelta={true} />
     </div>
   );
 }
