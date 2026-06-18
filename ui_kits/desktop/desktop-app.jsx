@@ -95,6 +95,40 @@ function RegimeMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
   );
 }
 
+// ── Leadership list sparkline — live 20D SPY + RSP rebased to 0%, falls back to SparkD ──
+function LeadershipMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [data, setData] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    fetch('/api/leadership?range=1mo')
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j.prices || !j.dates?.length) return;
+        const rebase = (arr) => {
+          const first = (arr || []).find(v => v != null && v > 0);
+          if (!first) return arr || [];
+          return (arr || []).map(v => v == null ? null : ((v - first) / first) * 100);
+        };
+        setData({ spy: rebase(j.prices.SPY || []), rsp: rebase(j.prices.RSP || []) });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const allVals = [...data.spy, ...data.rsp].filter(v => v != null);
+  const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+  const dx = w / Math.max(data.spy.length - 1, 1);
+  const mkPath = (vals) => vals.map((v, i) => v == null ? '' :
+    `${(i === 0 || vals[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <path d={mkPath(data.spy)} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.rsp)} fill="none" stroke="#a855f7" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ── Scorecard tile (grid) ──
 function ScoreTile({ card, onOpen, active }) {
   const sg = DSIG[card.status];
@@ -106,7 +140,9 @@ function ScoreTile({ card, onOpen, active }) {
         boxShadow: hover ? '0 6px 20px rgba(0,0,0,.35)' : '0 1px 2px rgba(0,0,0,.3)', transform: hover ? 'translateY(-2px)' : 'none', transition: 'transform .15s ease, box-shadow .15s ease, border-color .15s ease' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', flex: 1 }}>{card.title}</span>
-        <SparkD seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
+        {card.id === 'leadership'
+          ? <LeadershipMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
+          : <SparkD seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />}
         <StatusPill status={card.status} size="sm" />
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
@@ -227,6 +263,8 @@ function OptionWorkspace({ D }) {
                     <span style={{ fontFamily: DSANS, fontSize: 13.5, color: on ? '#e8edf5' : '#cbd5e1', fontWeight: on ? 600 : 400, flex: 1 }}>{c.title}</span>
                     {id === 'regime'
                       ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                      : id === 'leadership'
+                      ? <LeadershipMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
                       : <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />}
                   </button>
                 );
@@ -301,6 +339,8 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
                 </div>
                 {id === 'regime'
                   ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : id === 'leadership'
+                  ? <LeadershipMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
                   : <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />}
                 <StatusPill status={c.status} size="sm" />
                 <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
