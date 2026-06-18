@@ -782,9 +782,12 @@ function SectorBreadthChart({ liveSectorCount = null }) {
 
 // ── Leadership price history chart — pair selector (Market/Tech/Style) + 20/50/200d range ──
 const LP_PAIRS = {
-  market: { label: 'Market Breadth', primary: 'SPY',  pColor: '#22d3ee', overlay: 'RSP',  oColor: '#a855f7', note: 'RSP vs SPY' },
-  tech:   { label: 'Tech Breadth',   primary: 'QQQ',  pColor: '#22c55e', overlay: 'QQEW', oColor: '#818cf8', note: 'QQEW vs QQQ' },
-  style:  { label: 'Style Bias',     primary: 'IVE',  pColor: '#f59e0b', overlay: 'IVW',  oColor: '#ef4444', note: 'IVW vs IVE' },
+  market: { label: 'Market Breadth', primary: 'SPY',  pColor: '#22d3ee', overlay: 'RSP',  oColor: '#a855f7', note: 'RSP vs SPY',
+    desc: 'Market: The equal-weighted RSP versus the cap-weighted SPY, 20/50/200 day percentage return window' },
+  tech:   { label: 'Tech Breadth',   primary: 'QQQ',  pColor: '#22c55e', overlay: 'QQEW', oColor: '#818cf8', note: 'QQEW vs QQQ',
+    desc: 'Technology: The equal-weighted QQEW versus the cap-weighted QQQ, 20/50/200 day percentage return window' },
+  style:  { label: 'Style Bias',     primary: 'IVE',  pColor: '#f59e0b', overlay: 'IVW',  oColor: '#ef4444', note: 'IVW vs IVE',
+    desc: 'Style: High Value IVE (low P/E, high dividend yield, asset-heavy) versus high Growth IVW (high P/E, revenue and price momentum), 20/50/200 day percentage return window' },
 };
 
 function LeadershipPriceChart() {
@@ -842,7 +845,7 @@ function LeadershipPriceChart() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{cfg.label}</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>{cfg.note} · % return from window open</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', marginTop: 2, lineHeight: 1.45 }}>{cfg.desc}</div>
         </div>
         <div style={{ display: 'flex', gap: 3 }}>
           {[['market','Market'],['tech','Tech'],['style','Style']].map(([key, lbl]) => (
