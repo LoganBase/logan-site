@@ -1212,6 +1212,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const [range, setRange] = useStateD('1Y');
   const [live, setLive] = useStateD(null);
   const [regimeLive, setRegimeLive] = useStateD(null);
+  const [qcRange, setQcRange] = useStateD('20D');
+  const [lpriceData, setLpriceData] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
@@ -1236,6 +1238,17 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     return () => { alive = false; };
   }, [cardId]);
 
+  // Leadership quality check: raw 1Y prices for rebased-spread computation (same methodology as chart 1)
+  useEffectD(() => {
+    if (cardId !== 'leadership') return;
+    let alive = true;
+    fetch('/api/leadership?range=1y')
+      .then(r => r.json())
+      .then(j => { if (alive && j.prices && j.dates?.length) setLpriceData({ dates: j.dates, prices: j.prices }); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [cardId]);
+
   // Leadership: the chart's live series for this card is already a cumulative spread
   // over the selected range, so tie the "Spread" key metrics to that same range instead
   // of always showing the server's fixed 5Y figure. Daily Streak / Growth vs Value (no
@@ -1256,23 +1269,35 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     });
   })();
 
-  // Leadership "Quality Check": pick the spread with the largest absolute 1Y divergence
+  // Leadership "Quality Check": pick the spread pair with the largest absolute divergence
+  // at the selected window (20D/50D/200D) using rebased prices — same methodology as chart 1
   const qualityCheck = (() => {
-    if (cardId !== 'leadership' || !live) return { live, label: null, spread: null };
+    if (cardId !== 'leadership') return { live, label: null, spread: null };
+    if (!lpriceData) return { live: null, label: null, spread: null };
+    const DAYS = { '20D': 20, '50D': 50, '200D': 200 };
+    const n = Math.min(DAYS[qcRange] || 20, lpriceData.dates.length);
+    const dates = lpriceData.dates.slice(-n);
+    const rebase = (sym) => {
+      const sliced = (lpriceData.prices[sym] || []).slice(-n);
+      const first = sliced.find(v => v != null && v > 0);
+      if (!first) return sliced.map(() => null);
+      return sliced.map(v => v == null ? null : ((v - first) / first) * 100);
+    };
+    const sub = (a, b) => a.map((v, i) => v == null || b[i] == null ? null : v - b[i]);
     const candidates = [
-      { label: 'RSP vs SPY',  values: live.values,                     color: '#22d3ee' },
-      { label: 'QQEW vs QQQ', values: live.overlays?.[0]?.values || [], color: '#a855f7' },
-      { label: 'IVW vs IVE',  values: live.overlays?.[1]?.values || [], color: '#f59e0b' },
+      { label: 'RSP vs SPY',  spreadVals: sub(rebase('RSP'),  rebase('SPY')),  color: '#a855f7' },
+      { label: 'QQEW vs QQQ', spreadVals: sub(rebase('QQEW'), rebase('QQQ')),  color: '#818cf8' },
+      { label: 'IVW vs IVE',  spreadVals: sub(rebase('IVW'),  rebase('IVE')),  color: '#ef4444' },
     ];
     const dom = candidates.reduce((best, c) => {
-      const bv = Math.abs(best.values[best.values.length - 1] ?? 0);
-      const cv = Math.abs(c.values[c.values.length - 1]    ?? 0);
+      const bv = Math.abs(best.spreadVals[best.spreadVals.length - 1] ?? 0);
+      const cv = Math.abs(c.spreadVals[c.spreadVals.length - 1]    ?? 0);
       return cv > bv ? c : best;
     });
-    const last = dom.values[dom.values.length - 1] ?? 0;
+    const last = dom.spreadVals[dom.spreadVals.length - 1] ?? 0;
     const fmt  = (v) => (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
     return {
-      live:   { ...live, values: dom.values, label: dom.label, lineColor: dom.color, overlays: [] },
+      live:   { values: dom.spreadVals, dates, label: dom.label, format: 'pct', lineColor: dom.color, overlays: [], thresholds: [{ y: 0, color: '#475569' }] },
       label:  dom.label,
       spread: fmt(last),
     };
@@ -1364,15 +1389,16 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
             </div>
             <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>
               {cardId === 'leadership'
-                ? `Largest ${range} divergence · ${qualityCheck.spread || ''}`
+                ? `Largest ${qcRange} divergence · ${qualityCheck.spread || ''}`
                 : card.metricUnit}
             </div>
           </div>
           {cardId !== 'leadership' && <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: sg.c }}>{card.metricVal}</div>}
         </div>
-        <DeepChartLg card={card} cardId={cardId} color={cardId === 'leadership' ? (qualityCheck.live?.lineColor || sg.c) : sg.c} height={chartHeight} range={range} setRange={setRange}
+        <DeepChartLg card={card} cardId={cardId} color={cardId === 'leadership' ? (qualityCheck.live?.lineColor || sg.c) : sg.c} height={chartHeight}
+          range={cardId === 'leadership' ? qcRange : range} setRange={cardId === 'leadership' ? setQcRange : setRange}
           live={cardId === 'leadership' ? qualityCheck.live : live}
-          ranges={cardId === 'regime' ? ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'] : undefined} />
+          ranges={cardId === 'leadership' ? ['20D', '50D', '200D'] : cardId === 'regime' ? ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'] : undefined} />
       </div>
       {/* regime timeline — always 1Y, never tied to chart range */}
       <div>
