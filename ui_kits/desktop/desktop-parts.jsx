@@ -1143,7 +1143,12 @@ function buildRegimeMetrics(card) {
     const [label, value, condition, status, indicator] = r;
     const tone = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
     const warn = [warnSpy, warnStretch, warnCross][idx];
-    return [label, value, indicator || '', tone, condition || '—', row1Triggers[idx], row1Dirs[idx], warn];
+    let displayVal = value, displayInd = indicator || '';
+    if (idx === 0 && spyM) {
+      displayVal = `$${parseFloat(spyM[1]).toFixed(2)}`;
+      displayInd = `vs $${Math.round(parseFloat(spyM[2]))} · 200d SMA`;
+    }
+    return [label, displayVal, displayInd, tone, condition || '—', row1Triggers[idx], row1Dirs[idx], warn];
   });
 
   const row2Triggers = [
