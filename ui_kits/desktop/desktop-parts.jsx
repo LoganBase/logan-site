@@ -1209,7 +1209,7 @@ function buildLeadershipMetrics(card, computedStats) {
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
-  const [range, setRange] = useStateD(cardId === 'leadership' ? '1W' : '1Y');
+  const [range, setRange] = useStateD('1Y');
   const [live, setLive] = useStateD(null);
   const [regimeLive, setRegimeLive] = useStateD(null);
 
