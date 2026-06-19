@@ -786,7 +786,7 @@ const LP_PAIRS = {
     desc: 'Market: The equal-weighted RSP versus the cap-weighted SPY, 20/50/200 day percentage return window' },
   tech:   { label: 'Tech Breadth',   primary: 'QQEW', pColor: '#818cf8', overlay: 'QQQ',  oColor: '#22c55e', note: 'QQEW vs QQQ',
     desc: 'Technology: The equal-weighted QQEW versus the cap-weighted QQQ, 20/50/200 day percentage return window' },
-  style:  { label: 'Style Bias',     primary: 'IVE',  pColor: '#f59e0b', overlay: 'IVW',  oColor: '#ef4444', note: 'IVW vs IVE',
+  style:  { label: 'Style Bias',     primary: 'IVW',  pColor: '#ef4444', overlay: 'IVE',  oColor: '#f59e0b', note: 'IVW vs IVE',
     desc: 'Style: High Value IVE (low P/E, high dividend yield, asset-heavy) versus high Growth IVW (high P/E, revenue and price momentum), 20/50/200 day percentage return window' },
 };
 
@@ -807,12 +807,12 @@ function LeadershipPriceChart() {
     return () => { alive = false; };
   }, []);
 
-  const DAYS = { '20D': 20, '50D': 50, '200D': 200 };
+  const DAYS = { '20D': 21, '50D': 51, '200D': 201 };
 
   const live = (() => {
     if (!rawData) return null;
     const cfg = LP_PAIRS[pair];
-    const n   = Math.min(DAYS[range] || 20, rawData.dates.length);
+    const n   = Math.min(DAYS[range] || 21, rawData.dates.length);
     const rebase = (sym) => {
       const sliced = (rawData.prices[sym] || []).slice(-n);
       const first  = sliced.find(v => v != null && v > 0);
@@ -1185,28 +1185,173 @@ function buildRegimeMetrics(card) {
   return { row1, row2 };
 }
 
-function buildLeadershipMetrics(card, computedStats) {
-  const rows = card.rows || [];
+// ── Leadership card — Market Diagnostics: one question per Leadership Metrics box ──
+function buildLeadershipDiagnostics(card, computedStats) {
+  const rows  = card.rows  || [];
+  const stats = computedStats || card.stats || [];
 
-  const parseSpread = (val) => {
-    const nums = (val || '').match(/[+-]?\d+\.?\d*/g);
-    if (!nums || nums.length < 2) return null;
-    const a = parseFloat(nums[0]);
-    const b = parseFloat(nums[1]);
-    return isNaN(a) || isNaN(b) ? null : a - b;
-  };
-  const fmtSpread = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const toneOfStatus = (st) => st === 'bullish' ? '#22c55e' : st === 'bearish' ? '#ef4444' : '#f59e0b';
+  const toneOfStat   = (t)  => t  === 'pos'     ? '#22c55e' : t  === 'neg'     ? '#ef4444' : '#f59e0b';
 
-  const row1 = rows.slice(0, 3).map((r) => {
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2];
+
+  // Label-safe stat finders — robust to both ctx (5Y/1Y labels) and no-ctx fallback
+  const mktSpreadStat = stats.find(s => {
+    const l = (s[0] || '').toLowerCase();
+    return !l.includes('streak') && !l.includes('tech') && !l.includes('qqew') && !l.includes('qqq') && !l.includes('growth') && !l.includes('style');
+  });
+  const streakStat = stats.find(s => (s[0] || '').toLowerCase().includes('streak'));
+  const techSpreadStat = stats.find(s => {
+    const l = (s[0] || '').toLowerCase();
+    return l.includes('tech') || l.includes('qqew') || l.includes('qqq');
+  });
+
+  const spreadA  = mktSpreadStat  ? `${mktSpreadStat[1]}  —  ${mktSpreadStat[2]}`  : '—';
+  const techA    = techSpreadStat ? `${techSpreadStat[1]}  —  ${techSpreadStat[2]}` : '—';
+  const streakA  = streakStat     ? `${streakStat[1]} ${streakStat[2]}`             : '—';
+
+  return [
+    { label: 'Market Breadth', q: 'Is the current market rally broad-based or fragile?',
+      a: r0 ? (r0[2] || '—') : '—', c: r0 ? toneOfStatus(r0[3]) : '#94a3b8' },
+    { label: 'Tech Breadth',   q: 'Is the technology market rally broad-based or concentrated in mega-cap?',
+      a: r1 ? (r1[2] || '—') : '—', c: r1 ? toneOfStatus(r1[3]) : '#94a3b8' },
+    { label: 'Style Bias',     q: 'Is the market rotating to stable, value-oriented or higher-risk, high-multiple growth companies?',
+      a: r2 ? (r2[2] || '—') : '—', c: r2 ? toneOfStatus(r2[3]) : '#94a3b8' },
+    { label: 'Market Spread',  q: 'How does the equal-weighted and cap-weighted S&P 500 compare over a time range?',
+      a: spreadA, c: mktSpreadStat ? toneOfStat(mktSpreadStat[3]) : '#94a3b8' },
+    { label: 'Tech Spread',    q: 'How does the equal-weighted and cap-weighted NASDAQ 100 compare over a time range?',
+      a: techA, c: techSpreadStat ? toneOfStat(techSpreadStat[3]) : '#94a3b8' },
+    { label: 'Daily Streak',   q: 'How long has the current trend of outperformance or underperformance persisted on a day-to-day basis?',
+      a: streakA, c: streakStat ? toneOfStat(streakStat[3]) : '#94a3b8' },
+  ];
+}
+
+function buildLeadershipMetrics(card, computedStats, qcRange) {
+  const rows  = card.rows  || [];
+  const stats = computedStats || card.stats || [];
+
+  const parseSpread = (val) => { const n = parseFloat((val || '').split('\n')[0]); return isNaN(n) ? null : n; };
+  const fmtSpread   = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
+  const fmtT        = (v) => v >= 0 ? `+${v}%` : `${v}%`;
+
+  // Row 1 always shows the 20D server spread — thresholds fixed
+  const R1 = { mild: 1, strong: 3, toneMin: 1, warn: 0.5 };
+
+  // Row 2 shows the qcRange spread from lpriceData — thresholds scale with lookback.
+  // At 20D, row 2 is the same metric as row 1 so thresholds and triggers must match.
+  const R2 = qcRange === '200D'
+    ? { mild: 6,  strong: 18, warn: 6 }
+    : qcRange === '50D'
+    ? { mild: 2,  strong: 12, warn: 2 }
+    : { mild: R1.mild, strong: R1.strong, warn: R1.warn };
+  const syncWithR1 = !qcRange || qcRange === '20D';
+
+  // ── Row 1: three pair spread boxes ──
+  const pairTriggers = [
+    [  // Market Breadth — RSP vs SPY
+      { label: 'Broad Participation', text: `> ${fmtT(R1.strong)}  Equal-weight leading — add broadly`,                              color: '#22c55e' },
+      { label: 'Mild Breadth',        text: `${fmtT(R1.mild)} to ${fmtT(R1.strong)}  Moderate broadening underway`,                  color: '#22c55e' },
+      { label: 'Neutral',             text: `${fmtT(-R1.mild)} to ${fmtT(R1.mild)}  No clear leadership signal`,                     color: '#f59e0b' },
+      { label: 'Narrow Rally',        text: `${fmtT(-R1.strong)} to ${fmtT(-R1.mild)}  Cap-weight leading — stay with large caps`,   color: '#f59e0b' },
+      { label: 'Concentration Risk',  text: `< ${fmtT(-R1.strong)}  Top stocks driving — reduce broad adds`,                         color: '#ef4444' },
+    ],
+    [  // Tech Breadth — QQEW vs QQQ
+      { label: 'Tech Broadening',   text: `> ${fmtT(R1.strong)}  Small/mid tech healthy — rally has legs`,                           color: '#22c55e' },
+      { label: 'Mild Tech Breadth', text: `${fmtT(R1.mild)} to ${fmtT(R1.strong)}  Some broadening in tech`,                        color: '#22c55e' },
+      { label: 'Neutral',           text: `${fmtT(-R1.mild)} to ${fmtT(R1.mild)}  No clear tech leadership signal`,                  color: '#f59e0b' },
+      { label: 'Mega-Cap Driven',   text: `${fmtT(-R1.strong)} to ${fmtT(-R1.mild)}  Large-cap tech leading — concentrate there`,   color: '#f59e0b' },
+      { label: 'FAANG Risk',        text: `< ${fmtT(-R1.strong)}  Top tech names only — caution broad tech ETFs`,                   color: '#ef4444' },
+    ],
+    [  // Style Bias — IVW vs IVE
+      { label: 'Growth Dominant', text: `> ${fmtT(R1.strong)}  Risk appetite strong — growth and momentum favored`,                  color: '#22c55e' },
+      { label: 'Growth Leaning',  text: `${fmtT(R1.mild)} to ${fmtT(R1.strong)}  Mild risk-on bias`,                                color: '#22c55e' },
+      { label: 'Style Neutral',   text: `${fmtT(-R1.mild)} to ${fmtT(R1.mild)}  No clear growth / value edge`,                      color: '#f59e0b' },
+      { label: 'Value Rotating',  text: `${fmtT(-R1.strong)} to ${fmtT(-R1.mild)}  Defensive tilt — reduce high-multiple names`,    color: '#f59e0b' },
+      { label: 'Value Dominant',  text: `< ${fmtT(-R1.strong)}  Risk-off — quality and dividend names favored`,                     color: '#ef4444' },
+    ],
+  ];
+
+  const row1 = rows.slice(0, 3).map((r, idx) => {
     const [label, rawVal, condition, status, indicator] = r;
     const spread   = parseSpread(rawVal);
     const value    = fmtSpread(spread);
-    const tone     = status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null;
+    const tone     = spread != null ? (spread > R1.toneMin ? 'pos' : spread < -R1.toneMin ? 'neg' : null)
+                                    : (status === 'bullish' ? 'pos' : status === 'bearish' ? 'neg' : null);
     const indShort = (indicator || '').replace(/\s*—\s*20d Return/, ' 20d');
-    return [label, value, indShort, tone, condition || '—', null];
+    const warn     = spread != null && Math.abs(spread) < R1.warn;
+    return [label, value, indShort, tone, condition || '—', pairTriggers[idx], null, warn];
   });
 
-  const row2 = (computedStats || card.stats || []).slice(0, 3);
+  // ── Row 2: contextual stats — triggers and conditions scale with qcRange ──
+  const mktCtxTriggers = [
+    { label: 'Breadth Regime',   text: `> ${fmtT(R2.strong)}  Equal-weight decisively ahead — breadth in place`,                    color: '#22c55e' },
+    { label: 'Positive Breadth', text: `${fmtT(R2.mild)} to ${fmtT(R2.strong)}  RSP edging ahead — early broadening`,              color: '#22c55e' },
+    { label: 'Contested',        text: `${fmtT(-R2.mild)} to ${fmtT(R2.mild)}  No structural leadership edge`,                      color: '#f59e0b' },
+    { label: 'Narrow Market',    text: `${fmtT(-R2.strong)} to ${fmtT(-R2.mild)}  Cap-weight ahead — concentration building`,       color: '#f59e0b' },
+    { label: 'Mega-Cap Regime',  text: `< ${fmtT(-R2.strong)}  Persistent top-stock leadership — be selective`,                     color: '#ef4444' },
+  ];
+  const streakTriggers = [
+    { label: 'Extended Bull Run', text: '> 7 days  RSP leading daily — breadth confirmed',          color: '#22c55e' },
+    { label: 'RSP Leading',       text: '1 – 7 days  RSP beating SPY on daily returns',            color: '#22c55e' },
+    { label: 'SPY Leading',       text: '1 – 7 days  SPY beating RSP — narrowing',                 color: '#f59e0b' },
+    { label: 'Extended Bear Run', text: '> 7 days  SPY leading daily — concentration risk rising',  color: '#ef4444' },
+  ];
+  const techCtxTriggers = [
+    { label: 'Tech Broadening',  text: `> ${fmtT(R2.strong)}  Equal-weight tech ahead over the period`,                             color: '#22c55e' },
+    { label: 'Positive Tech',    text: `${fmtT(R2.mild)} to ${fmtT(R2.strong)}  QQEW edging ahead — some broadening`,              color: '#22c55e' },
+    { label: 'Contested',        text: `${fmtT(-R2.mild)} to ${fmtT(R2.mild)}  No structural tech breadth edge`,                    color: '#f59e0b' },
+    { label: 'Mega-Cap Tech',    text: `${fmtT(-R2.strong)} to ${fmtT(-R2.mild)}  QQQ leading — favour large-cap tech`,            color: '#f59e0b' },
+    { label: 'FAANG Dominance',  text: `< ${fmtT(-R2.strong)}  Persistent mega-cap tech — narrow exposure`,                         color: '#ef4444' },
+  ];
+  const styleCtxTriggers = [
+    { label: 'Growth Dominant', text: `> ${fmtT(R2.strong)}  Growth decisively ahead structurally`,                                  color: '#22c55e' },
+    { label: 'Growth Leaning',  text: `${fmtT(R2.mild)} to ${fmtT(R2.strong)}  Growth edging ahead over the period`,               color: '#22c55e' },
+    { label: 'Contested',       text: `${fmtT(-R2.mild)} to ${fmtT(R2.mild)}  No structural growth / value edge`,                   color: '#f59e0b' },
+    { label: 'Value Rotating',  text: `${fmtT(-R2.strong)} to ${fmtT(-R2.mild)}  Value gaining structurally`,                       color: '#f59e0b' },
+    { label: 'Value Dominant',  text: `< ${fmtT(-R2.strong)}  Persistent value outperformance — risk-off bias`,                     color: '#ef4444' },
+  ];
+
+  const mktCond  = (v) => v == null || isNaN(v) ? '—' :
+    v > R2.strong ? 'Breadth Regime — Add Broadly' : v > R2.mild ? 'Positive — Maintain Exposure' :
+    v > -R2.mild ? 'Contested — Watch for Catalyst' : v > -R2.strong ? 'Narrow Market — Favour Large Cap' : 'Mega-Cap Regime — Be Selective';
+  const techCond = (v) => v == null || isNaN(v) ? '—' :
+    v > R2.strong ? 'Tech Broadening — Tech Healthy' : v > R2.mild ? 'Positive Tech Breadth' :
+    v > -R2.mild ? 'Contested Tech Leadership' : v > -R2.strong ? 'Mega-Cap Tech Led' : 'FAANG Dominance — Concentrate';
+  const styleCond = (v) => v == null || isNaN(v) ? '—' :
+    v > R2.strong ? 'Growth Regime — Risk-On' : v > R2.mild ? 'Growth Leaning' :
+    v > -R2.mild ? 'Style Neutral' : v > -R2.strong ? 'Value Rotating — De-Risk' : 'Value Dominant — Risk-Off';
+  const streakCond = (valStr, tone) => {
+    const n = parseInt(valStr, 10);
+    if (isNaN(n)) return '—';
+    if (tone === 'pos') return n > 7 ? 'Extended Run — Breadth Confirmed' : 'RSP Leading Daily';
+    if (tone === 'neg') return n > 7 ? 'Extended Run — Concentration Risk' : 'SPY Leading Daily';
+    return '—';
+  };
+
+  const row2 = stats.slice(0, 3).map((s) => {
+    if (!s) return ['—', '—', '', null, '—', null, null, false];
+    const lbl    = (s[0] || '').toLowerCase();
+    const valStr = s[1] || '—';
+    const rawNum = parseFloat(valStr.replace('%', ''));
+    const tone   = s[3] || null;
+
+    let triggers, condition;
+    if (lbl.includes('streak')) {
+      triggers  = streakTriggers;
+      condition = streakCond(valStr, tone);
+    } else if (lbl.includes('tech') || lbl.includes('qqew') || lbl.includes('qqq')) {
+      triggers  = syncWithR1 ? pairTriggers[1] : techCtxTriggers;
+      condition = techCond(rawNum);
+    } else if (lbl.includes('style') || lbl.includes('growth') || lbl.includes('value')) {
+      triggers  = syncWithR1 ? pairTriggers[2] : styleCtxTriggers;
+      condition = styleCond(rawNum);
+    } else {
+      triggers  = syncWithR1 ? pairTriggers[0] : mktCtxTriggers;
+      condition = mktCond(rawNum);
+    }
+    const warn = !lbl.includes('streak') && !isNaN(rawNum) && Math.abs(rawNum) < R2.warn;
+    return [s[0], valStr, s[2] || '', tone, condition, triggers, null, warn];
+  });
 
   return { row1, row2 };
 }
@@ -1260,16 +1405,26 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   // chart equivalent) pass through untouched.
   const leadershipStats = (() => {
     if (cardId !== 'leadership' || !card.stats) return card.stats;
-    if (!live || !live.values?.length) return card.stats;
-    const rspSpread  = live.values[live.values.length - 1];
-    const qqewArr    = live.overlays?.[0]?.values || [];
-    const qqewSpread = qqewArr.length ? qqewArr[qqewArr.length - 1] : null;
+    if (!lpriceData) return card.stats;
+    const DAYS = { '20D': 21, '50D': 51, '200D': 201 };
+    const n = Math.min(DAYS[qcRange] || 21, lpriceData.dates.length);
+    const rebase = (sym) => {
+      const sliced = (lpriceData.prices[sym] || []).slice(-n);
+      const first = sliced.find(v => v != null && v > 0);
+      if (!first) return sliced.map(() => null);
+      return sliced.map(v => v == null ? null : ((v - first) / first) * 100);
+    };
+    const sub = (a, b) => a.map((v, i) => v == null || b[i] == null ? null : v - b[i]);
+    const rspVals  = sub(rebase('RSP'),  rebase('SPY'));
+    const qqewVals = sub(rebase('QQEW'), rebase('QQQ'));
+    const rspSpread  = rspVals[rspVals.length - 1];
+    const qqewSpread = qqewVals[qqewVals.length - 1];
     const fmt  = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
     const tone = (v) => v == null ? null : v > 0 ? 'pos' : v < 0 ? 'neg' : null;
     return card.stats.map((s) => {
       const desc = (s[2] || '').toLowerCase();
-      if (desc.includes('rsp vs spy'))  return [`${range} Spread`,      fmt(rspSpread),  'RSP vs SPY cumulative',  tone(rspSpread)];
-      if (desc.includes('qqew vs qqq')) return [`${range} Tech Spread`, fmt(qqewSpread), 'QQEW vs QQQ cumulative', tone(qqewSpread)];
+      if (desc.includes('rsp vs spy'))  return [`${qcRange} Market Spread`, fmt(rspSpread),  'RSP vs SPY',  tone(rspSpread)];
+      if (desc.includes('qqew vs qqq')) return [`${qcRange} Tech Spread`,   fmt(qqewSpread), 'QQEW vs QQQ', tone(qqewSpread)];
       return s;
     });
   })();
@@ -1279,8 +1434,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const qualityCheck = (() => {
     if (cardId !== 'leadership') return { live, label: null, spread: null };
     if (!lpriceData) return { live: null, label: null, spread: null };
-    const DAYS = { '20D': 20, '50D': 50, '200D': 200 };
-    const n = Math.min(DAYS[qcRange] || 20, lpriceData.dates.length);
+    const DAYS = { '20D': 21, '50D': 51, '200D': 201 };
+    const n = Math.min(DAYS[qcRange] || 21, lpriceData.dates.length);
     const dates = lpriceData.dates.slice(-n);
     const rebase = (sym) => {
       const sliced = (lpriceData.prices[sym] || []).slice(-n);
@@ -1341,7 +1496,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         </div>
         {card.note && (
           <div>
-            {sectionLabel('Summary')}
+            {sectionLabel('Market Diagnostics')}
             <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
               <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
             </div>
@@ -1371,7 +1526,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         </div>
         {card.note && (
           <div>
-            {sectionLabel('Summary')}
+            {sectionLabel('Market Diagnostics')}
             <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
               <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
             </div>
@@ -1440,7 +1595,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
             const { row1, row2 } = buildRegimeMetrics(card);
             return (<><div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div><StatBoxes stats={row2} /></>);
           })() : cardId === 'leadership' ? (() => {
-            const { row1, row2 } = buildLeadershipMetrics(card, leadershipStats);
+            const { row1, row2 } = buildLeadershipMetrics(card, leadershipStats, qcRange);
             return (<><div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div><StatBoxes stats={row2} /></>);
           })() : (
             <StatBoxes stats={card.stats} />
@@ -1450,24 +1605,29 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {/* summary note */}
       {card.note && (
         <div>
-          {sectionLabel(cardId === 'regime' ? 'Market Diagnostics' : 'Summary')}
+          {sectionLabel('Market Diagnostics')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '18px 20px' }}>
-            {cardId === 'regime' && (
-              <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
-                {buildRegimeDiagnostics(card).map(({ label, q, a, c }, idx, arr) => (
-                  <div key={label} style={{
-                    paddingTop: idx === 0 ? 0 : 11,
-                    paddingBottom: idx < arr.length - 1 ? 11 : 0,
-                    borderBottom: idx < arr.length - 1 ? '1px solid #0d1e2e' : 'none',
-                  }}>
-                    <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 3 }}>{label}</div>
-                    <div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div>
-                    <div style={{ fontFamily: DSANS, fontSize: 11, color: '#3d5166', lineHeight: 1.4 }}>{q}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {cardId === 'regime' && (
+            {(cardId === 'regime' || cardId === 'leadership') && (() => {
+              const items = cardId === 'regime'
+                ? buildRegimeDiagnostics(card)
+                : buildLeadershipDiagnostics(card, leadershipStats);
+              return (
+                <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
+                  {items.map(({ label, q, a, c }, idx, arr) => (
+                    <div key={label} style={{
+                      paddingTop: idx === 0 ? 0 : 11,
+                      paddingBottom: idx < arr.length - 1 ? 11 : 0,
+                      borderBottom: idx < arr.length - 1 ? '1px solid #0d1e2e' : 'none',
+                    }}>
+                      <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 3 }}>{label}</div>
+                      <div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div>
+                      <div style={{ fontFamily: DSANS, fontSize: 11, color: '#3d5166', lineHeight: 1.4 }}>{q}</div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            {(cardId === 'regime' || cardId === 'leadership') && (
               <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 7 }}>Market Narrative</div>
             )}
             <p style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.7, margin: 0 }}>{card.note}</p>

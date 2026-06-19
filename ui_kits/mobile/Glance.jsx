@@ -74,7 +74,7 @@ function HeroGauge({ exec }) {
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontFamily: MONO, fontWeight: 700, color: '#e8edf5', letterSpacing: '-0.02em', lineHeight: 1 }}>
-            <span style={{ fontSize: 50 }}>{exec.bull}</span><span style={{ fontSize: 26, color: '#475569' }}>/{total}</span>
+            <span style={{ fontSize: 50 }}>{exec.bull}</span><span style={{ fontSize: 26, color: '#8295a9' }}>/{total}</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 11, color: '#64748b', marginTop: 5, letterSpacing: '.06em', textTransform: 'uppercase' }}>bullish</div>
         </div>
@@ -114,7 +114,7 @@ function CategoryBreadth({ cats }) {
                 <span key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: SIG[s].c, boxShadow: `0 0 7px ${SIG[s].glow}` }} />
               ))}
             </div>
-            <span style={{ fontFamily: MONO, fontSize: 12.5, color: '#94a3b8', whiteSpace: 'nowrap' }}>{bull}/{c.cards.length}<span style={{ color: '#475569' }}> bull</span></span>
+            <span style={{ fontFamily: MONO, fontSize: 12.5, color: '#94a3b8', whiteSpace: 'nowrap' }}>{bull}/{c.cards.length}<span style={{ color: '#8295a9' }}> bull</span></span>
           </div>
         );
       })}
@@ -210,8 +210,8 @@ function DeepChart({ card, cardId, color }) {
         ))}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, justifyContent: 'flex-end' }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', background: live ? '#22c55e' : '#475569', boxShadow: live ? '0 0 6px #22c55e' : 'none' }} />
-        <span style={{ fontFamily: SANS, fontSize: 10, color: '#475569' }}>{live ? 'Live data' : 'Sample data'}</span>
+        <span style={{ width: 6, height: 6, borderRadius: '50%', background: live ? '#22c55e' : '#64748b', boxShadow: live ? '0 0 6px #22c55e' : 'none' }} />
+        <span style={{ fontFamily: SANS, fontSize: 10, color: '#8295a9' }}>{live ? 'Live data' : 'Sample data'}</span>
       </div>
     </div>
   );
@@ -242,7 +242,7 @@ function DeepDive({ card, cardId, onBack }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
             <div>
               <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500 }}>{card.metric}</div>
-              <div style={{ fontFamily: SANS, fontSize: 10, color: '#475569', marginTop: 1 }}>{card.metricUnit}</div>
+              <div style={{ fontFamily: SANS, fontSize: 10, color: '#8295a9', marginTop: 1 }}>{card.metricUnit}</div>
             </div>
             <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: sig.c }}>{card.metricVal}</div>
           </div>
@@ -256,7 +256,7 @@ function DeepDive({ card, cardId, onBack }) {
               <div key={i} style={{ flex: 1, minWidth: 0, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 10px' }}>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: tone }}>{st[1]}</div>
                 <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.2 }}>{st[0]}</div>
-                <div style={{ fontFamily: SANS, fontSize: 9, color: '#475569', marginTop: 2, lineHeight: 1.2 }}>{st[2]}</div>
+                 <div style={{ fontFamily: SANS, fontSize: 9, color: '#8295a9', marginTop: 2, lineHeight: 1.2 }}>{st[2]}</div>
               </div>
             );
           })}
@@ -269,7 +269,7 @@ function DeepDive({ card, cardId, onBack }) {
         )}
         {/* full indicator table */}
         <div>
-          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 8 }}>Indicators</div>
+          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Indicators</div>
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>
             {card.rows.map((r, i) => {
               const rs = SIG[r[3]];
@@ -316,7 +316,7 @@ function Home({ D, onOpen }) {
         <div style={{ height: 1, background: '#16202e' }} />
         {D.groups.map((g) => (
           <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', paddingLeft: 4 }}>{g.label}</div>
+            <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', paddingLeft: 4 }}>{g.label}</div>
             {g.ids.map((id) => <CardRow key={id} card={D.cards[id]} onTap={() => onOpen(id)} />)}
           </div>
         ))}

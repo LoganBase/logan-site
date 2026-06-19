@@ -375,33 +375,70 @@ function buildLeadership(q, ctx) {
     {
       label: 'Market Breadth',
       indicator: 'RSP vs SPY \u2014 20d Return',
-      value: rsp20 != null && spy20 != null ? `RSP&nbsp;${pct(rsp20, 1)}<br>SPY&nbsp;${pct(spy20, 1)}` : '\u2014',
+      value: rspSpread != null
+        ? `${pct(rspSpread, 1)}\nRSP\u00a0${pct(rsp20, 1)}\u2003SPY\u00a0${pct(spy20, 1)}`
+        : (rsp20 != null ? `RSP\u00a0${pct(rsp20, 1)}` : '\u2014'),
       condition: rspLead ? 'Breadth Expanding \u2014 Add Broadly' : 'Rally Narrowing \u2014 Stay with Leaders',
       status: rspLead ? 'bullish' : 'bearish',
     },
     {
       label: 'Tech Breadth',
       indicator: 'QQEW vs QQQ \u2014 20d Return',
-      value: qqew20 != null && qqq20 != null ? `QQEW&nbsp;${pct(qqew20, 1)}<br>QQQ&nbsp;${pct(qqq20, 1)}` : '\u2014',
+      value: qqewSpread != null
+        ? `${pct(qqewSpread, 1)}\nQQEW\u00a0${pct(qqew20, 1)}\u2003QQQ\u00a0${pct(qqq20, 1)}`
+        : (qqew20 != null ? `QQEW\u00a0${pct(qqew20, 1)}` : '\u2014'),
       condition: qqewLead == null ? '\u2014' : (qqewLead ? 'Tech Broadening \u2014 Tech Healthy' : 'Mega-Cap Driven \u2014 Favour Large Cap'),
       status: qqewLead == null ? 'neutral' : (qqewLead ? 'bullish' : 'bearish'),
     },
     {
       label: 'Style Bias',
       indicator: 'IVW vs IVE \u2014 20d Return',
-      value: ivw20 != null && ive20 != null ? `IVW&nbsp;${pct(ivw20, 1)}<br>IVE&nbsp;${pct(ive20, 1)}` : '\u2014',
+      value: styleSpread != null
+        ? `${pct(styleSpread, 1)}\nIVW\u00a0${pct(ivw20, 1)}\u2003IVE\u00a0${pct(ive20, 1)}`
+        : (ivw20 != null ? `IVW\u00a0${pct(ivw20, 1)}` : '\u2014'),
       condition: growthLead == null ? '\u2014' : (growthLead ? 'Growth Leading \u2014 Risk-On' : 'Value Rotating \u2014 Reduce Growth'),
       status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'neutral'),
     },
   ];
   const leaderNote = (() => {
+    // Sentence 1: Market Breadth \u2014 direction only; specific spread shown in Metrics box (close-based)
     const breadthStr = rspLead
-      ? `Breadth expanding \u2014 RSP leading SPY${rspSpreadStr}. Broad participation is healthy.`
-      : `Rally narrowing \u2014 SPY leading RSP${rspSpreadStr}. Concentration risk rising.`;
+      ? `Equal-weight RSP is outperforming cap-weight SPY \u2014 broad market participation is healthy.`
+      : `Cap-weight SPY is outperforming equal-weight RSP \u2014 the rally is narrowing; concentration risk is rising.`;
+
+    // Sentence 2: Tech Breadth \u2014 confirming or diverging
+    const techStr = qqewLead == null ? ''
+      : qqewLead
+      ? ` Technology breadth confirms: QQEW outperforming QQQ \u2014 gains are not confined to mega-cap names.`
+      : ` Technology breadth is diverging: QQQ outperforming QQEW \u2014 gains remain concentrated in large-cap tech.`;
+
+    // Sentence 3: Style Bias \u2014 direction only
     const styleStr = growthLead == null ? ''
-      : growthLead ? ' Growth over Value \u2014 risk appetite intact.'
-      : ' Value over Growth \u2014 defensive rotation underway.';
-    return breadthStr + styleStr;
+      : growthLead
+      ? ` Style rotation supports risk appetite: growth (IVW) leading value (IVE).`
+      : ` Style is rotating defensively: value (IVE) leading growth (IVW) \u2014 a caution signal for high-multiple names.`;
+
+    // Sentence 4: Daily streak persistence (ctx only)
+    let streakStr = '';
+    if (ctx && ctx.streak != null && ctx.streak !== 0) {
+      const n = Math.abs(ctx.streak);
+      const s = n === 1 ? '' : 's';
+      streakStr = ctx.streak > 0
+        ? ` RSP has outperformed SPY on a daily basis for ${n} consecutive session${s}${n > 7 ? ' \u2014 breadth persistence confirmed' : ''}.`
+        : ` SPY has outperformed RSP on a daily basis for ${n} consecutive session${s}${n > 7 ? ' \u2014 concentration is confirmed and persistent' : ''}.`;
+    }
+
+    // Sentence 5: 5Y structural spread context (ctx only)
+    let ctxStr = '';
+    if (ctx && ctx.spreadRsp != null) {
+      ctxStr = ` The 5-year cumulative RSP vs SPY spread stands at ${pct(ctx.spreadRsp, 1)}`;
+      ctxStr += ctx.spreadRsp > 5  ? ' \u2014 a structurally broad, participation-healthy market.'
+        : ctx.spreadRsp > 0  ? ', a slight long-run edge for equal-weight participation.'
+        : ctx.spreadRsp > -5 ? ' \u2014 the market has structurally favoured large-cap concentration.'
+        : ' \u2014 a structurally mega-cap-led market over the medium term.';
+    }
+
+    return breadthStr + techStr + styleStr + streakStr + ctxStr;
   })();
   const stats = ctx ? [
     ['5Y Spread',      ctx.spreadRsp  != null ? (ctx.spreadRsp  >= 0 ? '+' : '') + ctx.spreadRsp.toFixed(1)  + '%' : '\u2014', 'RSP vs SPY cumulative',  ctx.spreadRsp  != null ? (ctx.spreadRsp  > 0 ? 'pos' : 'neg') : null],

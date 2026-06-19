@@ -252,7 +252,7 @@ function OptionWorkspace({ D }) {
         </div>
         {D.groups.map((g) => (
           <div key={g.label} style={{ marginBottom: 16 }}>
-            <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', padding: '0 8px 8px' }}>{g.label}</div>
+            <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', padding: '0 8px 8px' }}>{g.label}</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {g.ids.map((id) => {
                 const c = D.cards[id], sg = DSIG[c.status], on = id === sel;
@@ -316,7 +316,7 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
       <BreadthBar exec={D.exec} cats={D.categories} />
       {D.groups.map((g) => (
         <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', paddingLeft: 2 }}>{g.label}</span>
+          <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', paddingLeft: 2 }}>{g.label}</span>
           {g.ids.map((id) => {
             const c = D.cards[id], sg = DSIG[c.status];
             return (
@@ -380,7 +380,7 @@ function DesktopApp() {
             <button key={o.id} onClick={() => pick(o.id)} title={o.sub} style={{ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', padding: '6px 14px', borderRadius: 8,
               background: o.id === opt ? '#1b2736' : 'transparent', border: `1px solid ${o.id === opt ? '#28384a' : 'transparent'}` }}>
               <span style={{ fontFamily: DSANS, fontSize: 12.5, fontWeight: 600, color: o.id === opt ? '#e8edf5' : '#94a3b8' }}>{o.label}</span>
-              <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569' }}>{o.sub}</span>
+              <span style={{ fontFamily: DSANS, fontSize: 10, color: '#8295a9' }}>{o.sub}</span>
             </button>
           ))}
         </div>
@@ -391,7 +391,7 @@ function DesktopApp() {
       </div>
       {/* prototype label banner */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 28px', background: '#0a0f17', borderBottom: '1px solid #16202e' }}>
-        <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569' }}>Prototype</span>
+        <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9' }}>Prototype</span>
         <span style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8' }}>{current.label.replace(/^.·\s/, '')} — {current.sub}</span>
       </div>
       {current.render(D)}
@@ -415,7 +415,7 @@ function SoloShell({ optId }) {
         </div>
         <div style={{ marginLeft: 18, display: 'flex', flexDirection: 'column', padding: '6px 14px', borderRadius: 9, background: '#1b2736', border: '1px solid #28384a' }}>
           <span style={{ fontFamily: DSANS, fontSize: 12.5, fontWeight: 600, color: '#e8edf5' }}>{o.label}</span>
-          <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569' }}>{o.sub}</span>
+          <span style={{ fontFamily: DSANS, fontSize: 10, color: '#8295a9' }}>{o.sub}</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
