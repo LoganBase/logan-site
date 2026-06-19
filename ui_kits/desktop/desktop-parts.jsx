@@ -1331,7 +1331,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           <IndicatorTable rows={card.rows} />
         </div>
         <div>
-          {sectionLabel('Key Metrics')}
+          {sectionLabel(`${card.title} Metrics`)}
           <BreadthStatBoxes sectorCount={liveSectorCount} sectorTotal={card.sectorTable?.length || 11} />
         </div>
         {card.note && (
@@ -1430,7 +1430,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {/* key metrics */}
       {card.stats && card.stats.length > 0 && (
         <div>
-          {sectionLabel(cardId === 'regime' ? 'Regime Metrics' : 'Key Metrics')}
+          {sectionLabel(`${card.title} Metrics`)}
           {cardId === 'regime' ? (() => {
             const { row1, row2 } = buildRegimeMetrics(card);
             return (<><div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div><StatBoxes stats={row2} /></>);
