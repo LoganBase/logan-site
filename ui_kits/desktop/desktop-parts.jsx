@@ -310,7 +310,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
 
 const HISTORY_CAPTION = {
   regime:      ['SPY ', ['above', 'bullish'], ' or ', ['below', 'bearish'], ' its 200-day moving average each month'],
-  leadership:  ['RSP ', ['leading', 'bullish'], ' or ', ['lagging', 'bearish'], ' SPY on a monthly basis'],
+  leadership:  ['RSP cumulative return ', ['ahead of', 'bullish'], ' or ', ['behind', 'bearish'], ' SPY, sampled at each month-end'],
   breadth:     ['NYSE stocks ', ['above', 'bullish'], ' or ', ['below', 'bearish'], ' their 200-day average'],
   valuations:  'CAPE ratio signal vs. long-run historical norms',
   yield:       '10-year Treasury yield trend each month',
