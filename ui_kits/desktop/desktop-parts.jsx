@@ -225,7 +225,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
               const pv = live.values[hover];
               const ov = (live.overlays[0].values || [])[hover];
               if (pv == null || ov == null || isNaN(pv) || isNaN(ov)) return null;
-              const delta = ov - pv;
+              const delta = pv - ov;
               const dc = delta > 0.01 ? '#22c55e' : delta < -0.01 ? '#ef4444' : '#f59e0b';
               return (
                 <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d3d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20 }}>
@@ -279,8 +279,8 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
             fontFamily: DMONO, fontSize: 11.5, fontWeight: 600, color: r === range ? '#e8edf5' : '#64748b',
             background: r === range ? '#1b2736' : 'transparent', border: `1px solid ${r === range ? '#243446' : 'transparent'}` }}>{r}</button>
         ))}
-        <span title={live ? 'Live data from /api' : 'Sample data — connect /api for live history'} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontFamily: DSANS, fontSize: 10.5, color: '#475569' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: live ? '#22c55e' : '#475569', boxShadow: live ? '0 0 6px #22c55e' : 'none' }} />
+        <span title={live ? 'Live data from /api' : 'Sample data — connect /api for live history'} style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, fontFamily: DSANS, fontSize: 10.5, color: '#8295a9' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: live ? '#22c55e' : '#64748b', boxShadow: live ? '0 0 6px #22c55e' : 'none' }} />
           {live ? 'Live' : 'Sample'}
         </span>
       </div>
@@ -298,7 +298,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
                     ? <rect x="0" y="2" width="24" height="8" rx="2" fill={lc} opacity="0.85" />
                     : <line x1="0" y1="6" x2="24" y2="6" stroke={lc} strokeWidth={dash ? 1.5 : 2} strokeDasharray={dash ? dash.join(' ') : undefined} />}
                 </svg>
-                <span style={{ fontFamily: DSANS, fontSize: 11.5, color: isHidden ? '#475569' : '#94a3b8' }}>{label}</span>
+                <span style={{ fontFamily: DSANS, fontSize: 11.5, color: isHidden ? '#64748b' : '#94a3b8' }}>{label}</span>
               </button>
             );
           })}
@@ -369,7 +369,7 @@ function RegimeTimeline({ card, cardId, asOf, months = 12, compact = false, live
                 borderLeft: changed ? '2px solid rgba(232,237,245,.55)' : 'none' }}>
                 {last && <div style={{ position: 'absolute', inset: 0, borderRadius: 5, border: '1.5px solid rgba(232,237,245,.6)' }} />}
               </div>
-              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#475569', fontWeight: last ? 700 : 400 }}>{labels[i]}</span>
+              <span style={{ fontFamily: DMONO, fontSize: 9.5, color: last ? '#cbd5e1' : '#8295a9', fontWeight: last ? 700 : 400 }}>{labels[i]}</span>
             </div>
           );
         })}
@@ -383,7 +383,7 @@ function RegimeTimeline({ card, cardId, asOf, months = 12, compact = false, live
             </div>
           ))}
           {HISTORY_CAPTION[cardId] && (
-            <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 11, color: '#475569', fontStyle: 'italic' }}>
+            <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 11, color: '#8295a9', fontStyle: 'italic' }}>
               {renderCaption(HISTORY_CAPTION[cardId])}
             </span>
           )}
@@ -453,7 +453,7 @@ function StatBoxes({ stats }) {
             )}
             {showTriggers ? (
               <div>
-                <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>Triggers</div>
+                <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 10 }}>Triggers</div>
                 {triggers.map((t, j) => (
                   <div key={j} style={{ marginBottom: j < triggers.length - 1 ? (triggers.length > 6 ? 4 : 8) : 0 }}>
                     <span style={{ fontFamily: DSANS, fontSize: triggers.length > 6 ? 10 : 11, fontWeight: 700, color: t.color }}>{t.label}: </span>
@@ -471,7 +471,7 @@ function StatBoxes({ stats }) {
                     <div style={{ fontFamily: DSANS, fontSize: 10.5, color: tone, marginTop: 2 }}>— {cap(st[4])}</div>
                   </>
                 ) : (
-                  <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 }}>{st[2]}</div>
+                  <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#8295a9', marginTop: 2 }}>{st[2]}</div>
                 )}
               </>
             )}
@@ -489,10 +489,10 @@ function IndicatorTable({ rows }) {
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0 7px', borderBottom: '1px solid #1e2d3d' }}>
         <span style={{ width: 9, flexShrink: 0 }} />
-        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 175, flexShrink: 0 }}>Signal</span>
-        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 285, flexShrink: 0 }}>Indicator</span>
-        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', flex: 1 }}>Condition</span>
-        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', width: 100, textAlign: 'right', flexShrink: 0 }}>Value</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', width: 175, flexShrink: 0 }}>Signal</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', width: 285, flexShrink: 0 }}>Indicator</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', flex: 1 }}>Condition</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', width: 100, textAlign: 'right', flexShrink: 0 }}>Value</span>
       </div>
       {rows.map((r, i) => {
         const rs = DSIG[r[3]] || DSIG.neutral;
@@ -514,7 +514,7 @@ function IndicatorTable({ rows }) {
 function SectorBreakdown({ sectorTable }) {
   if (!sectorTable || !sectorTable.length) return null;
   const sorted = [...sectorTable].sort((a, b) => b.vs200 - a.vs200);
-  const hdr = { fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569' };
+  const hdr = { fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9' };
   const fmt = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(1) + '%';
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 18px' }}>
@@ -528,7 +528,7 @@ function SectorBreakdown({ sectorTable }) {
       {sorted.map((s, i) => {
         const c200  = s.bull ? '#22c55e' : '#ef4444';
         const glow  = s.bull ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)';
-        const c50   = s.vs50 == null ? '#475569' : s.vs50 > 0 ? '#22c55e' : '#ef4444';
+        const c50   = s.vs50 == null ? '#8295a9' : s.vs50 > 0 ? '#22c55e' : '#ef4444';
         return (
           <div key={s.ticker} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '10px 0', borderBottom: i < sorted.length - 1 ? '1px solid #16202e' : 'none' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: c200, boxShadow: `0 0 5px ${glow}`, flexShrink: 0 }} />
@@ -602,7 +602,7 @@ function BreadthStatBoxes({ sectorCount = null, sectorTotal = 11 }) {
   const box = { background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '14px 14px' };
   const val = (c) => ({ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: c });
   const lab = { fontFamily: DSANS, fontSize: 12, color: '#94a3b8', marginTop: 5 };
-  const sub = { fontFamily: DSANS, fontSize: 10.5, color: '#475569', marginTop: 2 };
+  const sub = { fontFamily: DSANS, fontSize: 10.5, color: '#8295a9', marginTop: 2 };
   const div = { margin: '10px 0', borderTop: '1px solid #1e2d3d' };
 
   return (
@@ -678,7 +678,7 @@ function NyseBreadthChart() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>NYSE Breadth — $MMTH &amp; $MMFI</div>
-            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>% NYSE stocks above key moving averages</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>% NYSE stocks above key moving averages</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
             <span style={{ fontFamily: DMONO, fontSize: 11, color: '#94a3b8' }}>MMTH</span>
@@ -690,7 +690,7 @@ function NyseBreadthChart() {
         {noData
         ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 230, gap: 8 }}>
-            <div style={{ fontFamily: DSANS, fontSize: 13, color: '#475569' }}>No data for {range} range</div>
+            <div style={{ fontFamily: DSANS, fontSize: 13, color: '#8295a9' }}>No data for {range} range</div>
             <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#334155' }}>$MMTH / $MMFI data needs a TradingView CSV refresh</div>
           </div>
         )
@@ -766,7 +766,7 @@ function SectorBreadthChart({ liveSectorCount = null }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Sector ETF Breadth — Historical</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}># of 11 SPDR sectors above their 200d MA</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}># of 11 SPDR sectors above their 200d MA</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <span style={{ fontFamily: DMONO, fontSize: 11, color: '#94a3b8' }}>Sectors</span>
@@ -782,9 +782,9 @@ function SectorBreadthChart({ liveSectorCount = null }) {
 
 // ── Leadership price history chart — pair selector (Market/Tech/Style) + 20/50/200d range ──
 const LP_PAIRS = {
-  market: { label: 'Market Breadth', primary: 'SPY',  pColor: '#22d3ee', overlay: 'RSP',  oColor: '#a855f7', note: 'RSP vs SPY',
+  market: { label: 'Market Breadth', primary: 'RSP',  pColor: '#a855f7', overlay: 'SPY',  oColor: '#22d3ee', note: 'RSP vs SPY',
     desc: 'Market: The equal-weighted RSP versus the cap-weighted SPY, 20/50/200 day percentage return window' },
-  tech:   { label: 'Tech Breadth',   primary: 'QQQ',  pColor: '#22c55e', overlay: 'QQEW', oColor: '#818cf8', note: 'QQEW vs QQQ',
+  tech:   { label: 'Tech Breadth',   primary: 'QQEW', pColor: '#818cf8', overlay: 'QQQ',  oColor: '#22c55e', note: 'QQEW vs QQQ',
     desc: 'Technology: The equal-weighted QQEW versus the cap-weighted QQQ, 20/50/200 day percentage return window' },
   style:  { label: 'Style Bias',     primary: 'IVE',  pColor: '#f59e0b', overlay: 'IVW',  oColor: '#ef4444', note: 'IVW vs IVE',
     desc: 'Style: High Value IVE (low P/E, high dividend yield, asset-heavy) versus high Growth IVW (high P/E, revenue and price momentum), 20/50/200 day percentage return window' },
@@ -845,7 +845,7 @@ function LeadershipPriceChart() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{cfg.label}</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', marginTop: 2, lineHeight: 1.45 }}>{cfg.desc}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2, lineHeight: 1.45 }}>{cfg.desc}</div>
         </div>
         <div style={{ display: 'flex', gap: 3 }}>
           {[['market','Market'],['tech','Tech'],['style','Style']].map(([key, lbl]) => (
@@ -873,7 +873,7 @@ function EquitiesMASummary({ rows }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
       {boxes.map(({ label, value, sub, color }) => (
         <div key={label} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '18px 16px' }}>
-          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', marginBottom: 12 }}>{label}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 12 }}>{label}</div>
           <div style={{ fontFamily: DMONO, fontSize: 34, fontWeight: 700, color, lineHeight: 1 }}>{value}</div>
           <div style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b', marginTop: 10 }}>{sub}</div>
         </div>
@@ -948,10 +948,10 @@ function EquitiesChart() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Watchlist Performance</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>Normalized (100 = period start)</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Normalized (100 = period start)</div>
         </div>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: DSANS, fontSize: 10.5, color: '#475569' }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', background: data ? '#22c55e' : '#475569', boxShadow: data ? '0 0 6px #22c55e' : 'none' }} />
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: DSANS, fontSize: 10.5, color: '#8295a9' }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: data ? '#22c55e' : '#64748b', boxShadow: data ? '0 0 6px #22c55e' : 'none' }} />
           {data ? 'Live' : 'Loading…'}
         </span>
       </div>
@@ -1023,7 +1023,7 @@ function EquitiesChart() {
             <button key={sym} onClick={() => setHidden(h => ({ ...h, [sym]: !h[sym] }))}
               style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, opacity: isHidden ? 0.3 : 1, transition: 'opacity .15s' }}>
               <svg width="18" height="4" viewBox="0 0 18 4" style={{ flexShrink: 0 }}><rect x="0" y="0" width="18" height="4" rx="2" fill={c} /></svg>
-              <span style={{ fontFamily: DSANS, fontSize: 11.5, color: isHidden ? '#475569' : '#94a3b8' }}>{label}</span>
+              <span style={{ fontFamily: DSANS, fontSize: 11.5, color: isHidden ? '#64748b' : '#94a3b8' }}>{label}</span>
             </button>
           );
         })}
@@ -1279,7 +1279,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   })();
 
   const sectionLabel = (txt) => (
-    <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#475569', marginBottom: 10 }}>{txt}</div>
+    <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 10 }}>{txt}</div>
   );
 
   if (cardId === 'breadth') {
@@ -1362,7 +1362,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
             <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>
               {cardId === 'leadership' ? (qualityCheck.label || 'The Quality Check') : card.metric}
             </div>
-            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#475569', marginTop: 2 }}>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>
               {cardId === 'leadership'
                 ? `Largest ${range} divergence · ${qualityCheck.spread || ''}`
                 : card.metricUnit}
