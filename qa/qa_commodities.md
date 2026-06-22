@@ -57,9 +57,11 @@ CHECK S3: Do the row indicators match exactly?
   rows[6].indicator = "SLX"
   rows[7].indicator = "URA"
 
-CHECK S4: Is the `note` field present and non-empty?
-  PASS = card.note exists and contains text about "macro-positive" or "commodity signals"
-  FAIL = note missing or empty
+CHECK S4: Is the `note` field present and correctly formed?
+  PASS = card.note starts with "X/8 commodity signals are macro-positive" (where X is the bull count, 0–8)
+    e.g., "5/8 commodity signals are macro-positive — mixed signals..."
+    e.g., "7/8 commodity signals are macro-positive — real assets are broadly trending..."
+  FAIL = note missing, empty, or starts with "/ commodity signals" (missing count — previously a template bug, fixed 2026-06-20)
 
 ---
 

@@ -14,6 +14,82 @@
  *   Header: Authorization: Bearer <CRON_SECRET>
  */
 
+// Send an alert email via Resend when health check fails.
+// Requires RESEND_API_KEY secret and ALERT_EMAIL var (defaults to shane.logan@gmail.com).
+async function sendAlert(env, health) {
+  const apiKey = env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.warn('[data-refresh] RESEND_API_KEY not set — skipping email alert');
+    return;
+  }
+
+  const to      = env.ALERT_EMAIL || 'shane.logan@gmail.com';
+  const subject = `⚠️ Market Hub Data Alert — ${health.status?.toUpperCase()} — ${health.data_date}`;
+
+  const staleRows = (health.stale_symbols || [])
+    .map(s => `<tr><td style="padding:4px 12px 4px 0;color:#e8edf5">${s.symbol}</td><td style="padding:4px 0;color:#f59e0b">${s.last_date}</td></tr>`)
+    .join('');
+  const gapRows = (health.gap_dates || [])
+    .map(g => `<tr><td style="padding:4px 12px 4px 0;color:#e8edf5">${g.date}</td><td style="padding:4px 0;color:#f59e0b">${g.sym_count} symbols</td></tr>`)
+    .join('');
+  const lagRows = (health.indicator_lag || [])
+    .map(l => `<tr><td style="padding:4px 12px 4px 0;color:#e8edf5">${l.symbol}</td><td style="padding:4px 0;color:#64748b">${l.ind_date ?? 'none'} vs ${l.price_date}</td></tr>`)
+    .join('');
+
+  const html = `
+<div style="background:#080c14;color:#e8edf5;font-family:system-ui,sans-serif;padding:32px;border-radius:12px;max-width:560px">
+  <h2 style="margin:0 0 4px;color:#ef4444">Market Hub — Data Alert</h2>
+  <p style="margin:0 0 24px;color:#64748b;font-size:13px">Nightly refresh completed with issues</p>
+
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">
+    <tr><td style="color:#64748b;font-size:12px;padding-bottom:4px">STATUS</td>
+        <td style="color:${health.status === 'error' ? '#ef4444' : '#f59e0b'};font-weight:700">${health.status?.toUpperCase()}</td></tr>
+    <tr><td style="color:#64748b;font-size:12px;padding-bottom:4px">EXPECTED DATE</td>
+        <td style="color:#e8edf5">${health.data_date}</td></tr>
+    <tr><td style="color:#64748b;font-size:12px">CHECKED AT</td>
+        <td style="color:#64748b;font-size:12px">${health.checked_at}</td></tr>
+  </table>
+
+  ${staleRows ? `
+  <h3 style="margin:0 0 8px;font-size:13px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em">
+    Stale Symbols (${health.stale_symbols.length})
+  </h3>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">${staleRows}</table>` : ''}
+
+  ${gapRows ? `
+  <h3 style="margin:0 0 8px;font-size:13px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em">
+    Incomplete Dates (${health.gap_dates.length})
+  </h3>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">${gapRows}</table>` : ''}
+
+  ${lagRows ? `
+  <h3 style="margin:0 0 8px;font-size:13px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em">
+    Indicator Lag (${health.indicator_lag.length})
+  </h3>
+  <table style="width:100%;border-collapse:collapse;margin-bottom:24px">${lagRows}</table>` : ''}
+
+  <p style="margin:24px 0 0;font-size:11px;color:#334155">
+    Market Hub · loganbase.com · <a href="https://www.loganbase.com/api/health" style="color:#3b82f6">View live health status</a>
+  </p>
+</div>`;
+
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ from: 'Market Hub <onboarding@resend.dev>', to, subject, html }),
+    });
+    if (r.ok) {
+      console.log('[data-refresh] alert email sent to', to);
+    } else {
+      const body = await r.text();
+      console.error('[data-refresh] Resend error:', r.status, body.slice(0, 200));
+    }
+  } catch (err) {
+    console.error('[data-refresh] failed to send alert email:', err.message);
+  }
+}
+
 // Call an authenticated hub endpoint and return parsed JSON, or an error object.
 async function callHub(url, hubToken) {
   let res;
@@ -42,16 +118,19 @@ async function runRefresh(env) {
     return { error: 'HUB_TOKEN not configured' };
   }
 
-  // Split 70 symbols into two batches of 35 to stay under Cloudflare's
+  // Split 85 symbols into three batches of ~28 to stay under Cloudflare's
   // 50 subrequest-per-invocation limit (each symbol calls Yahoo Finance).
-  console.log(`[data-refresh] batch 1 (symbols 0-34)`);
+  console.log(`[data-refresh] batch 1 (symbols 0-27)`);
   const b1 = await callHub(`${siteUrl}/api/refresh?start=0`, hubToken);
 
-  console.log(`[data-refresh] batch 2 (symbols 35-69)`);
-  const b2 = await callHub(`${siteUrl}/api/refresh?start=35`, hubToken);
+  console.log(`[data-refresh] batch 2 (symbols 28-56)`);
+  const b2 = await callHub(`${siteUrl}/api/refresh?start=28`, hubToken);
 
-  const totalAdded = (b1.totalAdded ?? 0) + (b2.totalAdded ?? 0);
-  const symbols    = [...(b1.symbols ?? []), ...(b2.symbols ?? [])];
+  console.log(`[data-refresh] batch 3 (symbols 57-84)`);
+  const b3 = await callHub(`${siteUrl}/api/refresh?start=57`, hubToken);
+
+  const totalAdded = (b1.totalAdded ?? 0) + (b2.totalAdded ?? 0) + (b3.totalAdded ?? 0);
+  const symbols    = [...(b1.symbols ?? []), ...(b2.symbols ?? []), ...(b3.symbols ?? [])];
   console.log(`[data-refresh] refresh done — ${totalAdded} rows added across ${symbols.length} symbols`);
 
   // Run signals after refresh — records card statuses and scores outcomes.
@@ -59,13 +138,23 @@ async function runRefresh(env) {
   const sig = await callHub(`${siteUrl}/api/signals`, hubToken);
   console.log(`[data-refresh] signals done — wrote: ${sig.signalsWritten ?? '?'}, scored: ${sig.outcomesScored ?? '?'}`);
 
+  // Health check — alert by email if anything is stale or missing.
+  console.log(`[data-refresh] running health check`);
+  const health = await fetch(`${siteUrl}/api/health`).then(r => r.json()).catch(err => ({ status: 'error', error: err.message }));
+  console.log(`[data-refresh] health: ${health.status} — stale: ${health.summary?.stale_count ?? '?'}, gaps: ${health.summary?.gap_date_count ?? '?'}`);
+  if (health.status && health.status !== 'ok') {
+    await sendAlert(env, health);
+  }
+
   return {
     timestamp:      b1.timestamp ?? new Date().toISOString(),
     totalAdded,
     symbols,
     batch1Error:    b1.error,
     batch2Error:    b2.error,
+    batch3Error:    b3.error,
     signals:        sig,
+    health,
   };
 }
 

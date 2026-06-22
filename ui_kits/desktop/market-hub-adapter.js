@@ -36,7 +36,7 @@
   };
 
   // UI range labels (kit) -> API range tokens (live product)
-  const RANGE_MAP = { '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y', '20Y': '20y' };
+  const RANGE_MAP = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y', '20Y': '20y' };
 
   // Per-card history: which endpoint to call and how to extract { values, dates }.
   // Simple cards use `field` (a flat number[] on the response).
@@ -47,13 +47,13 @@
       extract: (data) => {
         if (!Array.isArray(data.closes) || !data.closes.length) return null;
         return {
-          values:   data.closes.map(Number),
-          dates:    data.dates || [],
+          values:    data.closes.map(Number),
+          dates:     data.dates || [],
+          lineColor: '#22d3ee',
           overlays: [
-            { label: '50d SMA',  values: (data.sma50  || []).map(Number), color: '#06b6d4', dash: null },
-            { label: '200d SMA', values: (data.sma200 || []).map(Number), color: '#f59e0b', dash: [5, 3] },
+            { label: '50d SMA',  values: (data.sma50  || []).map(Number), color: '#818cf8', dash: [5, 3] },
+            { label: '200d SMA', values: (data.sma200 || []).map(Number), color: '#a855f7', dash: null },
           ],
-          colorBy: (data.vs200  || []).map(Number),
           vs200:   (data.vs200  || []).map(Number),
           // Price's % distance above/below the 50d SMA (not the 50d-vs-200d cross spread).
           vs50: data.closes.map((c, i) => {
@@ -95,9 +95,45 @@
     },
     valuations:  { url: (r) => `/api/valuations-history?range=${r}`,    field: 'capes'     },
     yield:       { url: (r) => `/api/history?symbol=%5ETNX&range=${r}`, field: 'closes'    },
-    credit:      { url: (r) => `/api/history?symbol=HYG&range=${r}`,    field: 'closes'    },
+    credit: {
+      url: (r) => `/api/history?symbol=HYG&range=${r}`,
+      extract: (data) => {
+        if (!Array.isArray(data.closes) || !data.closes.length) return null;
+        const toNum = (v) => v == null ? null : Number(v);
+        const vs200 = (data.vs200 || []).map(toNum);
+        return {
+          values:  data.closes.map(toNum),
+          dates:   data.dates || [],
+          colorBy: vs200,  // >0 = above 200d (bullish), <0 = below 200d (bearish)
+          vs200,
+        };
+      },
+    },
     sectors:     { url: (r) => `/api/sectors?range=${r}`,               field: 'cycVsDef'  },
-    commodities: { url: (r) => `/api/history?symbol=USCI&range=${r}`,   field: 'closes'    },
+    commodities: {
+      url: (r) => `/api/history?symbol=USCI&range=${r}`,
+      extract: (data) => {
+        if (!Array.isArray(data.closes) || !data.closes.length) return null;
+        const toNum = (v) => v == null ? null : Number(v);
+        return {
+          values:    data.closes.map(toNum),
+          dates:     data.dates || [],
+          label:     'USCI',
+          lineColor: '#22d3ee',
+          overlays: [
+            { label: '50d SMA',  values: (data.sma50  || []).map(toNum), color: '#818cf8', dash: [5, 3] },
+            { label: '200d SMA', values: (data.sma200 || []).map(toNum), color: '#a855f7', dash: null  },
+          ],
+          vs200:   (data.vs200 || []).map(toNum),
+          colorBy: (data.vs200 || []).map(toNum),
+          vs50:  data.closes.map((c, i) => {
+            const s50 = toNum((data.sma50 || [])[i]);
+            return (c != null && s50) ? ((Number(c) - s50) / s50) * 100 : null;
+          }),
+          rsi: (data.rsi14 || []).map(toNum),
+        };
+      },
+    },
     globalflows: {
       url: (r) => `/api/global-flows-history?range=${r}`,
       extract: (data) => {
@@ -167,10 +203,10 @@
   // ── Map a live /api/scores card into the kit's card shape ──
   function mapCard(c) {
     const normStatus = (s) => s === 'bullish' ? 'bullish' : s === 'bearish' ? 'bearish' : 'neutral';
-    // r[0]=label, r[1]=value (multi-line), r[2]=condition, r[3]=status, r[4]=indicator
+    // r[0]=label, r[1]=value (multi-line), r[2]=condition, r[3]=status, r[4]=indicator, r[5]=sma200, r[6]=price
     // Use allRows (full set) when present (e.g. Sectors has top-6 in rows, all-11 in allRows)
     const rowSource = c.allRows || c.rows || [];
-    const rows = rowSource.map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '']);
+    const rows = rowSource.map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '', r.sma200 ?? null, r.price ?? null]);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       title: c.title,
@@ -187,7 +223,8 @@
       note: c.note || null,
       sectorTable: c.sectorTable || null,
       details: c.details || null,
-      deltas: c.deltas || null,
+      deltas:     c.deltas     || null,
+      commDeltas: c.commDeltas || null,
     };
     // Global Flows: derive the flag row from card.details (field is `sym`, not `symbol`).
     if (c.id === 'globalflows' && Array.isArray(c.details)) {

@@ -61,9 +61,11 @@ CHECK S3: Do the row indicators (tickers) match exactly?
   rows[8].indicator = "CCJ"
   rows[9].indicator = "EEM"
 
-CHECK S4: Is the `note` field present?
-  PASS = card.note contains "above both 50d & 200d" or similar
-  FAIL = note missing or empty
+CHECK S4: Is the `note` field present and correctly formed?
+  PASS = card.note starts with "X/10 names in the watchlist are above both their 50d and 200d SMA" (where X = bull count)
+    e.g., "7/10 names in the watchlist are above both their 50d and 200d SMA — broad execution environment confirmed"
+    e.g., "5/10 names in the watchlist are above both their 50d and 200d SMA — majority of themes intact"
+  FAIL = note missing, empty, or starts with "/ names in the watchlist" (missing count — previously a template bug, fixed 2026-06-20)
 
 ---
 

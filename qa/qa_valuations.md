@@ -55,7 +55,7 @@ CHECK S3: Do the row indicators match exactly?
   rows[3].indicator = "EWJ (Japan ETF) vs S&P 500"
 
 CHECK S4: Is the `note` field present on the card?
-  PASS = card.note exists and contains "not a market-timing tool"
+  PASS = card.note exists and contains "not near-term entry points"
   FAIL = note field is missing or empty
 
 ---
@@ -132,9 +132,9 @@ CHECK R1B: Is the condition text correct?
   CAPE 20–25×    → condition must contain "Elevated"
   CAPE ≤ 20×     → condition must contain "Normal"
 
-CHECK R1C: Does the condition text include the date label (e.g., "May 2026")?
-  PASS = condition contains a month + year string (e.g., "Jun 2026")
-  NOTE = if absent, the date label logic may have failed in D1 lookup
+CHECK R1C: Does the NOTE contain the date label (e.g., "Jun 2026")?
+  PASS = card.note contains a "CAPE X.X× (Mon YYYY)" pattern
+  NOTE = date label appears in the note, not the condition row — this is expected behavior
 
 ---
 

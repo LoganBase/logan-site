@@ -55,9 +55,13 @@ CHECK S3: Do the row indicators contain the correct ETF names and tickers?
   rows[5].indicator must contain "ILF"
   rows[6].indicator must contain "EEM"
 
-CHECK S4: Is the `note` field present and non-empty?
-  PASS = card.note exists and contains text about "regional indexes" or "200d"
-  FAIL = note missing or empty
+CHECK S4: Is the `note` field present and correctly formed?
+  PASS = card.note starts with "X/Y regional indexes are above their 200d SMA" (where X = bull count, Y = total)
+    e.g., "7/7 regional indexes are above their 200d SMA — synchronized global expansion"
+    e.g., "5/7 regional indexes are above their 200d SMA — partial global expansion"
+    e.g., "Only 3/7 regional indexes are above their 200d SMA — broad global weakness"
+  FAIL = note missing, empty, or starts with "/ regional indexes" (missing count — this is the
+         previously documented note template bug; was fixed 2026-06-20)
 
 CHECK S5: Is the `details` array present?
   PASS = card.details exists and is a non-empty array

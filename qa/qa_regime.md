@@ -58,8 +58,9 @@ CHECK S3: Do the row indicators match exactly?
 
 The API returns formatted display strings. Parse them as follows:
 
-Row 0 value format: "SPY $XXX.XX<br>200d $XXX.XX" (ignore &nbsp; and HTML tags)
-  → Extract: SPY_PRICE and SMA200
+Row 0 value format: "$XXX.XX" (just the SPY price — SMA200 is not displayed in row 0)
+  → Extract: SPY_PRICE
+  → Derive: SMA200 = SPY_PRICE / (1 + VS200_DISPLAYED / 100)  using VS200 from Row 1
 
 Row 1 value format: "+X.XX%" or "-X.XX%"
   → Extract: VS200_DISPLAYED (the percentage shown)
@@ -201,7 +202,7 @@ CHECK D3: Are the `deltas` sub-field values plausible given current trend?
 
 ---
 
-## STEP 12 — Visual Indicators on Regime Metrics Boxes
+## STEP 12 — Visual Indicators on Regime Metrics Boxes and Card Sparkline
 
 Open the live dashboard at https://www.loganbase.com/market-hub and expand Card 01.
 Scroll to the "Regime Metrics" section (6 stat boxes).
@@ -221,6 +222,15 @@ CHECK V2: When a value is approaching a threshold, does the warning badge appear
     - Extension Velocity is within 0.5 of any key level
   PASS = badge appears on any box meeting the above conditions (or PASS/N-A if none currently qualify)
   NOTE = amber border also appears on the box when ⚠ is active; confirm border color changes
+
+CHECK V3: Does the card-level sparkline (RegimeMiniSpark) show two lines?
+  The sparkline on the collapsed Card 01 tile loads real data from /api/history?symbol=SPY&range=20d.
+  Once loaded it should show a 20-day dual-line chart:
+    - SPY price line: cyan (#22d3ee)
+    - 200d SMA line: purple (#a855f7)
+  During initial page load the synthetic single-line SparkD renders as a fallback.
+  PASS = dual-line sparkline is visible on the card tile once data has loaded
+  NOTE = single cyan line during page load is expected; it should resolve to dual-line within ~2s
 
 ---
 
@@ -254,9 +264,10 @@ Produce your findings in this format:
 | D3  | Deltas sub-fields plausible | PASS/NOTE | Values: v200=X, crossSpread=X, duration=X, velocity=X |
 | V1  | Directional arrows on stat boxes | PASS/FAIL | |
 | V2  | Warning badge on approaching thresholds | PASS/N-A | Note which box(es) if active |
+| V3  | Card sparkline shows dual-line SPY + 200d SMA | PASS/NOTE | Cyan=SPY, Purple=200d |
 
 ### Summary
-- Total checks: 22
+- Total checks: 23
 - Passed: X
 - Failed: X
 - Notes: [anything unexpected not covered by a specific check]

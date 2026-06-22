@@ -40,8 +40,8 @@ CHECK S1: Does the card have exactly 4 rows?
   FAIL if fewer or more rows exist
 
 CHECK S2: Do the row labels match exactly?
-  rows[0].label = "NYSE 200d Breadth"
-  rows[1].label = "NYSE 50d Breadth"
+  rows[0].label = "NYSE 200d"
+  rows[1].label = "NYSE 50d"
   rows[2].label = "Sector Check"
   rows[3].label = "Consumer Signal"
 
@@ -247,11 +247,71 @@ reporting a graceful degraded state.
 
 ---
 
-## STEP 11 — Delta Field
+## STEP 11 — Delta Fields
 
 CHECK D1: Is the `delta` field present on the card?
   Expected values: "up" | "down" | "same"
   PASS = field exists and contains one of these three values
+
+CHECK D2: Is the `deltas` object present on the card?
+  The `deltas` object drives the directional arrows on the Breadth Metrics stat boxes.
+  Expected shape: { mmth, mmfi }
+  Each value: 'up' | 'down' | 'flat' | null
+  Source: 5-day delta of $MMTH and $MMFI from the market_breadth table (loadBreadthContext).
+  PASS = object is present
+  NOTE = null values are acceptable when fewer than 6 rows exist in market_breadth
+
+CHECK D3: Are the `deltas` sub-field values plausible?
+  mmth: direction of change in % NYSE above 200d SMA over the past 5 trading days
+  mmfi: direction of change in % NYSE above 50d SMA over the past 5 trading days
+  Thresholds:
+    delta > +1 percentage point  → 'up'   (breadth improving)
+    delta < -1 percentage point  → 'down' (breadth deteriorating)
+    |delta| ≤ 1 percentage point → 'flat' (consolidating)
+  PASS = each non-null value is directionally consistent with the past week's trend
+  NOTE = 'flat' is valid during sideways breadth consolidation
+
+---
+
+## STEP 12 — Breadth History API Direction Check
+
+Fetch: GET https://www.loganbase.com/api/breadth-history?range=1y
+
+CHECK BH1: Does the `summary` object include direction fields?
+  Expected fields: summary.mmthDir and summary.mmfiDir
+  Values: 'up' | 'down' | 'flat' | null
+  PASS = both fields are present in the summary
+  NOTE = null is acceptable if fewer than 6 breadth rows are available in D1
+
+CHECK BH2: Are the direction values plausible given current MMTH and MMFI trends?
+  If MMTH has risen this week → mmthDir should be 'up'
+  If MMTH has fallen this week → mmthDir should be 'down'
+  Apply same logic for mmfiDir
+  PASS = values are consistent with the recent weekly direction of breadth
+  NOTE = 'flat' is valid when breadth has been range-bound (change ≤ 1pp over 5 days)
+
+---
+
+## STEP 13 — Visual Indicators on Breadth Metrics Boxes
+
+Open the live dashboard at https://www.loganbase.com/market-hub and expand Card 03.
+Scroll to the "Breadth Metrics" section (2 rows × 3 boxes = 6 stat boxes).
+
+CHECK V1: Do directional arrows render on the Breadth Metrics stat boxes?
+  The NYSE 200d Breadth (MMTH) and NYSE 50d Breadth (MMFI) boxes should each show
+  a small arrow badge (▲ green / ▼ red) in the top-right corner.
+  Direction source: 5-day delta from /api/breadth-history (preferred). If unavailable,
+  falls back to 50% midpoint rule: MMTH/MMFI ≥ 50% → ▲, < 50% → ▼.
+  PASS = MMTH and MMFI boxes both show arrows
+  FAIL = neither MMTH nor MMFI shows an arrow
+
+CHECK V2: When a breadth value is approaching a zone threshold, does the warning badge appear?
+  The ⚠ badge appears in the top-right corner when:
+    - MMTH is within 4 percentage points of 70% or 40%  (e.g. MMTH at 66–74% or 36–44%)
+    - MMFI is within 4 percentage points of 70% or 40%
+    - Sector count is exactly 6 or 7 (approaching the bullish ≥8 or bearish ≤5 thresholds)
+  PASS = badge appears on any box meeting the above conditions (or PASS/N-A if none currently qualify)
+  NOTE = amber border also appears on the box when ⚠ is active
 
 ---
 
@@ -289,6 +349,12 @@ Produce your findings in this format:
 | T4  | sectorTable bull count consistent | PASS/FAIL | Table: X, Row: X |
 | C1  | Card status majority-wins | PASS/FAIL | Bull:X Bear:X Neu:X |
 | D1  | Delta field present | PASS/FAIL | Value: up/down/same |
+| D2  | Deltas object present | PASS/NOTE | mmth=X, mmfi=X |
+| D3  | Deltas sub-fields plausible | PASS/NOTE | |
+| BH1 | breadth-history summary has mmthDir/mmfiDir | PASS/NOTE | mmthDir=X, mmfiDir=X |
+| BH2 | Direction values plausible vs recent trend | PASS/NOTE | |
+| V1  | Direction arrows on MMTH and MMFI boxes | PASS/FAIL | |
+| V2  | Warning badge on approaching thresholds | PASS/N-A | Note which box(es) if active |
 
 ### Breadth Data Availability
   - $MMTH available: true / false (X%)
@@ -302,7 +368,7 @@ Produce your findings in this format:
   Signal: [Full confirmation / Full breakdown / MMFI leading deterioration / MMFI leading recovery / Aligned]
 
 ### Summary
-- Total checks: 25
+- Total checks: 33
 - Passed: X
 - Failed: X
 - N/A: X

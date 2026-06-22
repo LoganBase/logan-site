@@ -41,7 +41,7 @@ CHECK S1: Does the card have exactly 4 rows?
 CHECK S2: Do the row labels match exactly?
   rows[0].label = "Risk Appetite"
   rows[1].label = "Spread Signal"
-  rows[2].label = "IG Demand"
+  rows[2].label = "Credit Quality"
   rows[3].label = "Global Credit"
 
 CHECK S3: Do the row indicators match exactly?
@@ -127,7 +127,7 @@ CHECK R1D: Cross-reference Row 0 and Row 1 — note the investment implication:
 
 ---
 
-## STEP 7 — Row 2: IG Demand (LQD vs 200d)
+## STEP 7 — Row 2: Credit Quality (LQD vs 200d)
 
 IF LQD_UNAVAILABLE = true: mark all R2 checks as NOTE
 
@@ -139,8 +139,8 @@ CHECK R2A: Is status correct?
   (null → "neutral")
 
 CHECK R2B: Is condition text correct?
-  bullish → rows[2].condition must = "Above 200d — IG Demand Firm"
-  bearish → rows[2].condition must = "Below 200d — IG Demand Weak"
+  bullish → rows[2].condition must = "Above 200d — Credit Quality Firm"
+  bearish → rows[2].condition must = "Below 200d — Credit Quality Weak"
 
 ---
 

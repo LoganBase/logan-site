@@ -46,9 +46,12 @@ CHECK S3: Are there no duplicate tickers across rows?
   PASS = all 6 row indicators are unique
   FAIL = any ticker appears more than once
 
-CHECK S4: Is the `note` field present and non-empty?
-  PASS = card.note exists and contains text about "spread" or "cyclical" or "defensive"
-  FAIL = note missing or empty
+CHECK S4: Is the `note` field present and correctly formed?
+  PASS = card.note contains a spread value in the first sentence, e.g.:
+    "Cyclicals are leading defensives by +X.X% (20d avg vs SPY)"
+    "Defensives are outpacing cyclicals by X.X% (20d avg vs SPY)"
+    "Cyclicals and defensives near parity (+X.X% spread, 20d avg vs SPY)"
+  FAIL = note missing, empty, or first sentence lacks the spread value (e.g., reads "by  (20d avg" — previously a template bug, fixed 2026-06-20)
 
 ---
 

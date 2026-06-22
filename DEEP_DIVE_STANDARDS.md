@@ -77,7 +77,30 @@ ranges={cardId === 'regime' ? ['1W','1M','3M','6M','1Y','5Y','10Y','20Y'] : unde
 {id === 'regime' ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} .../> : <SparkD seed={c.seed} trend={c.trend} color={sg.c} .../>}
 ```
 
-This is the established pattern for both the 20Y range button and the live-data sparkline (`RegimeMiniSpark` in `desktop-app.jsx` — fetches real 1W SPY history and falls back to the synthetic `SparkD` while loading). New cards should follow the same scoping approach rather than forking the shared component or adding card-specific branches inside it.
+This is the established pattern for both the 20Y range button and the live-data sparkline (`RegimeMiniSpark` in `desktop-app.jsx` — fetches real **20D** SPY history and falls back to the synthetic `SparkD` while loading). New cards should follow the same scoping approach rather than forking the shared component or adding card-specific branches inside it.
+
+### RegimeMiniSpark — dual-line implementation
+
+`RegimeMiniSpark` (in `desktop-app.jsx`) loads from `/api/history?symbol=SPY&range=20d` and renders a **dual-line SVG** on the collapsed card tile:
+
+| Series | Color | Source |
+|---|---|---|
+| SPY price (primary) | `#22d3ee` (cyan) | `r.values` |
+| 200d SMA (overlay) | `#a855f7` (purple) | `r.overlays[1].values` (label `'200d SMA'`) |
+
+Both lines share the same Y axis (scaled together across all non-null values). SPY is drawn on top (rendered last). The component falls back to the synthetic `SparkD` during the async load and when the history API returns fewer than 2 data points.
+
+---
+
+## Metrics stat boxes — direction arrows and warnings (Cards 01, 02, 03)
+
+Cards 01 (Regime), 02 (Leadership), and 03 (Breadth) all render **Metrics** stat boxes using the 8-field tuple format. See `CARD_STANDARDS.md` — "StatBoxes — extended 8-field tuple" for the full direction source and warning threshold tables.
+
+Key implementation notes for deep-dive rendering:
+- The direction badge (`▲`/`▼`/`—`) and warning badge (`⚠`) render in the top-right corner of each stat box and are **hidden** when the trigger tooltip overlay is open.
+- The amber `⚠` badge co-exists with the direction badge — both can show simultaneously.
+- The amber box border (`#78350f`) activates only when `warn = true`; normal border is `#1e2d3d`.
+- For Leadership and Breadth, the direction field in each tuple is computed inside the client-side builder functions (`buildLeadershipMetrics`, `BreadthStatBoxes`) using `card.deltas` as the preferred source, with orientation-based fallback.
 
 ---
 
@@ -123,16 +146,16 @@ If a new card needs a similar diagnostics box, write an analogous `buildXDiagnos
 
 | # | Card | `DeepChartLg` wired (live + ranges) | Tooltip extra rows documented | Custom `DeepDiveContent` path | Reviewed |
 |---|------|---|---|---|---|
-| 01 | Regime | ✅ (incl. 20Y, RSI, % above 200d/50d rows) | ✅ | No (default path + Q&A box) | ✅ |
-| 02 | Leadership | ✅ (RSP vs SPY + QQEW overlay) | — | No | — |
-| 03 | Breadth | ✅ (custom `NyseBreadthChart` + `SectorBreadthChart`) | — | Yes | — |
+| 01 | Regime | ✅ (incl. 20Y, RSI, % above 200d/50d rows; RegimeMiniSpark dual-line on tile) | ✅ | No (default path + Q&A box) | ✅ |
+| 02 | Leadership | ✅ (RSP vs SPY + QQEW overlay; 20D/50D/200D range; Leadership Metrics direction arrows + warnings) | ✅ | No | ✅ |
+| 03 | Breadth | ✅ (custom `NyseBreadthChart` + `SectorBreadthChart`; Breadth Metrics direction arrows + warnings) | — | Yes | ✅ |
 | 04 | Valuations | — | — | — | — |
 | 05 | Yield | — | — | — | — |
 | 06 | Credit | — | — | — | — |
-| 07 | Global Flows | ✅ (ACWI series) | — | No | — |
-| 08 | Sectors | ✅ (cycVsDef series) | — | No | — |
-| 09 | Commodities | ✅ (USCI series) | — | No | — |
-| 10 | Equities | ✅ (custom `EquitiesChart`, multi-series) | — | Yes | — |
+| 07 | Global Flows | ✅ (ACWI series) | — | No | ✅ (QA 2026-06-20; note format fixed) |
+| 08 | Sectors | ✅ (cycVsDef series) | — | No | ✅ (QA 2026-06-20; note format fixed) |
+| 09 | Commodities | ✅ (USCI series) | — | No | ✅ (QA 2026-06-20; note format fixed) |
+| 10 | Equities | ✅ (custom `EquitiesChart`, multi-series) | — | Yes | ✅ (QA 2026-06-20; note format fixed) |
 
 ---
 

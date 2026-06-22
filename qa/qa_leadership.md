@@ -299,11 +299,31 @@ fail while source = "d1+yahoo" or "yahoo", note it as an expected live-vs-close 
 
 ---
 
-## STEP 13 — Delta Field
+## STEP 13 — Delta Fields
 
 CHECK D1: Is the `delta` field present on the card?
   Expected values: "up" | "down" | "same"
   PASS = field exists and contains one of these three values
+
+CHECK D2: Is the `deltas` object present on the card?
+  The `deltas` object drives the directional arrows on the Leadership Metrics row 1 stat boxes.
+  Expected shape: { rsp, qqew, style }
+  Each value: 'up' | 'down' | null
+  Source: 5-day spread delta computed server-side using price5d (close 5 trading days ago)
+  and price25d (close 25 trading days ago) for each symbol pair in D1.
+  PASS = object is present
+  NOTE = null values are acceptable when price5d/price25d unavailable in D1 (first few seeder runs)
+
+CHECK D3: Are the `deltas` sub-field values plausible given recent performance?
+  rsp   = direction of (RSP 20d return − SPY 20d return) spread change over 5 trading days
+  qqew  = direction of (QQEW 20d return − QQQ 20d return) spread change over 5 trading days
+  style = direction of (IVW 20d return − IVE 20d return) spread change over 5 trading days
+  Thresholds:
+    spread delta > +0.3pp → 'up'   (breadth/quality momentum improving this week)
+    spread delta < -0.3pp → 'down' (breadth/quality momentum deteriorating this week)
+    |delta| ≤ 0.3pp       → null   (flat — falls back to orientation-based direction in UI)
+  PASS = each non-null sub-field is directionally consistent with the past week's trend
+  NOTE = null is valid when the pair's 5-day spread change is within ±0.3pp
 
 ---
 
@@ -311,7 +331,7 @@ CHECK D1: Is the `delta` field present on the card?
 
 Open the live dashboard at https://www.loganbase.com/market-hub
 Click on Card 02 (Leadership) to open the deep-dive panel.
-Verify cache version: page source should show ?v=20260619d on the script tags.
+Verify cache version: page source should show ?v=20260620y on the script tags.
 
 CHECK V1: Does the "Leadership Price History" chart appear at the top of the deep dive?
   It should have a pair selector (Market / Tech / Style) and a range selector (20D / 50D / 200D).
@@ -363,6 +383,22 @@ CHECK V9: Do the spread values in the Leadership Metrics row 2 update when the
   PASS = the stat box values visibly change when switching ranges
   FAIL = values stay the same across all three ranges (lpriceData not loading)
 
+CHECK V10: Do directional arrows render on Leadership Metrics row 1 (Market Breadth, Tech Breadth, Style Bias)?
+  Each of the three stat boxes in row 1 should show a small arrow badge (▲ green / ▼ red).
+  Direction source: card.deltas.rsp / .qqew / .style (5-day spread delta, preferred).
+  Falls back to spread-sign orientation (spread ≥ 0 → ▲, < 0 → ▼) when delta is null.
+  PASS = all three row 1 boxes show arrows
+  FAIL = no arrows showing on any row 1 box
+
+CHECK V11: Do directional arrows render on Leadership Metrics row 2 (5Y Spread, Daily Streak, 5Y Tech Spread)?
+  Row 2 direction uses the same card.deltas keys mapped by label:
+    "5Y Spread" / market-related → card.deltas.rsp
+    "Daily Streak"               → tone-based (pos streak → ▲, neg streak → ▼)
+    "5Y Tech Spread"             → card.deltas.qqew
+  Falls back to value-sign orientation when delta is null.
+  PASS = all three row 2 boxes show arrows
+  FAIL = no arrows showing on any row 2 box
+
 ---
 
 ## REPORT FORMAT
@@ -407,6 +443,8 @@ Produce your findings in this format:
 | X1  | RSP 20d return vs Yahoo | PASS/FAIL | Hub: X%, Yahoo: X% |
 | X2  | SPY 20d return vs Yahoo | PASS/FAIL | Hub: X%, Yahoo: X% |
 | D1  | Delta field present | PASS/FAIL | Value: up/down/same |
+| D2  | Deltas object present | PASS/NOTE | rsp=X, qqew=X, style=X |
+| D3  | Deltas sub-fields plausible | PASS/NOTE | |
 | V1  | Price History chart renders | PASS/FAIL | |
 | V2  | Style tab: IVW primary, IVE overlay | PASS/FAIL | |
 | V3  | Quality Check chart + range selector | PASS/FAIL | |
@@ -416,9 +454,11 @@ Produce your findings in this format:
 | V7  | Market Diagnostics section (6 items) | PASS/FAIL | |
 | V8  | Market Narrative present (3+ sentences) | PASS/FAIL | |
 | V9  | Row 2 spread values update with range | PASS/FAIL | |
+| V10 | Direction arrows on row 1 boxes | PASS/FAIL | |
+| V11 | Direction arrows on row 2 boxes | PASS/FAIL | |
 
 ### Summary
-- Total checks: 44
+- Total checks: 47
 - Passed: X
 - Failed: X
 - N/A: X

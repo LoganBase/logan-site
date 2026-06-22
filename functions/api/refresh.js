@@ -37,9 +37,15 @@ const ALL_SYMBOLS = [
   'XLV', 'XLC', 'XLY', 'XLB',
   'XME', 'GDX', 'COPX', 'KBE',
   // Commodities
-  'USCI', 'HG=F', 'GLD', 'SLV', 'IXC', 'XES', 'DBA', 'SLX', 'URA',
+  'USCI', 'CPER', 'GLD', 'SLV', 'IXC', 'XES', 'DBA', 'SLX', 'URA',
   // Equities
   'IWM', 'NVDA', 'JPM', 'CAT', 'XOM', 'FCX', 'CCJ',
+  // Extended — deep-dive / supplemental
+  'SOXX', 'LRCX', 'SITM',
+  'AEM',
+  'GRID', 'GEV',
+  'RIO', 'SU',
+  'CCO.TO', 'TVE.TO', 'ZEB.TO',
 ];
 
 // ── MATH ──────────────────────────────────────────────────────────────────────
@@ -72,6 +78,74 @@ function run(db, sql, params = []) {
     : db.prepare(sql).run();
 }
 
+// ── FULL BACKFILL FOR NEVER-SEEDED SYMBOLS ───────────────────────────────────
+// Uses db.batch() to bulk-insert in chunks of 100, keeping total subrequests
+// well under Cloudflare's per-invocation limit even for 3,000+ row histories.
+// Percentile is skipped (null) — scores.js computes it dynamically at query time.
+async function refreshSymbolFull(db, symbol) {
+  const res = await fetch(
+    `${YF}/${encodeURIComponent(symbol)}?interval=1d&range=5y`,
+    { headers: YF_HEADERS }
+  );
+  if (!res.ok) return { symbol, added: 0, status: `Yahoo ${res.status}` };
+
+  const data   = await res.json();
+  const result = data?.chart?.result?.[0];
+  if (!result)  return { symbol, added: 0, status: 'no data' };
+
+  const timestamps = result.timestamp || [];
+  const q          = result.indicators?.quote?.[0] || {};
+
+  const allRows = [];
+  for (let i = 0; i < timestamps.length; i++) {
+    if (q.close?.[i] == null) continue;
+    allRows.push({
+      date:   new Date(timestamps[i] * 1000).toISOString().slice(0, 10),
+      open:   q.open?.[i]   ?? null,
+      high:   q.high?.[i]   ?? null,
+      low:    q.low?.[i]    ?? null,
+      close:  q.close[i],
+      volume: q.volume?.[i] ?? null,
+    });
+  }
+
+  if (allRows.length === 0) return { symbol, added: 0, status: 'no data' };
+
+  // Bulk-insert prices in chunks to stay within D1 batch statement limits
+  const CHUNK = 100;
+  for (let i = 0; i < allRows.length; i += CHUNK) {
+    await db.batch(allRows.slice(i, i + CHUNK).map(row =>
+      db.prepare('INSERT OR REPLACE INTO daily_prices (symbol,date,open,high,low,close,volume) VALUES (?,?,?,?,?,?,?)')
+        .bind(symbol, row.date, row.open, row.high, row.low, row.close, row.volume)
+    ));
+  }
+
+  // Compute all indicators in memory — no per-row D1 queries needed
+  const closes  = allRows.map(r => r.close);
+  const dates   = allRows.map(r => r.date);
+  const n       = closes.length;
+  const indRows = [];
+
+  for (let i = 14; i < n; i++) {
+    const price  = closes[i];
+    const sma50  = i >= 49  ? closes.slice(i - 49,  i + 1).reduce((a, b) => a + b, 0) / 50  : null;
+    const sma200 = i >= 199 ? closes.slice(i - 199, i + 1).reduce((a, b) => a + b, 0) / 200 : null;
+    const vs200  = sma200 ? ((price - sma200) / sma200) * 100 : null;
+    const rsi14  = rsi(closes.slice(0, i + 1), 14);
+    const roc10  = i >= 10 ? ((price / closes[i - 10]) - 1) * 100 : null;
+    indRows.push([symbol, dates[i], sma50, sma200, rsi14, roc10, vs200, null]);
+  }
+
+  for (let i = 0; i < indRows.length; i += CHUNK) {
+    await db.batch(indRows.slice(i, i + CHUNK).map(row =>
+      db.prepare('INSERT OR REPLACE INTO indicators (symbol,date,sma50,sma200,rsi14,roc10,vs200_pct,percentile) VALUES (?,?,?,?,?,?,?,?)')
+        .bind(...row)
+    ));
+  }
+
+  return { symbol, added: allRows.length, status: 'full backfill' };
+}
+
 // ── REFRESH ONE SYMBOL ────────────────────────────────────────────────────────
 async function refreshSymbol(db, symbol) {
   // Find the last date we have for this symbol
@@ -83,9 +157,14 @@ async function refreshSymbol(db, symbol) {
 
   if (lastDate === today) return { symbol, added: 0, status: 'up to date' };
 
-  // Fetch the last 5 trading days from Yahoo Finance
+  // Use a wider window when stale (>5 days behind) to catch up
+  if (!lastDate) return refreshSymbolFull(db, symbol);
+
+  const daysSinceLast = Math.ceil((Date.now() - new Date(lastDate).getTime()) / 86400000);
+  const fetchRange = daysSinceLast > 5 ? '1mo' : '5d';
+
   const res = await fetch(
-    `${YF}/${encodeURIComponent(symbol)}?interval=1d&range=5d`,
+    `${YF}/${encodeURIComponent(symbol)}?interval=1d&range=${fetchRange}`,
     { headers: YF_HEADERS }
   );
   if (!res.ok) return { symbol, added: 0, status: `Yahoo ${res.status}` };
@@ -212,7 +291,7 @@ export async function onRequest(context) {
       totalAdded += r.added;
     } catch (err) {
       results.push({ symbol, added: 0, status: 'error', error: err.message });
-      break; // stop on subrequest-limit errors so status is accurate
+      // continue — don't let one symbol failure stop the rest of the batch
     }
   }
 

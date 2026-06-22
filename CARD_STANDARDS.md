@@ -43,9 +43,12 @@ Each card builder in `scores.js` returns:
   stats,              // optional [[label, value, desc, tone], ...]  tone: 'pos' | 'neg' | null
   hideIndicator: true,
   note,               // dynamic narrative string for the Summary box
-  deltas,             // Regime-only: { v200, crossSpread, duration, velocity } — 5-day directional deltas
+  deltas,             // 5-day directional deltas — present on Regime, Leadership, and Breadth
                       //   each value: 'up' | 'down' | 'flat' | null
-                      //   drives the ▲/▼/— arrows and ⚠ warnings on Regime Metrics stat boxes
+                      //   drives the ▲/▼/— arrows and ⚠ warnings on the card's Metrics stat boxes
+                      //   Regime:     { v200, crossSpread, duration, velocity }
+                      //   Leadership: { rsp, qqew, style }          (null → falls back to spread sign)
+                      //   Breadth:    { mmth, mmfi }                (null → falls back to 50% midpoint)
   sectorTable, details, flags, allRows,  // card-specific extras (Breadth, Global Flows, Sectors)
 }
 ```
@@ -60,9 +63,9 @@ Each card builder in `scores.js` returns:
 
 ---
 
-## StatBoxes (Regime Metrics) — extended 8-field tuple
+## StatBoxes — extended 8-field tuple (Regime, Leadership, Breadth)
 
-The `stats` array for the Regime card uses an **8-field tuple** rather than the standard 4-field form. `buildRegimeMetrics(card)` in `desktop-parts.jsx` constructs these — they are not built in `scores.js` or `mapCard`.
+The Metrics stat boxes for Cards 01, 02, and 03 use an **8-field tuple** rather than the standard 4-field form. These are constructed in card-specific builder functions in `desktop-parts.jsx` — they are not built in `scores.js` or `mapCard`.
 
 ```
 [label, value, indicator, tone, condition, triggers, direction, warn]
@@ -74,7 +77,9 @@ The `stats` array for the Regime card uses an **8-field tuple** rather than the 
 
 `StatBoxes` reads `st[6]` and `st[7]` and renders both badges in the top-right corner of the box (hidden when trigger overlay is open). The border is `#78350f` when `warn` is true, normal `#1e2d3d` otherwise.
 
-**Warning thresholds** (defined in `buildRegimeMetrics`, `desktop-parts.jsx`):
+**Warning thresholds** (defined in each card's builder function in `desktop-parts.jsx`):
+
+*Regime — `buildRegimeMetrics`:*
 
 | Box | Trigger margin |
 |---|---|
@@ -85,7 +90,28 @@ The `stats` array for the Regime card uses an **8-field tuple** rather than the 
 | Regime Duration | within 10 days of 30, 150, or 400 |
 | Extension Velocity | within 0.5 of any key ROC level |
 
-Do **not** apply the 8-field form to other cards' `stats` arrays — it is Regime-specific. Other cards keep the standard `[label, value, desc, tone]` 4-field form.
+*Leadership — `buildLeadershipMetrics`:*
+
+| Box | Trigger margin |
+|---|---|
+| Market Breadth, Tech Breadth, Style Bias (row 1) | spread within ±0.5% of 0 (near neutral) |
+| Market Spread, Tech Spread (row 2) | value within ±R2.warn of 0 (scales with range: 0.5 @ 20D, 2 @ 50D, 6 @ 200D) |
+| Daily Streak (row 2) | no warning — streak is not proximity-based |
+
+**Direction source for Leadership:** `card.deltas.rsp/.qqew/.style` (5-day spread delta, computed server-side from `price5d`/`price25d`). Falls back to spread-sign orientation when delta is null ('flat').
+
+*Breadth — `BreadthStatBoxes`:*
+
+| Box | Trigger margin |
+|---|---|
+| NYSE 200d (MMTH) | within ±4 percentage points of 70% or 40% |
+| NYSE 50d (MMFI) | within ±4 percentage points of 70% or 40% |
+| Sector Breadth | count = 6 or 7 (approaching the ≥8 or ≤5 thresholds) |
+| Days boxes, Consumer Signal | no warning |
+
+**Direction source for Breadth:** `card.deltas.mmth/.mmfi` (5-day MMTH/MMFI delta, from `breadth-history` API `summary.mmthDir/.mmfiDir`). Falls back to 50% midpoint (≥50% → ▲, <50% → ▼) when delta is 'flat' or null.
+
+Other cards keep the standard `[label, value, desc, tone]` 4-field form in their stats arrays.
 
 ---
 
@@ -135,20 +161,35 @@ Value text color is **always** driven by the row's own status (`r[3]`) — there
 
 ---
 
+## Note field — leading sentence format
+
+Several cards embed counts in the opening sentence of the `note` field. These are live-computed from the card's data and must include the actual count, not a bare "/":
+
+| Card | Note opening pattern |
+|---|---|
+| 07 Global Flows | `"${bull}/${total} regional indexes are above their 200d SMA — ..."` |
+| 08 Sectors | `"Cyclicals are leading defensives by ${spreadStr} ..."` or `"parity (${spreadStr} spread, ...)"` |
+| 09 Commodities | `"${bull}/${COM_META.length} commodity signals are macro-positive — ..."` |
+| 10 Equities | `"${bull}/${total} names in the watchlist are above both their 50d and 200d SMA — ..."` |
+
+These four cards had a template interpolation bug (count was missing from the string) which was fixed 2026-06-20. The QA S4 checks for each card verify the count is present in the note.
+
+---
+
 ## Completion Tracker (V2)
 
 | # | Card | Card status logic documented | Banding ladder (not just binary) | Terminology spelled out | Reviewed |
 |---|------|---|---|---|---|
 | 01 | Regime | ✅* (master override — see scores.js `buildRegime`) | ✅ (Stretch Risk, Trend Cross) | ✅ | ✅ |
-| 02 | Leadership | — | — | — | — |
-| 03 | Breadth | — | — | — | — |
-| 04 | Valuations | — | — | — | — |
-| 05 | Yield | — | — | — | — |
-| 06 | Credit | — | — | — | — |
-| 07 | Global Flows | ✅* (existing bull-count threshold override, predates this doc) | — | — | — |
-| 08 | Sectors | — | — | — | — |
-| 09 | Commodities | — | — | — | — |
-| 10 | Equities | — | — | — | — |
+| 02 | Leadership | ✅ (majority-wins, no override; Style Bias neutral-only, never bearish) | ✅ (3-band spreads R1/R2; streak tone-based) | ✅ | ✅ |
+| 03 | Breadth | ✅ (majority-wins across 4 rows, no override) | ✅ (MMTH/MMFI 3-band; sector count 3-band) | ✅ | ✅ |
+| 04 | Valuations | ✅ (majority-wins on rows[0..2] only; Japan P/E excluded — deep-dive context only) | ✅ (Trailing P/E 3-band; CAPE 4-band; Buffett 3-band; Japan P/E relative) | ✅ | ✅ |
+| 05 | Yield | ✅* (partial override: if 30Y ≥ 5% → card bearish; else majority-wins) | ✅ (30Y 3-band; 10Y 3-band; Curve 3-band) | ✅ | ✅ |
+| 06 | Credit | ✅ (threshold: ≥3 bullish → bullish; ≥2 → neutral; else bearish) | ✅ (EMB 3-tier below-200d conditions) | ✅ | ✅ |
+| 07 | Global Flows | ✅* (bull-count threshold: ≥6 → bullish, ≥4 → neutral, else bearish) | ✅ (ACWI/EEM binary; all others above/below 200d) | ✅ | ✅ |
+| 08 | Sectors | ✅* (cycVsDef spread: >+1% → bullish, <-1% → bearish, else neutral) | ✅ (cyclical 3-way; defensive 3-way; Gold/Silver inverted) | ✅ | ✅ |
+| 09 | Commodities | ✅ (bull-count: ≥6 → bullish, ≥4 → neutral, else bearish; Gold/Silver use macro-signal status) | ✅ (Gold 3-band inverted; Agriculture 3-band; Uranium 3-band) | ✅ | ✅ |
+| 10 | Equities | ✅ (bull-count of above-both-MAs: ≥7 → bullish, ≥5 → neutral, else bearish) | ✅ (3-tier: above-both / above-200d-only / below-200d) | ✅ | ✅ |
 
 `✅*` = intentional custom/override logic, not a plain `cardStatus(rows)` call — documented inline in `scores.js` with a why-comment.
 

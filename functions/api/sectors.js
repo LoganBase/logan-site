@@ -16,8 +16,8 @@ const YF_HEADERS = {
   'Referer':    'https://finance.yahoo.com/',
 };
 
-const CYCLICALS  = ['XLI', 'XLK', 'XME', 'XLF'];
-const DEFENSIVES = ['XLU', 'XLRE', 'XLP'];
+const CYCLICALS  = ['XLK', 'XLY', 'XLC', 'XLI', 'XLF', 'XLE', 'XLB'];
+const DEFENSIVES = ['XLV', 'XLP', 'XLU', 'XLRE'];
 const ALL_SYMS   = [...CYCLICALS, ...DEFENSIVES];
 
 const RANGE_MAP = {
@@ -92,18 +92,21 @@ function compute(rows) {
     }
   }
 
-  const cycVsDef = [];
-  const cycReturns  = {};
-  const defReturns  = {};
+  const cycVsDef     = [];
+  const cycAvgSeries = [];
+  const defAvgSeries = [];
+  const cycReturns   = {};
+  const defReturns   = {};
   for (const sym of ALL_SYMS) cycReturns[sym] = null;
 
   for (const date of dates) {
-    // Average return of cyclicals vs defensives
     const cycVals = CYCLICALS.map(s => normed[s][date]).filter(v => v != null);
     const defVals = DEFENSIVES.map(s => normed[s][date]).filter(v => v != null);
     const cycAvg  = cycVals.length ? cycVals.reduce((a, b) => a + b, 0) / cycVals.length : null;
     const defAvg  = defVals.length ? defVals.reduce((a, b) => a + b, 0) / defVals.length : null;
     cycVsDef.push(cycAvg != null && defAvg != null ? cycAvg - defAvg : null);
+    cycAvgSeries.push(cycAvg);
+    defAvgSeries.push(defAvg);
   }
 
   // Per-symbol returns at end of period (for best/worst sector)
@@ -140,7 +143,7 @@ function compute(rows) {
   const n = cycVsDef.length;
   const current = cycVsDef[n - 1];
   return {
-    dates, cycVsDef,
+    dates, cycVsDef, cycAvgSeries, defAvgSeries,
     summary: {
       current,
       streak,

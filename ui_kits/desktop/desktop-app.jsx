@@ -67,30 +67,60 @@ function BreadthBar({ exec, cats }) {
   );
 }
 
-// ── Regime list sparkline — real 1W SPY data, falls back to the synthetic spark while loading ──
+// ── Regime list sparkline — 20D SPY (cyan) + 200d SMA (purple), falls back to synthetic spark ──
 function RegimeMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
-  const [vals, setVals] = useStateA(null);
+  const [data, setData] = useStateA(null);
   useEffectA(() => {
     let alive = true;
     if (window.MarketHubData) {
-      window.MarketHubData.loadHistory('regime', '1W').then((r) => {
-        if (alive && r && r.values && r.values.length > 1) setVals(r.values);
+      window.MarketHubData.loadHistory('regime', '20D').then((r) => {
+        if (!alive || !r || !r.values || r.values.length < 2) return;
+        const sma200 = (r.overlays || []).find(o => o.label === '200d SMA');
+        setData({ spy: r.values, sma200: sma200 ? sma200.values : [] });
       });
     }
     return () => { alive = false; };
   }, []);
-  if (!vals) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
-  const lo = Math.min(...vals), hi = Math.max(...vals), span = hi - lo || 1;
-  const pts = vals.map((v) => (v - lo) / span);
-  const dx = w / Math.max(pts.length - 1, 1);
-  const line = pts.map((p, i) => `${i ? 'L' : 'M'}${(i * dx).toFixed(1)},${(h - p * h).toFixed(1)}`).join(' ');
-  const area = `${line} L${w},${h} L0,${h} Z`;
-  const gid = 'rmsGrad';
+  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const allVals = [...data.spy, ...data.sma200].filter(v => v != null && v > 0);
+  const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+  const dx = w / Math.max(data.spy.length - 1, 1);
+  const mkPath = (vals) => vals.map((v, i) => v == null ? '' :
+    `${(i === 0 || vals[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
   return (
     <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
-      <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity="0.26" /><stop offset="1" stopColor={color} stopOpacity="0" /></linearGradient></defs>
-      <path d={area} fill={`url(#${gid})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.sma200)} fill="none" stroke="#a855f7" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.spy)} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ── Commodities list sparkline — live 20D USCI (cyan) + 200d SMA (purple), falls back to SparkD ──
+function CommoditiesMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [data, setData] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    if (window.MarketHubData) {
+      window.MarketHubData.loadHistory('commodities', '20D').then((r) => {
+        if (!alive || !r || !r.values || r.values.length < 2) return;
+        const sma200 = (r.overlays || []).find(o => o.label === '200d SMA');
+        setData({ usci: r.values, sma200: sma200 ? sma200.values : [] });
+      });
+    }
+    return () => { alive = false; };
+  }, []);
+  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const allVals = [...data.usci, ...data.sma200].filter(v => v != null && v > 0);
+  const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+  const dx = w / Math.max(data.usci.length - 1, 1);
+  const mkPath = (vals) => vals.map((v, i) => v == null ? '' :
+    `${(i === 0 || vals[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <path d={mkPath(data.sma200)} fill="none" stroke="#a855f7" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.usci)}   fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -129,6 +159,139 @@ function LeadershipMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
   );
 }
 
+// ── Breadth list sparkline — live 20D MMTH (purple) + MMFI (cyan), falls back to SparkD ──
+function BreadthMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [data, setData] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    const cb = new Date().toISOString().slice(0, 10);
+    fetch(`/api/breadth-history?range=20d&_cb=${cb}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !Array.isArray(j.mmth) || !j.mmth.length) return;
+        setData({ mmth: j.mmth, mmfi: j.mmfi || [] });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const allVals = [...data.mmth, ...data.mmfi].filter(v => v != null);
+  const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+  const dx = w / Math.max(data.mmth.length - 1, 1);
+  const mkPath = (vals) => vals.map((v, i) => v == null ? '' :
+    `${(i === 0 || vals[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <path d={mkPath(data.mmth)} fill="none" stroke="#a855f7" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.mmfi)} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ── Equities list sparkline — live 20D IWM (indigo) / FCX (cyan) / GDX (amber) rebased to 0% ──
+function EquitiesMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [data, setData] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    fetch('/api/equities-history?range=3mo')
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j.dates?.length || !j.equities?.length) return;
+        const rebase = (sym) => {
+          const eq = j.equities.find(e => e.sym === sym);
+          const sliced = (eq?.prices || []).slice(-20);
+          const first = sliced.find(v => v != null && v > 0);
+          if (!first) return sliced;
+          return sliced.map(v => v == null ? null : ((v / first - 1) * 100));
+        };
+        setData({ iwm: rebase('IWM'), fcx: rebase('FCX'), gdx: rebase('GDX') });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const allVals = [...data.iwm, ...data.fcx, ...data.gdx].filter(v => v != null);
+  const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+  const dx = w / Math.max(data.iwm.length - 1, 1);
+  const mkPath = (vals) => vals.map((v, i) => v == null ? '' :
+    `${(i === 0 || vals[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <path d={mkPath(data.gdx)} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.fcx)} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.iwm)} fill="none" stroke="#818cf8" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ── Credit list sparkline — live 20D HYG (green) vs LQD (purple) normalised return, falls back to SparkD ──
+function CreditMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [data, setData] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    Promise.all([
+      fetch('/api/history?symbol=HYG&range=20d').then(r => r.json()),
+      fetch('/api/history?symbol=LQD&range=20d').then(r => r.json()),
+    ]).then(([hyg, lqd]) => {
+      if (!alive) return;
+      const rebase = (closes) => {
+        const arr = (closes || []).slice(-20).map(v => v == null ? null : Number(v));
+        const first = arr.find(v => v != null && v > 0);
+        if (!first) return arr;
+        return arr.map(v => v == null ? null : ((v - first) / first) * 100);
+      };
+      const h20 = rebase(hyg.closes), l20 = rebase(lqd.closes);
+      if (!h20.length) return;
+      setData({ hyg: h20, lqd: l20 });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const allVals = [...data.hyg, ...data.lqd].filter(v => v != null && !isNaN(v));
+  const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+  const dx = w / Math.max(data.hyg.length - 1, 1);
+  const mkPath = (vals) => vals.map((v, i) => v == null || isNaN(v) ? '' :
+    `${(i === 0 || vals[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <path d={mkPath(data.lqd)} fill="none" stroke="#a855f7" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.hyg)} fill="none" stroke="#22c55e" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ── Sectors list sparkline — live 20D Cyclicals (purple) vs Defensives (cyan), falls back to SparkD ──
+function SectorsMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [data, setData] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    fetch('/api/sectors?range=3mo')
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j.cycAvgSeries?.length || !j.defAvgSeries?.length) return;
+        setData({ cyc: j.cycAvgSeries.slice(-20).map(Number), def: j.defAvgSeries.slice(-20).map(Number) });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const allVals = [...data.cyc, ...data.def].filter(v => v != null && !isNaN(v));
+  const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
+  const dx = w / Math.max(data.cyc.length - 1, 1);
+  const mkPath = (vals) => vals.map((v, i) => v == null || isNaN(v) ? '' :
+    `${(i === 0 || vals[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <path d={mkPath(data.def)} fill="none" stroke="#22d3ee" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+      <path d={mkPath(data.cyc)} fill="none" stroke="#a855f7" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // ── Scorecard tile (grid) ──
 function ScoreTile({ card, onOpen, active }) {
   const sg = DSIG[card.status];
@@ -142,6 +305,14 @@ function ScoreTile({ card, onOpen, active }) {
         <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', flex: 1 }}>{card.title}</span>
         {card.id === 'leadership'
           ? <LeadershipMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
+          : card.id === 'equities'
+          ? <EquitiesMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
+          : card.id === 'sectors'
+          ? <SectorsMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
+          : card.id === 'credit'
+          ? <CreditMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
+          : card.id === 'commodities'
+          ? <CommoditiesMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
           : <SparkD seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />}
         <StatusPill status={card.status} size="sm" />
       </div>
@@ -265,6 +436,14 @@ function OptionWorkspace({ D }) {
                       ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
                       : id === 'leadership'
                       ? <LeadershipMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                      : id === 'breadth'
+                      ? <BreadthMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                      : id === 'sectors'
+                      ? <SectorsMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                      : id === 'credit'
+                      ? <CreditMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                      : id === 'commodities'
+                      ? <CommoditiesMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
                       : <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />}
                   </button>
                 );
@@ -341,6 +520,16 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
                   ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
                   : id === 'leadership'
                   ? <LeadershipMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : id === 'breadth'
+                  ? <BreadthMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : id === 'equities'
+                  ? <EquitiesMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : id === 'sectors'
+                  ? <SectorsMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : id === 'credit'
+                  ? <CreditMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : id === 'commodities'
+                  ? <CommoditiesMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
                   : <SparkD seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />}
                 <StatusPill status={c.status} size="sm" />
                 <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>

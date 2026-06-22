@@ -15,8 +15,7 @@ const EQUITIES = [
   { sym: 'XOM',  label: 'Exxon Mobil',    group: 'energy'     },
   { sym: 'FCX',  label: 'Freeport-Mc.',   group: 'copper'     },
   { sym: 'GDX',  label: 'Gold Miners',    group: 'gold'       },
-  { sym: 'CCJ',  label: 'Cameco',         group: 'uranium'    },
-  { sym: 'EEM',  label: 'Emerg. Markets', group: 'global'     },
+  { sym: 'EEM',  label: 'Emerging Markets', group: 'global'     },
 ];
 
 const RANGE_DAYS = { '10y': 3650, '5y': 1825, '3y': 1095, '1y': 365, '6mo': 182, '3mo': 91 };

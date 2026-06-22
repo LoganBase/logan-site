@@ -2,18 +2,22 @@
 Market Hub — Historical Data Seeder
 Direct upload to Cloudflare D1 via REST API. No intermediate SQL file.
 
+Modes:
+  python seed.py           — full historical seed (20 years, specify SYMBOLS below)
+  python seed.py --daily   — incremental daily update (all D1 symbols, last ~18 months,
+                             uploads only the 5 most recent indicator rows per symbol
+                             to avoid overwriting historical data with None-filled rows)
+
 Setup:
   1. Create a seed/.env file (copy seed/.env.example and fill in values)
   2. pip install -r requirements.txt
   3. python seed.py
 
-The seeder will:
-  - Download up to 20 years of daily OHLCV data per symbol via yfinance
-  - Compute indicators: SMA50, SMA200, RSI14, ROC10, vs200_pct, percentile rank
-  - Upload directly to D1 in batches of 200 rows
-  - Print live progress per symbol
+GitHub Actions runs seed.py --daily on a Mon–Fri schedule after market close.
+Secrets required: CF_ACCOUNT_ID, CF_API_TOKEN, CF_D1_DB_ID
 """
 
+import argparse
 import os, sys, time
 import pandas as pd
 import requests
@@ -23,18 +27,38 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
+# ── CLI FLAGS ─────────────────────────────────────────────────────────────────
+_parser = argparse.ArgumentParser(add_help=False)
+_parser.add_argument('--daily', action='store_true')
+_args, _ = _parser.parse_known_args()
+DAILY_MODE = _args.daily
+
 # ── CONFIG ────────────────────────────────────────────────────────────────────
-SEED_YEARS = 20
-START      = (datetime.now() - timedelta(days=365 * SEED_YEARS)).strftime('%Y-%m-%d')
-END        = datetime.now().strftime('%Y-%m-%d')
+# Daily mode: 540 calendar days (~385 trading days) — enough history to compute
+# SMA200 (needs 200 trading days) with buffer. Only last 5 indicator rows are
+# uploaded to avoid overwriting good historical data with None-valued early rows.
+SEED_YEARS        = 20
+DAILY_LOOKBACK    = 540   # calendar days downloaded in daily mode
+DAILY_IND_ROWS    = 5     # indicator rows uploaded per symbol in daily mode
+
+END = datetime.now().strftime('%Y-%m-%d')
+START = (
+    (datetime.now() - timedelta(days=DAILY_LOOKBACK)).strftime('%Y-%m-%d')
+    if DAILY_MODE
+    else (datetime.now() - timedelta(days=365 * SEED_YEARS)).strftime('%Y-%m-%d')
+)
+
 D1_MAX_VARS = 95   # D1 hard limit is 100 bound parameters per query
 
 CF_ACCOUNT_ID = os.environ.get('CF_ACCOUNT_ID', '').strip()
 CF_API_TOKEN  = os.environ.get('CF_API_TOKEN',  '').strip()
 CF_D1_DB_ID   = os.environ.get('CF_D1_DB_ID',   '').strip()
 
-SYMBOLS = [
-    'IWM', 'NVDA', 'JPM', 'XOM', 'FCX', 'CCJ',
+# All symbols read from D1 by the scores API
+DAILY_SYMBOLS = ['SPY', 'RSP', 'QQQ', 'QQEW', 'USCI', 'HYG', 'LQD', 'EMB']
+
+SYMBOLS = DAILY_SYMBOLS if DAILY_MODE else [
+    'EMB',  # set this list for manual full historical seeds
 ]
 
 # ── D1 REST API ───────────────────────────────────────────────────────────────
@@ -190,6 +214,10 @@ def seed_symbol(symbol):
             c_dates  = [p[0] for p in clean_pairs]
             c_closes = [p[1] for p in clean_pairs]
             ind_rows = compute_indicators(symbol, c_dates, c_closes)
+            # Daily mode: only upload the most recent rows to avoid overwriting
+            # good historical data with None-filled rows from the short window
+            if DAILY_MODE:
+                ind_rows = ind_rows[-DAILY_IND_ROWS:]
             upload_in_batches('indicators', IND_COLS, ind_rows, 'indicators')
 
         return len(price_rows)
@@ -210,10 +238,12 @@ def main():
         print('Create seed/.env — see seed/.env.example')
         sys.exit(1)
 
+    mode_label = f'Daily ({DAILY_IND_ROWS} indicator rows/symbol)' if DAILY_MODE else 'Full historical'
     print('─' * 60)
     print(f'  Market Hub Seeder — Direct D1 Upload')
+    print(f'  Mode   : {mode_label}')
     print(f'  Period : {START}  →  {END}')
-    print(f'  Symbols: {len(SYMBOLS)}')
+    print(f'  Symbols: {len(SYMBOLS)}  ({", ".join(SYMBOLS)})')
     print(f'  Batch  : auto (~{D1_MAX_VARS} vars/call)')
     print('─' * 60 + '\n')
 
