@@ -194,6 +194,23 @@ export async function onRequest(context) {
   }
 
   if (!statuses) {
+    // KV binding missing or key not yet written — fall back to fetching scores directly
+    try {
+      const scoresUrl = new URL(context.request.url);
+      scoresUrl.pathname = '/api/scores';
+      scoresUrl.search   = '';
+      const res = await fetch(scoresUrl.toString());
+      if (res.ok) {
+        const data = await res.json();
+        if (data.cards?.length) {
+          statuses = {};
+          data.cards.forEach(c => { statuses[c.id] = c.status; });
+        }
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  if (!statuses) {
     return new Response(JSON.stringify({ error: 'No scorecard data available — market data may still be loading.' }), {
       status: 404, headers: CORS,
     });
@@ -215,8 +232,9 @@ export async function onRequest(context) {
           }));
         }
       } else {
+        // Try today first; if not yet available (email arrives after close), fall back to most recent
         const row = await db.prepare(
-          'SELECT date, bullets, sentiment, sector FROM daily_briefs WHERE date = ? LIMIT 1'
+          'SELECT date, bullets, sentiment, sector FROM daily_briefs WHERE date <= ? ORDER BY date DESC LIMIT 1'
         ).bind(todayStr).first();
         if (row) brief = { date: row.date, bullets: JSON.parse(row.bullets), sentiment: row.sentiment, sector: row.sector };
       }
@@ -227,7 +245,7 @@ export async function onRequest(context) {
     return new Response(JSON.stringify({
       error: isWeekend
         ? 'No briefs found for this week. Synthesis requires at least one Close Update.'
-        : "No Briefing.com Close Update found for today. Synthesis requires today's brief.",
+        : 'No Briefing.com Close Update available yet. Brief arrives after market close.',
     }), { status: 404, headers: CORS });
   }
 
