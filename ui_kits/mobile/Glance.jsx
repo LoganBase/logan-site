@@ -1,32 +1,70 @@
-// Mobile daily-glance — PocketGuard logic in Market Hub's institutional skin.
-// One hero macro read, calm category bars, a tappable scorecard list, light deep-dive sheet.
+// Market Hub mobile — Glance view.
+// Structural cards (regime…equities) + Crowd Signals rendered via CardRow.
+// Daily Brief and Macro Brief rendered via dedicated card rows and deep-dives.
 const { useState, useEffect, useRef } = React;
 
-// Live data hook — paints the bundled mock instantly, swaps in /api/scores when reachable.
+// ── Data hooks ────────────────────────────────────────────────────────────────
 function useGlance() {
   const [D, setD] = useState(window.GLANCE);
   useEffect(() => {
     let alive = true;
     if (window.MarketHubData) {
-      window.MarketHubData.loadGlance().then((live) => { if (alive && live) setD(live); }).catch(() => {});
+      window.MarketHubData.loadGlance()
+        .then((live) => { if (alive && live) setD(live); })
+        .catch(() => {});
     }
     return () => { alive = false; };
   }, []);
   return D;
 }
 
+function useDailyBrief() {
+  const [brief, setBrief] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    if (window.MarketHubData) {
+      window.MarketHubData.loadDailyBrief()
+        .then((d) => { if (alive && d && !d.error) setBrief(d); })
+        .catch(() => {});
+    }
+    return () => { alive = false; };
+  }, []);
+  return brief;
+}
+
+function useMacroBrief() {
+  const [brief, setBrief] = useState(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    if (window.MarketHubData) {
+      window.MarketHubData.loadMacroBrief()
+        .then((d) => { if (alive) { if (d && !d.error) setBrief(d); setLoading(false); } })
+        .catch(() => { if (alive) setLoading(false); });
+    } else {
+      setLoading(false);
+    }
+    return () => { alive = false; };
+  }, []);
+  return { brief, loading };
+}
+
+// ── Shared constants ──────────────────────────────────────────────────────────
 const SIG = {
   bullish: { c: '#22c55e', glow: 'rgba(34,197,94,.35)', fill: 'rgba(34,197,94,.12)', line: 'rgba(34,197,94,.25)', word: 'BULLISH' },
   neutral: { c: '#f59e0b', glow: 'rgba(245,158,11,.35)', fill: 'rgba(245,158,11,.10)', line: 'rgba(245,158,11,.20)', word: 'NEUTRAL' },
-  bearish: { c: '#ef4444', glow: 'rgba(239,68,68,.35)', fill: 'rgba(239,68,68,.10)', line: 'rgba(239,68,68,.20)', word: 'BEARISH' },
+  bearish: { c: '#ef4444', glow: 'rgba(239,68,68,.35)',  fill: 'rgba(239,68,68,.10)',  line: 'rgba(239,68,68,.20)',  word: 'BEARISH' },
 };
-const glowMap = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' };
-// Ring/bar color is driven by the score: >=6.5 Risk-On, 4.0-6.4 Neutral, <4.0 Risk-Off.
-function scoreColor(score) { const v = parseFloat(score); return v >= 6.5 ? '#22c55e' : v >= 4 ? '#f59e0b' : '#ef4444'; }
 const MONO = "'SF Mono','JetBrains Mono','Fira Code',ui-monospace,Menlo,Consolas,monospace";
 const SANS = "'Inter',-apple-system,system-ui,sans-serif";
 
-// ── Seeded sparkline (matches the product's signal-colored area chart) ──
+function postureColor(label) { return /off/i.test(label) ? '#ef4444' : /on/i.test(label) ? '#22c55e' : '#f59e0b'; }
+function sentimentColor(s) {
+  if (s == null) return '#f59e0b';
+  return s >= 2 ? '#22c55e' : s <= -2 ? '#ef4444' : '#f59e0b';
+}
+
+// ── Seeded sparkline ──────────────────────────────────────────────────────────
 function Spark({ seed, trend, color, w = 64, h = 24 }) {
   const pts = [];
   let v = 0.5, s = seed * 9301 + 49297;
@@ -48,13 +86,11 @@ function Spark({ seed, trend, color, w = 64, h = 24 }) {
   );
 }
 
-// ── Hero breadth ring — directional posture + how many cards are bullish ──
-function postureColor(label) { return /off/i.test(label) ? '#ef4444' : /on/i.test(label) ? '#22c55e' : '#f59e0b'; }
+// ── Hero breadth ring ─────────────────────────────────────────────────────────
 function HeroGauge({ exec }) {
   const total = exec.bull + exec.neutral + exec.bear;
   const color = postureColor(exec.label);
   const R = 78, C = 2 * Math.PI * R, gap = 7;
-  // Segment the ring by directional breadth: green=bullish, amber=neutral, red=bearish.
   const segDefs = [['bullish', exec.bull], ['neutral', exec.neutral], ['bearish', exec.bear]].filter((s) => s[1] > 0);
   let acc = 0;
   const arcs = segDefs.map(([k, n]) => { const len = (n / total) * C; const off = acc; acc += len; return { k, len, off, c: SIG[k].c, glow: SIG[k].glow }; });
@@ -84,7 +120,6 @@ function HeroGauge({ exec }) {
         <span style={{ fontFamily: SANS, fontSize: 19, fontWeight: 700, color: '#e8edf5', letterSpacing: '0.01em' }}>{exec.label}</span>
       </div>
       <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#94a3b8', marginTop: 5, textAlign: 'center', maxWidth: 260, lineHeight: 1.45 }}>{exec.posture}</div>
-      {/* breadth legend */}
       <div style={{ display: 'flex', gap: 7, marginTop: 14 }}>
         {[['bullish', exec.bull], ['neutral', exec.neutral], ['bearish', exec.bear]].map(([k, n]) => (
           <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 11px', borderRadius: 8, background: SIG[k].fill, border: `1px solid ${SIG[k].line}` }}>
@@ -97,7 +132,7 @@ function HeroGauge({ exec }) {
   );
 }
 
-// ── Category breadth — one dot per card, colored by directional status ──
+// ── Category breadth dots ─────────────────────────────────────────────────────
 function CategoryBreadth({ cats }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 13, padding: '4px 4px 0' }}>
@@ -106,7 +141,7 @@ function CategoryBreadth({ cats }) {
         return (
           <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 104, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <span style={{ fontFamily: SANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
+              <span style={{ fontFamily: SANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500 }}>{c.label}</span>
               <span style={{ fontFamily: MONO, fontSize: 9.5, color: '#64748b', letterSpacing: '.04em' }}>{c.weight} weight</span>
             </div>
             <div style={{ flex: 1, display: 'flex', gap: 7, alignItems: 'center' }}>
@@ -122,9 +157,9 @@ function CategoryBreadth({ cats }) {
   );
 }
 
-// ── Scorecard — header + inline top-3 KPIs + sparkline; tap for the full set ──
+// ── Structural card row (regime, leadership, … equities, crowdsignals) ────────
 function CardRow({ card, onTap }) {
-  const sig = SIG[card.status];
+  const sig = SIG[card.status] || SIG.neutral;
   const [press, setPress] = useState(false);
   const kpis = card.rows.slice(0, 3);
   return (
@@ -132,17 +167,15 @@ function CardRow({ card, onTap }) {
       style={{ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 11, padding: '12px 14px',
         borderRadius: 14, background: '#111827', border: '1px solid #1e2d3d',
         boxShadow: press ? 'none' : '0 1px 2px rgba(0,0,0,.3)', transform: press ? 'scale(0.99)' : 'scale(1)',
-        transition: 'transform .12s ease, border-color .15s ease', borderLeft: `3px solid ${sig.c}`, width: '100%', boxSizing: 'border-box' }}>
-      {/* header */}
+        transition: 'transform .12s ease', borderLeft: `3px solid ${sig.c}`, width: '100%', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
         <span style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: '#e8edf5', flex: 1, minWidth: 0 }}>{card.title}</span>
         <Spark seed={card.seed} trend={card.trend} color={sig.c} w={50} h={18} />
         <svg width="7" height="12" viewBox="0 0 7 12" style={{ flexShrink: 0 }}><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </div>
-      {/* inline KPI strip */}
       <div style={{ display: 'flex', gap: 8 }}>
         {kpis.map((r, i) => {
-          const rs = SIG[r[3]];
+          const rs = SIG[r[3]] || SIG.neutral;
           return (
             <div key={i} style={{ flex: 1, minWidth: 0, paddingLeft: i ? 9 : 0, borderLeft: i ? '1px solid #1b2736' : 'none' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
@@ -158,7 +191,75 @@ function CardRow({ card, onTap }) {
   );
 }
 
-// ── Deep-dive chart with range toggle ──
+// ── Daily Brief card row ──────────────────────────────────────────────────────
+function DailyBriefRow({ brief, onTap }) {
+  const [press, setPress] = useState(false);
+  const sc = brief
+    ? sentimentColor(brief.isWeekly ? (brief.avgSentiment ?? 0) : (brief.sentiment ?? 0))
+    : '#475569';
+  const title     = !brief ? 'Daily Brief' : brief.isWeekly ? 'Weekly Brief' : 'Daily Brief';
+  const dateLabel = !brief ? 'Loading…'
+    : brief.isWeekly ? brief.weekLabel
+    : new Date(brief.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const preview = brief?.isWeekly
+    ? brief.briefs?.[0]?.bullets?.[0]
+    : brief?.bullets?.[0];
+  return (
+    <button onClick={onTap} onPointerDown={() => setPress(true)} onPointerUp={() => setPress(false)} onPointerLeave={() => setPress(false)}
+      style={{ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 9, padding: '12px 14px',
+        borderRadius: 14, background: '#111827', border: '1px solid #1e2d3d',
+        transform: press ? 'scale(0.99)' : 'scale(1)', transition: 'transform .12s ease',
+        borderLeft: `3px solid ${sc}`, width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: '#e8edf5' }}>{title}</div>
+          <div style={{ fontFamily: SANS, fontSize: 10.5, color: '#64748b', marginTop: 2 }}>{dateLabel} · Briefing.com</div>
+        </div>
+        <svg width="7" height="12" viewBox="0 0 7 12" style={{ flexShrink: 0 }}><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </div>
+      {preview && (
+        <p style={{ fontFamily: SANS, fontSize: 12.5, color: '#94a3b8', margin: 0, lineHeight: 1.5,
+          overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+          {preview}
+        </p>
+      )}
+      {!brief && <span style={{ fontFamily: SANS, fontSize: 12, color: '#475569' }}>Close Update loads after market close</span>}
+    </button>
+  );
+}
+
+// ── Macro Brief card row ──────────────────────────────────────────────────────
+function MacroBriefRow({ brief, loading, onTap }) {
+  const [press, setPress] = useState(false);
+  const dateLabel = brief?.isWeekly ? brief.weekLabel
+    : brief?.date ? new Date(brief.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    : 'Claude · Haiku';
+  const preview = brief?.narrative
+    ? brief.narrative.slice(0, 130) + (brief.narrative.length > 130 ? '…' : '')
+    : null;
+  return (
+    <button onClick={onTap} onPointerDown={() => setPress(true)} onPointerUp={() => setPress(false)} onPointerLeave={() => setPress(false)}
+      style={{ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 9, padding: '12px 14px',
+        borderRadius: 14, background: '#111827', border: '1px solid #1e2d3d',
+        transform: press ? 'scale(0.99)' : 'scale(1)', transition: 'transform .12s ease',
+        borderLeft: `3px solid ${brief ? '#60a5fa' : '#1e2d3d'}`, width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: '#e8edf5' }}>Macro Brief</div>
+          <div style={{ fontFamily: SANS, fontSize: 10.5, color: '#64748b', marginTop: 2 }}>{dateLabel}</div>
+        </div>
+        <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '2px 7px', borderRadius: 4, background: '#0d1e35', border: '1px solid #1a3a5c', flexShrink: 0 }}>✦</span>
+        <svg width="7" height="12" viewBox="0 0 7 12" style={{ flexShrink: 0 }}><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </div>
+      {loading && <span style={{ fontFamily: SANS, fontSize: 12, color: '#475569' }}>Synthesizing…</span>}
+      {!loading && !brief && <span style={{ fontFamily: SANS, fontSize: 12, color: '#475569' }}>Unavailable — updates after market close</span>}
+      {preview && <p style={{ fontFamily: SANS, fontSize: 12.5, color: '#94a3b8', margin: 0, lineHeight: 1.5,
+        overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{preview}</p>}
+    </button>
+  );
+}
+
+// ── Deep-dive chart with range toggle ─────────────────────────────────────────
 function DeepChart({ card, cardId, color }) {
   const ranges = ['1M', '3M', '6M', '1Y', '5Y'];
   const [range, setRange] = useState('1Y');
@@ -167,7 +268,8 @@ function DeepChart({ card, cardId, color }) {
     let alive = true;
     setLive(null);
     if (window.MarketHubData && cardId) {
-      window.MarketHubData.loadHistory(cardId, range).then((r) => { if (alive && r && r.values.length > 1) setLive(r); });
+      window.MarketHubData.loadHistory(cardId, range)
+        .then((r) => { if (alive && r && r.values.length > 1) setLive(r); });
     }
     return () => { alive = false; };
   }, [cardId, range]);
@@ -217,12 +319,11 @@ function DeepChart({ card, cardId, color }) {
   );
 }
 
-// ── Full deep-dive screen — charted, opens directly from a card tap ──
+// ── Structural card deep-dive ─────────────────────────────────────────────────
 function DeepDive({ card, cardId, onBack }) {
-  const sig = SIG[card.status];
+  const sig = SIG[card.status] || SIG.neutral;
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
-      {/* top bar (clears status bar) */}
       <div style={{ paddingTop: 54, background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
           <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
@@ -235,9 +336,7 @@ function DeepDive({ card, cardId, onBack }) {
           </div>
         </div>
       </div>
-      {/* scroll body */}
       <div style={{ flex: 1, overflowY: 'auto', padding: '2px 16px calc(34px + 22px)', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        {/* chart card */}
         <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 14px 12px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
             <div>
@@ -248,7 +347,6 @@ function DeepDive({ card, cardId, onBack }) {
           </div>
           <DeepChart card={card} cardId={cardId} color={sig.c} />
         </div>
-        {/* stat boxes */}
         <div style={{ display: 'flex', gap: 8 }}>
           {card.stats.map((st, i) => {
             const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#e8edf5';
@@ -256,23 +354,21 @@ function DeepDive({ card, cardId, onBack }) {
               <div key={i} style={{ flex: 1, minWidth: 0, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 10px' }}>
                 <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: tone }}>{st[1]}</div>
                 <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.2 }}>{st[0]}</div>
-                 <div style={{ fontFamily: SANS, fontSize: 9, color: '#8295a9', marginTop: 2, lineHeight: 1.2 }}>{st[2]}</div>
+                <div style={{ fontFamily: SANS, fontSize: 9, color: '#8295a9', marginTop: 2, lineHeight: 1.2 }}>{st[2]}</div>
               </div>
             );
           })}
         </div>
-        {/* flag row (global flows) */}
         {card.flags && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
             {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 26, height: 17, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
           </div>
         )}
-        {/* full indicator table */}
         <div>
           <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Indicators</div>
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>
             {card.rows.map((r, i) => {
-              const rs = SIG[r[3]];
+              const rs = SIG[r[3]] || SIG.neutral;
               return (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 0', borderBottom: i < card.rows.length - 1 ? '1px solid #16202e' : 'none' }}>
                   <span style={{ width: 8, height: 8, borderRadius: '50%', background: rs.c, boxShadow: `0 0 6px ${rs.glow}`, flexShrink: 0 }} />
@@ -291,11 +387,151 @@ function DeepDive({ card, cardId, onBack }) {
   );
 }
 
-// ── Home (the daily glance) ──
-function Home({ D, onOpen }) {
+// ── Daily Brief deep-dive ─────────────────────────────────────────────────────
+function DailyBriefDive({ brief, onBack }) {
+  const BackBtn = () => (
+    <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
+      <svg width="9" height="15" viewBox="0 0 9 15"><path d="M7.5 1L1.5 7.5l6 6.5" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+  );
+  if (!brief) {
+    return (
+      <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ paddingTop: 54 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
+            <BackBtn />
+            <span style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, color: '#e8edf5' }}>Daily Brief</span>
+          </div>
+        </div>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ fontFamily: SANS, fontSize: 13, color: '#475569' }}>Loading…</span>
+        </div>
+      </div>
+    );
+  }
+  const sc = sentimentColor(brief.isWeekly ? (brief.avgSentiment ?? 0) : (brief.sentiment ?? 0));
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ paddingTop: 54, background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
+          <BackBtn />
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: sc, boxShadow: `0 0 8px ${sc}` }} />
+          <div>
+            <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, color: '#e8edf5' }}>
+              {brief.isWeekly ? 'Weekly Brief' : 'Daily Brief'}
+            </div>
+            <div style={{ fontFamily: SANS, fontSize: 11, color: '#64748b' }}>
+              {brief.isWeekly ? brief.weekLabel
+                : new Date(brief.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px calc(34px + 22px)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {brief.isWeekly ? brief.briefs.map((d) => {
+          const dc = sentimentColor(d.sentiment);
+          const dl = new Date(d.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+          return (
+            <div key={d.date} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: `3px solid ${dc}`, borderRadius: 13, padding: '13px 14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: '#cbd5e1' }}>{dl}</span>
+                <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: dc }}>{d.sentiment > 0 ? '+' : ''}{d.sentiment}</span>
+                <span style={{ fontFamily: SANS, fontSize: 10, color: '#64748b', padding: '1px 6px', borderRadius: 4, background: '#16202e' }}>{d.sector}</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {d.bullets.map((b, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                    <span style={{ width: 4, height: 4, borderRadius: '50%', background: dc, flexShrink: 0, marginTop: 6 }} />
+                    <span style={{ fontFamily: SANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.55 }}>{b}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        }) : (
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sc}`, borderRadius: 13, padding: '14px 14px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {brief.bullets.map((b, i) => (
+                <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: sc, flexShrink: 0, marginTop: 6 }} />
+                  <span style={{ fontFamily: SANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.6 }}>{b}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{ fontFamily: SANS, fontSize: 10.5, color: '#475569', textAlign: 'center', paddingBottom: 4 }}>
+          Source: Briefing.com Close Update
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Macro Brief deep-dive ─────────────────────────────────────────────────────
+function MacroBriefDive({ brief, loading, onBack }) {
+  const dateLabel = brief?.isWeekly ? brief.weekLabel
+    : brief?.date ? new Date(brief.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+    : null;
+  return (
+    <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ paddingTop: 54, background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
+          <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
+            <svg width="9" height="15" viewBox="0 0 9 15"><path d="M7.5 1L1.5 7.5l6 6.5" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+          </button>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#60a5fa', boxShadow: '0 0 8px #60a5fa' }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, color: '#e8edf5' }}>Macro Brief</div>
+            {dateLabel && <div style={{ fontFamily: SANS, fontSize: 11, color: '#64748b' }}>{dateLabel}</div>}
+          </div>
+          <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '3px 8px', borderRadius: 5, background: '#0d1e35', border: '1px solid #1a3a5c', flexShrink: 0 }}>✦ CLAUDE</span>
+        </div>
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 16px calc(34px + 22px)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {loading && (
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 13, padding: '18px 16px' }}>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: '#475569' }}>Synthesizing structural signals with recent market action…</span>
+          </div>
+        )}
+        {!loading && !brief && (
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 13, padding: '18px 16px' }}>
+            <span style={{ fontFamily: SANS, fontSize: 13, color: '#475569' }}>Unavailable — synthesis runs after market close when today's brief and scorecard are ready.</span>
+          </div>
+        )}
+        {brief?.narrative && (
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: '3px solid #60a5fa', borderRadius: 13, padding: '18px 16px' }}>
+            <p style={{ fontFamily: SANS, fontSize: 14.5, color: '#94a3b8', lineHeight: 1.72, margin: 0 }}>{brief.narrative}</p>
+          </div>
+        )}
+        {brief?.score && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 12px' }}>
+              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: '#e8edf5' }}>{brief.score}/10</div>
+              <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3 }}>Scorecard</div>
+            </div>
+            <div style={{ flex: 1, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 12px' }}>
+              <div style={{ fontFamily: MONO, fontSize: 16, fontWeight: 700, color: '#60a5fa' }}>Haiku</div>
+              <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3 }}>Claude model</div>
+            </div>
+          </div>
+        )}
+        <div style={{ fontFamily: SANS, fontSize: 10.5, color: '#475569', textAlign: 'center', paddingBottom: 4 }}>
+          Synthesized by Claude Haiku · Briefing.com × Scorecard
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Home screen ───────────────────────────────────────────────────────────────
+function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
+  const SL = {
+    fontFamily: SANS, fontSize: 10, fontWeight: 700,
+    letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', paddingLeft: 4,
+  };
   return (
     <div style={{ minHeight: '100%', background: '#080c14', paddingTop: 54 }}>
-      {/* app bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 18px 12px', position: 'sticky', top: 0, zIndex: 30,
         background: 'linear-gradient(#080c14 70%, rgba(8,12,20,0))' }}>
         <svg width="22" height="19" viewBox="0 0 30 26"><rect x="0" y="14" width="7" height="12" rx="1.5" fill="#ef4444" /><rect x="11.5" y="7" width="7" height="19" rx="1.5" fill="#f59e0b" /><rect x="23" y="0" width="7" height="26" rx="1.5" fill="#22c55e" /></svg>
@@ -314,35 +550,66 @@ function Home({ D, onOpen }) {
         <div style={{ height: 1, background: '#16202e' }} />
         <CategoryBreadth cats={D.categories} />
         <div style={{ height: 1, background: '#16202e' }} />
+
+        {/* Structural + Crowd card groups */}
         {D.groups.map((g) => (
           <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', paddingLeft: 4 }}>{g.label}</div>
-            {g.ids.map((id) => <CardRow key={id} card={D.cards[id]} onTap={() => onOpen(id)} />)}
+            <div style={SL}>{g.label}</div>
+            {g.ids.map((id) => D.cards[id]
+              ? <CardRow key={id} card={D.cards[id]} onTap={() => onOpen(id)} />
+              : null
+            )}
           </div>
         ))}
+
+        {/* Daily Context — Daily Brief + Macro Brief */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={SL}>Daily Context</div>
+          <DailyBriefRow brief={dailyBrief} onTap={() => onOpen('dailybrief')} />
+          <MacroBriefRow brief={macroBrief} loading={macroBriefLoading} onTap={() => onOpen('macrobrief')} />
+        </div>
       </div>
     </div>
   );
 }
 
+// ── Root ──────────────────────────────────────────────────────────────────────
 function Glance() {
-  const D = useGlance();
+  const D                              = useGlance();
+  const dailyBrief                     = useDailyBrief();
+  const { brief: macroBrief, loading: macroBriefLoading } = useMacroBrief();
   const [active, setActive] = useState(() => {
-    try { const v = localStorage.getItem('mh-active'); return v && D.cards[v] ? v : null; } catch (e) { return null; }
+    try { const v = localStorage.getItem('mh-active'); return v ? v : null; } catch { return null; }
   });
-  const open = (id) => { setActive(id); try { localStorage.setItem('mh-active', id || ''); } catch (e) {} };
-  const close = () => { setActive(null); try { localStorage.removeItem('mh-active'); } catch (e) {} };
+  const open  = (id) => { setActive(id);  try { localStorage.setItem('mh-active', id); } catch {} };
+  const close = ()   => { setActive(null); try { localStorage.removeItem('mh-active'); } catch {} };
   const wrapRef = useRef(null);
   useEffect(() => {
-    // Reset the device's scroll area to the top whenever we navigate between Home and a deep-dive.
     let el = wrapRef.current;
     while (el) { if (typeof el.scrollTop === 'number') el.scrollTop = 0; el = el.parentElement; }
   }, [active]);
+
+  let screen;
+  if (active === 'dailybrief') {
+    screen = <DailyBriefDive brief={dailyBrief} onBack={close} />;
+  } else if (active === 'macrobrief') {
+    screen = <MacroBriefDive brief={macroBrief} loading={macroBriefLoading} onBack={close} />;
+  } else if (active && D.cards[active]) {
+    screen = <DeepDive key={active} card={D.cards[active]} cardId={active} onBack={close} />;
+  } else {
+    screen = (
+      <Home D={D}
+        dailyBrief={dailyBrief}
+        macroBrief={macroBrief}
+        macroBriefLoading={macroBriefLoading}
+        onOpen={open}
+      />
+    );
+  }
+
   return (
     <div ref={wrapRef} style={{ position: 'relative', height: '100%', background: '#080c14' }}>
-      {active
-        ? <DeepDive key={active} card={D.cards[active]} cardId={active} onBack={close} />
-        : <Home D={D} onOpen={open} />}
+      {screen}
     </div>
   );
 }
