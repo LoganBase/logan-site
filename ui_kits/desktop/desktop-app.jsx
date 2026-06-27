@@ -517,29 +517,35 @@ function DailyBriefDeepDive({ brief, D, onBack }) {
           </button>
         </div>
         {searchResults !== null && (
-          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {searchResults.length === 0 && <span style={{ fontFamily: DSANS, fontSize: 13, color: '#64748b' }}>No results found.</span>}
-            {searchResults.map(r => {
-              const sc = sentimentColor(r.sentiment);
-              const dl = new Date(r.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-              return (
-                <div key={r.date} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sc}`, borderRadius: 11, padding: '14px 18px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: '#cbd5e1' }}>{dl}</span>
-                    <span style={{ fontFamily: DMONO, fontSize: 11, fontWeight: 700, color: sc }}>{r.sentiment > 0 ? '+' : ''}{r.sentiment}</span>
-                    <span style={{ fontFamily: DSANS, fontSize: 10, color: '#64748b', padding: '1px 6px', borderRadius: 4, background: '#16202e', border: '1px solid #1e2d3d' }}>{r.sector}</span>
+          <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {(() => {
+              const q = searchQuery.trim().toLowerCase();
+              // Flatten to individual matching bullets, each tagged with its date row
+              const matches = [];
+              searchResults.forEach(r => {
+                const dl = new Date(r.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+                const sc = sentimentColor(r.sentiment);
+                r.bullets.forEach(b => {
+                  if (b.toLowerCase().includes(q)) matches.push({ date: r.date, dl, sc, b });
+                });
+              });
+              if (matches.length === 0) return <span style={{ fontFamily: DSANS, fontSize: 13, color: '#64748b' }}>No matching bullets found.</span>;
+              return matches.map((m, i) => {
+                // Highlight the matching term
+                const idx = m.b.toLowerCase().indexOf(q);
+                const before = m.b.slice(0, idx);
+                const hit    = m.b.slice(idx, idx + q.length);
+                const after  = m.b.slice(idx + q.length);
+                return (
+                  <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: `3px solid ${m.sc}`, borderRadius: 9, padding: '10px 14px' }}>
+                    <span style={{ fontFamily: DMONO, fontSize: 10.5, fontWeight: 700, color: '#475569', whiteSpace: 'nowrap', marginTop: 2, minWidth: 90 }}>{m.dl}</span>
+                    <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.58 }}>
+                      {before}<mark style={{ background: '#78350f55', color: '#fbbf24', borderRadius: 3, padding: '0 2px' }}>{hit}</mark>{after}
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                    {r.bullets.map((b, i) => (
-                      <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
-                        <span style={{ width: 4, height: 4, borderRadius: '50%', background: sc, flexShrink: 0, marginTop: 6 }} />
-                        <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.55 }}>{b}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         )}
       </div>
