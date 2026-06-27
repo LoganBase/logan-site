@@ -231,7 +231,7 @@ function MacroBriefCard({ brief: dailyBrief }) {
       )}
       {status === 'unavailable' && (
         <span style={{ fontFamily: DSANS, fontSize: 13, color: '#475569' }}>
-          {dailyBrief ? 'Synthesis failed — check ANTHROPIC_API_KEY on the Pages project.' : 'Requires today\'s Briefing.com Close Update.'}
+          {'Synthesis unavailable — scorecard or brief data not yet loaded.'}
         </span>
       )}
       {status === 'ready' && narrative && (
@@ -261,7 +261,7 @@ function MacroBriefGlanceRow() {
       </div>
       <div style={{ flex: 1 }}>
         {status === 'loading' && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#475569' }}>Synthesizing…</span>}
-        {status === 'unavailable' && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#475569' }}>Unavailable — requires today's Close Update</span>}
+        {status === 'unavailable' && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#475569' }}>Unavailable — scorecard or brief data not yet loaded</span>}
         {status === 'ready' && preview && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.55 }}>{preview}</span>}
       </div>
       <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '2px 7px', borderRadius: 4, background: '#0d1e35', border: '1px solid #1a3a5c', flexShrink: 0, alignSelf: 'flex-start' }}>✦</span>
