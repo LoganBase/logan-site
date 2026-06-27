@@ -93,8 +93,41 @@
         };
       },
     },
-    valuations:  { url: (r) => `/api/valuations-history?range=${r}`,    field: 'capes'     },
-    yield:       { url: (r) => `/api/history?symbol=%5ETNX&range=${r}`, field: 'closes'    },
+    valuations: {
+      // API only supports 5y/10y/20y/30y/50y/100y — short UI ranges fall back to 5y
+      url: (r) => {
+        const vr = ['5y','10y','20y','30y','50y','100y'].includes(r) ? r : '5y';
+        return `/api/valuations-history?range=${vr}`;
+      },
+      extract: (data) => {
+        const capes = data.capes;
+        if (!Array.isArray(capes) || !capes.length) return null;
+        const values   = capes.map(Number);
+        // Map each CAPE reading to a regime status using the same thresholds as
+        // buildValuationsMetrics: >35 = bearish (very high), >25 = neutral (elevated),
+        // ≤25 = bullish (near/below historical average).
+        const statuses = values.map(v =>
+          v == null || isNaN(v) ? 'neutral' :
+          v > 35 ? 'bearish' :
+          v > 25 ? 'neutral' :
+          'bullish'
+        );
+        return { values, dates: data.dates || [], statuses };
+      },
+    },
+    yield: {
+      url: (r) => `/api/history?symbol=%5ETNX&range=${r}`,
+      extract: (data) => {
+        if (!Array.isArray(data.closes) || !data.closes.length) return null;
+        const toNum = (v) => v == null ? null : Number(v);
+        const vs200 = (data.vs200 || []).map(toNum);
+        return {
+          values:  data.closes.map(toNum),
+          dates:   data.dates || [],
+          colorBy: vs200.map(v => v != null ? -v : null), // above 200d = tighter conditions = bearish
+        };
+      },
+    },
     credit: {
       url: (r) => `/api/history?symbol=HYG&range=${r}`,
       extract: (data) => {
@@ -106,6 +139,19 @@
           dates:   data.dates || [],
           colorBy: vs200,  // >0 = above 200d (bullish), <0 = below 200d (bearish)
           vs200,
+        };
+      },
+    },
+    currency: {
+      url: (r) => `/api/history?symbol=UUP&range=${r}`,
+      extract: (data) => {
+        if (!Array.isArray(data.closes) || !data.closes.length) return null;
+        const toNum = (v) => v == null ? null : Number(v);
+        const vs200 = (data.vs200 || []).map(toNum);
+        return {
+          values:  data.closes.map(toNum),
+          dates:   data.dates || [],
+          colorBy: vs200.map(v => v != null ? -v : null), // USD above 200d = tighter conditions = bearish
         };
       },
     },
@@ -135,10 +181,16 @@
       },
     },
     globalflows: {
-      url: (r) => `/api/global-flows-history?range=${r}`,
+      url: (r) => `/api/history?symbol=ACWI&range=${r}`,
       extract: (data) => {
-        const acwi = (data.regional || []).find((s) => s.sym === 'ACWI');
-        return acwi ? { values: acwi.prices.map(Number), dates: data.dates || [] } : null;
+        if (!Array.isArray(data.closes) || !data.closes.length) return null;
+        const toNum = (v) => v == null ? null : Number(v);
+        const vs200 = (data.vs200 || []).map(toNum);
+        return {
+          values:  data.closes.map(toNum),
+          dates:   data.dates || [],
+          colorBy: vs200, // >0 = ACWI above 200d SMA (bullish), <0 = below (bearish)
+        };
       },
     },
     equities: {
@@ -209,6 +261,7 @@
     const rows = rowSource.map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '', r.sma200 ?? null, r.price ?? null]);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
+      id: c.id,
       title: c.title,
       status: c.status,
       seed: hashSeed(c.id),
@@ -244,12 +297,31 @@
       weight: Math.round((cat.weight || 0) * 100) + '%',
       cards: (cat.cards || []).map((c) => c.status),
     }));
+    // Inject seed-only cards the API doesn't return yet (e.g. currency).
+    // When /api/scores eventually returns them, byId already has their value and this is a no-op.
+    const seedCards = (window.GLANCE || {}).cards || {};
+    ['currency', 'crowdsignals'].forEach(id => { if (!byId[id] && seedCards[id]) byId[id] = seedCards[id]; });
+    // Currency is a Macro Conditions signal — inject it into the display category and exec counts.
+    // (Server-side composite score stays unchanged; this only affects client-side display.)
+    const macroIdx = categories.findIndex((c) => /macro/i.test(c.label));
+    const currencyStatus = byId['currency']?.status;
+    if (currencyStatus) {
+      if (macroIdx !== -1) {
+        const mc = categories[macroIdx];
+        categories[macroIdx] = { ...mc, cards: [...mc.cards, currencyStatus] };
+      }
+      if (currencyStatus === 'bullish') agg.bullish = (agg.bullish ?? 0) + 1;
+      else if (currencyStatus === 'bearish') agg.bearish = (agg.bearish ?? 0) + 1;
+      else agg.neutral = (agg.neutral ?? 0) + 1;
+    }
+
     // Preserve the kit's group ordering, keep only ids the API actually returned.
     const GROUPS = [
       { label: 'Market Structure', ids: ['regime', 'leadership', 'breadth'] },
-      { label: 'Macro Pricing',    ids: ['valuations', 'yield', 'credit'] },
+      { label: 'Macro Pricing',    ids: ['valuations', 'yield', 'credit', 'currency'] },
       { label: 'Flow & Rotation',  ids: ['globalflows', 'sectors'] },
       { label: 'Real Assets',      ids: ['commodities', 'equities'] },
+      { label: 'Crowd Intelligence', ids: ['crowdsignals'] },
     ].map((g) => ({ label: g.label, ids: g.ids.filter((id) => byId[id]) })).filter((g) => g.ids.length);
     return {
       asOf: asOfLabel(),
@@ -257,6 +329,10 @@
         label: agg.label || 'Neutral',
         posture: agg.posture || '',
         bull: agg.bullish ?? 0, neutral: agg.neutral ?? 0, bear: agg.bearish ?? 0,
+        regimeBearish: agg.regimeBearish ?? false,
+        score: agg.score || null,
+        scoreDirection: agg.scoreDirection || 'same',
+        divergence: agg.divergence || null,
       },
       categories,
       groups: GROUPS,
@@ -268,6 +344,15 @@
   // ── Public API ──
   const MarketHubData = {
     config: CONFIG,
+
+    // Returns today's daily brief from /api/daily-brief, or null on error.
+    async loadDailyBrief() {
+      try {
+        return await getJSON('/api/daily-brief');
+      } catch (e) {
+        return null;
+      }
+    },
 
     // Returns kit-shaped data. Live when /api/scores is reachable, else the mock.
     async loadGlance() {

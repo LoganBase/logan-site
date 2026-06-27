@@ -1,5 +1,6 @@
 // Market Hub — desktop shared parts. Reuses window.GLANCE data.
 // Atoms + deep-dive content (incl. the historical regime timeline) shared by all 3 layout options.
+// v20260626
 const { useState: useStateD, useEffect: useEffectD, useRef: useRefD } = React;
 
 const DSIG = {
@@ -49,7 +50,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
   const svgRef = useRefD(null);
 
   const W = 720, H = height, top = 12, bot = 26, padR = 4;
-  const conf = { '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07], '20Y': [90, 0.06] };
+  const conf = { '20D': [20, 0.18], '1W': [7, 0.09], '1M': [24, 0.16], '3M': [44, 0.135], '6M': [56, 0.115], '1Y': [64, 0.10], '5Y': [70, 0.082], '10Y': [80, 0.07], '20Y': [90, 0.06] };
 
   // ── Normalise all series into the same 0..1 plot space ──
   let primaryArr = [], overlayArrs = [], zeroY = null, normThresholds = [];
@@ -197,6 +198,60 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
           </svg>
         )}
 
+        {/* ── Oscillator histogram panel (e.g. spread, MACD-style) ── */}
+        {live?.histogram && (() => {
+          const hist    = live.histogram;
+          const hVals   = hist.values || [];
+          const HIST_H  = hist.height || 54;
+          const absMax  = hist.absMax || Math.max(...hVals.filter(v => v != null && !isNaN(v)).map(Math.abs), 0.01);
+          const midY    = HIST_H / 2;
+          const bw      = Math.max(1, W / Math.max(hVals.length, 1) - 0.5).toFixed(2);
+          const threshY = (v) => v >= 0
+            ? midY - Math.min(Math.abs(v) / absMax, 1) * (midY - 3)
+            : midY + Math.min(Math.abs(v) / absMax, 1) * (midY - 3);
+          const posThr  = (hist.thresholds || []).filter(t => t.y > 0).map(t => t.y);
+          return (
+            <svg width="100%" viewBox={`0 0 ${W} ${HIST_H}`} preserveAspectRatio="none" style={{ display: 'block', height: HIST_H, marginTop: 2 }}>
+              {/* zero line */}
+              <line x1="0" x2={W} y1={midY} y2={midY} stroke="#334155" strokeWidth="1" />
+              {/* threshold reference lines */}
+              {(hist.thresholds || []).map((t, ti) => {
+                const ly = threshY(t.y).toFixed(1);
+                return (
+                  <g key={ti}>
+                    <line x1="0" x2={W} y1={ly} y2={ly} stroke={t.color} strokeWidth="1" strokeDasharray="5 4" opacity="0.7" />
+                    {t.label && <text x="6" y={Number(ly) - 3} fill={t.color} fontSize="8.5" fontFamily="monospace" opacity="0.85">{t.label}</text>}
+                  </g>
+                );
+              })}
+              {/* bars — red above positive threshold, amber below zero, green otherwise */}
+              {hVals.map((v, i) => {
+                if (v == null || isNaN(v)) return null;
+                const ratio = Math.min(Math.abs(v) / absMax, 1);
+                const bh    = Math.max(1, ratio * (midY - 3)).toFixed(1);
+                const isPos = v >= 0;
+                const fill  = !isPos ? '#f59e0b' : posThr.some(t => v > t) ? '#ef4444' : '#22c55e';
+                return (
+                  <rect key={i}
+                    x={(i * W / hVals.length).toFixed(2)}
+                    y={isPos ? (midY - Number(bh)).toFixed(1) : midY.toFixed(1)}
+                    width={bw} height={bh}
+                    fill={fill} opacity="0.8" />
+                );
+              })}
+              {hover != null && (
+                <line x1={(hover * dx).toFixed(1)} x2={(hover * dx).toFixed(1)} y1="0" y2={HIST_H}
+                  stroke="#334155" strokeWidth="1" strokeDasharray="2 3" pointerEvents="none" />
+              )}
+              {hover != null && hVals[hover] != null && !isNaN(hVals[hover]) && (() => {
+                const v = hVals[hover];
+                const c = !v || v < 0 ? '#f59e0b' : posThr.some(t => v > t) ? '#ef4444' : '#22c55e';
+                return <text x={W - 4} y={HIST_H - 4} fill={c} fontSize="9" fontFamily="monospace" textAnchor="end">{(v >= 0 ? '+' : '') + v.toFixed(2) + '%'}</text>;
+              })()}
+            </svg>
+          );
+        })()}
+
         {/* ── Tooltip ── */}
         {hover != null && live?.dates?.[hover] && (
           <div style={{
@@ -281,7 +336,7 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
         ))}
         {(() => {
           const lastDate = live?.dates?.[live.dates.length - 1];
-          const todayStr = new Date().toISOString().slice(0, 10);
+          const todayStr = (() => { const d = new Date(), dw = d.getDay(); d.setDate(d.getDate() - (dw === 1 ? 3 : dw >= 2 ? 1 : 0)); return d.toISOString().slice(0, 10); })();
           const dow      = new Date().getDay(); // 0=Sun, 6=Sat
           const isStale  = live && lastDate && lastDate < todayStr && dow !== 0 && dow !== 6;
           const dotColor = !live ? '#64748b' : isStale ? '#f59e0b' : '#22c55e';
@@ -329,8 +384,9 @@ const HISTORY_CAPTION = {
   leadership:  ['RSP cumulative return ', ['ahead of', 'bullish'], ' or ', ['behind', 'bearish'], ' SPY, sampled at each month-end'],
   breadth:     ['NYSE stocks ', ['above', 'bullish'], ' or ', ['below', 'bearish'], ' their 200-day average'],
   valuations:  'CAPE ratio signal vs. long-run historical norms',
-  yield:       '10-year Treasury yield trend each month',
+  yield:       ['10Y yield ', ['below', 'bullish'], ' or ', ['above', 'bearish'], ' its 200-day average — easing vs. tightening conditions'],
   credit:      'HYG credit-spread health vs. 200-day average',
+  currency:    ['USD (UUP) ', ['below', 'bullish'], ' or ', ['above', 'bearish'], ' its 200-day average — easing vs. tightening financial conditions'],
   globalflows: ['Global markets ', ['above', 'bullish'], ' or ', ['below', 'bearish'], ' their 200-day average'],
   sectors:     [['Cyclical', 'bullish'], ' vs. ', ['defensive', 'bearish'], ' sector leadership each month'],
   commodities: 'Commodity complex trend vs. 200-day average',
@@ -519,15 +575,16 @@ function StatBoxes({ stats }) {
 }
 
 // ── Indicator table ──
-function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null, hoverDescriptions = null }) {
+function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null, hoverDescriptions = null, icons = null }) {
   if (!rows || !rows.length) return null;
   const [hoveredIdx, setHoveredIdx] = useStateD(null);
   const has200d = rows.some(r => r[5] != null);
   const hdrS = { fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9' };
+  const iconSlot = icons ? 20 : 9;
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 18px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '8px 0 7px', borderBottom: '1px solid #1e2d3d' }}>
-        <span style={{ width: 9, flexShrink: 0 }} />
+        <span style={{ width: iconSlot, flexShrink: 0 }} />
         <span style={{ ...hdrS, width: 175, flexShrink: 0 }}>Signal</span>
         <span style={{ ...hdrS, flex: 1 }}>Condition</span>
         <span style={{ ...hdrS, width: 80, textAlign: 'right', flexShrink: 0 }}>Value</span>
@@ -548,7 +605,10 @@ function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null,
             style={{ display: 'flex', alignItems: 'center', gap: 14, borderBottom: i < rows.length - 1 ? '1px solid #16202e' : 'none', cursor: whyText ? 'default' : undefined, transition: 'background .15s', borderRadius: 6, margin: '0 -4px', padding: isHovered ? '13px 4px' : '13px 4px', background: isHovered ? 'rgba(42,63,87,0.25)' : 'transparent' }}
             onMouseEnter={() => whyText && setHoveredIdx(i)}
             onMouseLeave={() => setHoveredIdx(null)}>
-            <span style={{ width: 9, height: 9, borderRadius: '50%', background: rs.c, boxShadow: `0 0 6px ${rs.glow}`, flexShrink: 0 }} />
+            {icons && icons[i]
+              ? <span style={{ width: 20, flexShrink: 0, fontSize: 16, lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{icons[i]}</span>
+              : <span style={{ width: 9, height: 9, borderRadius: '50%', background: rs.c, boxShadow: `0 0 6px ${rs.glow}`, flexShrink: 0 }} />
+            }
             {isHovered ? (
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 7 }}>Why this signal</div>
@@ -624,6 +684,11 @@ function SectorBreakdown({ sectorTable }) {
 }
 
 // ── Country breakdown table (global flows card — details from /api/scores) ──
+const CT_FLAG = {
+  'SPY': 'us', '^GSPTSE': 'ca', 'EWU': 'gb', 'EWG': 'de', 'EWQ': 'fr', 'EWL': 'ch',
+  'EWJ': 'jp', 'MCHI': 'cn', 'INDA': 'in', 'EWZ': 'br', 'EWA': 'au', 'EWY': 'kr',
+  'EWH': 'hk', 'EWW': 'mx', 'EWT': 'tw', 'EWP': 'es', 'EWI': 'it', 'EWN': 'nl', 'ECH': 'cl',
+};
 function CountryTable({ details }) {
   if (!details || !details.length) return null;
   const groupOrder = [];
@@ -637,14 +702,18 @@ function CountryTable({ details }) {
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '0 18px' }}>
       {groups.map(({ group, items }, gi) => (
         <div key={group}>
-          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#334155', padding: '10px 0 4px' }}>{group}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#94a3b8', padding: '10px 0 4px' }}>{group}</div>
           {items.map((d, i) => {
             const c = d.above ? '#22c55e' : '#ef4444';
             const glow = d.above ? 'rgba(34,197,94,.35)' : 'rgba(239,68,68,.35)';
             const isLast = gi === groups.length - 1 && i === items.length - 1;
+            const flagCode = CT_FLAG[d.sym];
             return (
               <div key={d.sym} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '9px 0', borderBottom: isLast ? 'none' : '1px solid #16202e' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: c, boxShadow: `0 0 5px ${glow}`, flexShrink: 0 }} />
+                {flagCode
+                  ? <img src={`/market-hub/assets/flags/${flagCode}.svg`} alt={flagCode} style={{ width: 24, height: 16, borderRadius: 2, objectFit: 'cover', border: `1px solid ${c}44`, flexShrink: 0, boxShadow: `0 0 4px ${glow}` }} />
+                  : <span style={{ width: 24, height: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><span style={{ width: 8, height: 8, borderRadius: '50%', background: c, boxShadow: `0 0 5px ${glow}` }} /></span>
+                }
                 <span style={{ fontFamily: DSANS, fontSize: 13.5, color: '#e8edf5', flex: 1 }}>{d.label}</span>
                 <span style={{ fontFamily: DMONO, fontSize: 11, color: '#64748b', width: 56, textAlign: 'right', flexShrink: 0 }}>{d.sym}</span>
                 <span style={{ fontFamily: DMONO, fontSize: 12, color: '#94a3b8', width: 72, textAlign: 'right', flexShrink: 0 }}>{d.value}</span>
@@ -835,7 +904,7 @@ function NyseBreadthChart() {
         ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 230, gap: 8 }}>
             <div style={{ fontFamily: DSANS, fontSize: 13, color: '#8295a9' }}>No data for {range} range</div>
-            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#334155' }}>$MMTH / $MMFI data needs a TradingView CSV refresh</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8' }}>$MMTH / $MMFI data needs a TradingView CSV refresh</div>
           </div>
         )
         : <DeepChartLg card={fakeCard} cardId="breadth" color="#a855f7" height={230} range={range} setRange={setRange} live={live} ranges={NYSE_BREADTH_RANGES} />
@@ -1252,9 +1321,9 @@ const SECT_WHY = {
 };
 
 function EquitiesChart() {
-  const RMAP   = { '10Y': '10y', '5Y': '5y', '1Y': '1y', '6M': '6mo', '3M': '3mo' };
-  const RANGES = ['10Y', '5Y', '1Y', '6M', '3M'];
-  const [range, setRange] = useStateD('5Y');
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+  const [range, setRange] = useStateD('1Y');
   const [data, setData]   = useStateD(null);
   const [hidden, setHidden] = useStateD({});
   const [hover, setHover]   = useStateD(null);
@@ -1365,7 +1434,7 @@ function EquitiesChart() {
         </div>
         {(() => {
           const lastDate = data?.dates?.[data.dates.length - 1];
-          const todayStr = new Date().toISOString().slice(0, 10);
+          const todayStr = (() => { const d = new Date(), dw = d.getDay(); d.setDate(d.getDate() - (dw === 1 ? 3 : dw >= 2 ? 1 : 0)); return d.toISOString().slice(0, 10); })();
           const dow      = new Date().getDay();
           const isStale  = data && lastDate && lastDate < todayStr && dow !== 0 && dow !== 6;
           const dotColor = !data ? '#64748b' : isStale ? '#f59e0b' : '#22c55e';
@@ -1400,8 +1469,8 @@ function EquitiesChart() {
 
 // ── Sectors: Cyclicals vs Defensives two-line chart ──
 function CycVsDefChart({ range, setRange }) {
-  const RMAP   = { '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y' };
-  const RANGES = ['3M', '6M', '1Y', '5Y'];
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [live, setLive]   = useStateD(null);
 
   useEffectD(() => {
@@ -1445,9 +1514,9 @@ function CycVsDefChart({ range, setRange }) {
 }
 
 function SectorsWatchlistChart() {
-  const RMAP   = { '10Y': '10y', '5Y': '5y', '1Y': '1y', '6M': '6mo', '3M': '3mo' };
-  const RANGES = ['10Y', '5Y', '1Y', '6M', '3M'];
-  const [range, setRange] = useStateD('5Y');
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+  const [range, setRange] = useStateD('1Y');
   const [data, setData]   = useStateD(null);
   const [hidden, setHidden] = useStateD({});
   const [hover, setHover]   = useStateD(null);
@@ -1558,7 +1627,7 @@ function SectorsWatchlistChart() {
         </div>
         {(() => {
           const lastDate = data?.dates?.[data.dates.length - 1];
-          const todayStr = new Date().toISOString().slice(0, 10);
+          const todayStr = (() => { const d = new Date(), dw = d.getDay(); d.setDate(d.getDate() - (dw === 1 ? 3 : dw >= 2 ? 1 : 0)); return d.toISOString().slice(0, 10); })();
           const dow = new Date().getDay();
           const isStale = data && lastDate && lastDate < todayStr && dow !== 0 && dow !== 6;
           const dotColor = !data ? '#64748b' : isStale ? '#f59e0b' : '#22c55e';
@@ -1588,10 +1657,218 @@ function SectorsWatchlistChart() {
   );
 }
 
+// ── Global Flows: Country performance watchlist (19 country ETFs, normalized to 100) ──
+const COUNTRY_META = [
+  { sym: 'SPY',     label: 'S&P 500',    group: 'North America', color: '#3b82f6' },
+  { sym: '^GSPTSE', label: 'Canada',      group: 'North America', color: '#f97316' },
+  { sym: 'EWU',     label: 'UK',          group: 'Europe',        color: '#a78bfa' },
+  { sym: 'EWG',     label: 'Germany',     group: 'Europe',        color: '#f87171' },
+  { sym: 'EWQ',     label: 'France',      group: 'Europe',        color: '#fbbf24' },
+  { sym: 'EWL',     label: 'Switzerland', group: 'Europe',        color: '#34d399' },
+  { sym: 'EWN',     label: 'Netherlands', group: 'Europe',        color: '#22d3ee' },
+  { sym: 'EWI',     label: 'Italy',       group: 'Europe',        color: '#fb923c' },
+  { sym: 'EWP',     label: 'Spain',       group: 'Europe',        color: '#c084fc' },
+  { sym: 'EWJ',     label: 'Japan',       group: 'Asia Pacific',  color: '#ef4444' },
+  { sym: 'MCHI',    label: 'China',       group: 'Asia Pacific',  color: '#dc2626' },
+  { sym: 'EWT',     label: 'Taiwan',      group: 'Asia Pacific',  color: '#84cc16' },
+  { sym: 'EWY',     label: 'S. Korea',    group: 'Asia Pacific',  color: '#06b6d4' },
+  { sym: 'INDA',    label: 'India',       group: 'Asia Pacific',  color: '#ec4899' },
+  { sym: 'EWA',     label: 'Australia',   group: 'Asia Pacific',  color: '#10b981' },
+  { sym: 'EWH',     label: 'Hong Kong',   group: 'Asia Pacific',  color: '#6366f1' },
+  { sym: 'EWZ',     label: 'Brazil',      group: 'Latin America', color: '#22c55e' },
+  { sym: 'EWW',     label: 'Mexico',      group: 'Latin America', color: '#7c3aed' },
+  { sym: 'ECH',     label: 'Chile',       group: 'Latin America', color: '#f43f5e' },
+];
+const COUNTRY_GROUPS = ['North America', 'Europe', 'Asia Pacific', 'Latin America'];
+const REGIONAL_META = [
+  { sym: 'ACWI',    label: 'Global',   color: '#22c55e' },
+  { sym: 'SPY',     label: 'USA',      color: '#3b82f6' },
+  { sym: '^GSPTSE', label: 'Canada',   color: '#f97316' },
+  { sym: 'FEZ',     label: 'Europe',   color: '#f59e0b' },
+  { sym: 'AIA',     label: 'Asia',     color: '#a855f7' },
+  { sym: 'ILF',     label: 'LatAm',   color: '#ec4899' },
+  { sym: 'EEM',     label: 'Emerging', color: '#06b6d4' },
+];
+
+function CountryWatchlistChart() {
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+  const [range,  setRange]  = useStateD('1Y');
+  const [view,   setView]   = useStateD('country');
+  const [data,   setData]   = useStateD(null);
+  const [hidden, setHidden] = useStateD({});
+  const [hover,  setHover]  = useStateD(null);
+  const svgRef = useRefD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setData(null);
+    fetch(`/api/global-flows-history?range=${RMAP[range]}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j.countries?.length) return;
+        setData({ dates: j.dates, regional: j.regional || [], countries: j.countries });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+
+  const activeSeries = data ? (view === 'region' ? data.regional : data.countries) : [];
+  const metaFor = sym => (view === 'region' ? REGIONAL_META : COUNTRY_META).find(m => m.sym === sym);
+
+  const W = 720, H = 260, top = 12, bot = 26, padR = 4;
+  let seriesNorm = null, gMin = 90, gMax = 110;
+  if (data && activeSeries.length) {
+    const allVals = activeSeries.flatMap(s => s.prices).filter(v => v != null && !isNaN(v));
+    if (allVals.length) { gMin = Math.min(...allVals); gMax = Math.max(...allVals); }
+    const span = gMax - gMin || 1;
+    const normFn = v => v != null ? 0.07 + ((v - gMin) / span) * 0.86 : null;
+    seriesNorm = activeSeries.map(s => {
+      const meta = metaFor(s.sym);
+      return { sym: s.sym, label: meta?.label || s.label, color: meta?.color || '#64748b', nrm: s.prices.map(normFn), raw: s.prices };
+    });
+  }
+  const n  = data ? data.dates.length : 0;
+  const dx = n > 1 ? (W - padR) / (n - 1) : 1;
+  const yy = p => p != null ? top + (1 - p) * (H - top - bot) : null;
+  const buildPath = arr => {
+    let d = '';
+    arr.forEach((p, i) => { if (p != null) d += `${(i === 0 || arr[i - 1] == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${yy(p).toFixed(1)}`; });
+    return d;
+  };
+  const onMove = e => {
+    const el = svgRef.current;
+    if (!el || n < 2) return;
+    const rect = el.getBoundingClientRect();
+    setHover(Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left) / rect.width) * (n - 1)))));
+  };
+  const viewBtn = active => ({
+    all: 'unset', cursor: 'pointer', padding: '3px 10px', borderRadius: 6,
+    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600,
+    color: active ? '#e8edf5' : '#64748b',
+    background: active ? '#1b2736' : 'transparent',
+    border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  });
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>
+            {view === 'region' ? 'Regional Performance' : 'Country Performance'}
+          </div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Normalized (100 = period start) — click legend to show/hide</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
+          {['Region', 'Country'].map(v => (
+            <button key={v} onClick={() => { setView(v.toLowerCase()); setHidden({}); }} style={viewBtn(view === v.toLowerCase())}>{v}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ position: 'relative' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: H }}>
+          {[0.2, 0.4, 0.6, 0.8].map(g => <line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 5" />)}
+          <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+          {seriesNorm && (() => { const by = top + (1 - (0.07 + ((100 - gMin) / (gMax - gMin || 1)) * 0.86)) * (H - top - bot); return <line x1="0" x2={W} y1={by.toFixed(1)} y2={by.toFixed(1)} stroke="#334155" strokeWidth="1" strokeDasharray="4 3" />; })()}
+          {seriesNorm && seriesNorm.map(({ sym, nrm, color }) => !hidden[sym] && (
+            <path key={sym} d={buildPath(nrm)} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          ))}
+          {hover != null && <line x1={(hover * dx).toFixed(1)} x2={(hover * dx).toFixed(1)} y1={top} y2={H - bot} stroke="#334155" strokeWidth="1" strokeDasharray="2 3" pointerEvents="none" />}
+          {hover != null && seriesNorm && seriesNorm.map(({ sym, nrm, color }) => !hidden[sym] && nrm[hover] != null && (
+            <circle key={sym} cx={(hover * dx).toFixed(1)} cy={yy(nrm[hover]).toFixed(1)} r="3" fill={color} stroke="#080c14" strokeWidth="1.5" pointerEvents="none" />
+          ))}
+          {hover == null && seriesNorm && seriesNorm.map(({ sym, nrm, color }) => !hidden[sym] && nrm[n - 1] != null && (
+            <circle key={sym} cx={((n - 1) * dx).toFixed(1)} cy={yy(nrm[n - 1]).toFixed(1)} r="2.5" fill={color} />
+          ))}
+        </svg>
+        {hover != null && data?.dates?.[hover] && seriesNorm && (
+          <div style={{
+            position: 'absolute', top: 10, pointerEvents: 'none', zIndex: 10,
+            ...(hover / Math.max(n - 1, 1) > 0.55
+              ? { right: `calc(${(1 - hover / Math.max(n - 1, 1)) * 100}% + 14px)` }
+              : { left:  `calc(${(hover  / Math.max(n - 1, 1)) * 100}% + 14px)` }),
+            background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 10,
+            padding: '10px 14px', minWidth: 160, maxHeight: 320, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+          }}>
+            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b', marginBottom: 8, fontWeight: 600 }}>{data.dates[hover]}</div>
+            {[...seriesNorm]
+              .filter(({ sym }) => !hidden[sym])
+              .sort((a, b) => (b.raw[hover] ?? 0) - (a.raw[hover] ?? 0))
+              .map(({ sym, label, color, raw }) => raw[hover] != null && (
+                <div key={sym} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16, marginBottom: 3 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8' }}>{label}</span>
+                  </span>
+                  <span style={{ fontFamily: DMONO, fontSize: 11.5, color: '#e8edf5', fontWeight: 600 }}>{raw[hover].toFixed(1)}</span>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          {RANGES.map(r => (
+            <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', padding: '5px 10px', borderRadius: 7,
+              fontFamily: DMONO, fontSize: 11.5, fontWeight: 600, color: r === range ? '#e8edf5' : '#64748b',
+              background: r === range ? '#1b2736' : 'transparent', border: `1px solid ${r === range ? '#243446' : 'transparent'}` }}>{r}</button>
+          ))}
+        </div>
+        {(() => {
+          const lastDate = data?.dates?.[data.dates.length - 1];
+          const todayStr = (() => { const d = new Date(), dw = d.getDay(); d.setDate(d.getDate() - (dw === 1 ? 3 : dw >= 2 ? 1 : 0)); return d.toISOString().slice(0, 10); })();
+          const dow = new Date().getDay();
+          const isStale = data && lastDate && lastDate < todayStr && dow !== 0 && dow !== 6;
+          const dotColor = !data ? '#64748b' : isStale ? '#f59e0b' : '#22c55e';
+          const dotGlow  = !data ? 'none' : isStale ? '0 0 6px rgba(245,158,11,.6)' : '0 0 6px #22c55e';
+          const lbl      = !data ? 'Loading…' : isStale ? `Stale · ${lastDate}` : 'Live';
+          return (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: DSANS, fontSize: 10.5, color: '#8295a9' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: dotColor, boxShadow: dotGlow }} />
+              {lbl}
+            </span>
+          );
+        })()}
+      </div>
+      {view === 'region'
+        ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 18px', marginTop: 12 }}>
+            {REGIONAL_META.map(({ sym, label, color }) => (
+              <button key={sym} onClick={() => setHidden(h => ({ ...h, [sym]: !h[sym] }))}
+                style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: hidden[sym] ? 0.3 : 1, transition: 'opacity .15s' }}>
+                <svg width="18" height="4" viewBox="0 0 18 4" style={{ flexShrink: 0 }}><rect x="0" y="0" width="18" height="4" rx="2" fill={color} /></svg>
+                <span style={{ fontFamily: DSANS, fontSize: 11, color: hidden[sym] ? '#64748b' : '#94a3b8' }}>{label}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          COUNTRY_GROUPS.map(g => {
+            const gItems = COUNTRY_META.filter(m => m.group === g);
+            return (
+              <div key={g} style={{ marginTop: 10 }}>
+                <div style={{ fontFamily: DSANS, fontSize: 9.5, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 5 }}>{g}</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px 18px' }}>
+                  {gItems.map(({ sym, label, color }) => (
+                    <button key={sym} onClick={() => setHidden(h => ({ ...h, [sym]: !h[sym] }))}
+                      style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, opacity: hidden[sym] ? 0.3 : 1, transition: 'opacity .15s' }}>
+                      <svg width="18" height="4" viewBox="0 0 18 4" style={{ flexShrink: 0 }}><rect x="0" y="0" width="18" height="4" rx="2" fill={color} /></svg>
+                      <span style={{ fontFamily: DSANS, fontSize: 11, color: hidden[sym] ? '#64748b' : '#94a3b8' }}>{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            );
+          })
+        )
+      }
+    </div>
+  );
+}
+
 function CommoditiesWatchlistChart() {
-  const RMAP   = { '10Y': '10y', '5Y': '5y', '1Y': '1y', '6M': '6mo', '3M': '3mo' };
-  const RANGES = ['10Y', '5Y', '1Y', '6M', '3M'];
-  const [range, setRange] = useStateD('5Y');
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+  const [range, setRange] = useStateD('1Y');
   const [data, setData]   = useStateD(null);
   const [hidden, setHidden] = useStateD({});
   const [hover, setHover]   = useStateD(null);
@@ -1702,7 +1979,7 @@ function CommoditiesWatchlistChart() {
         </div>
         {(() => {
           const lastDate = data?.dates?.[data.dates.length - 1];
-          const todayStr = new Date().toISOString().slice(0, 10);
+          const todayStr = (() => { const d = new Date(), dw = d.getDay(); d.setDate(d.getDate() - (dw === 1 ? 3 : dw >= 2 ? 1 : 0)); return d.toISOString().slice(0, 10); })();
           const dow = new Date().getDay();
           const isStale = data && lastDate && lastDate < todayStr && dow !== 0 && dow !== 6;
           const dotColor = !data ? '#64748b' : isStale ? '#f59e0b' : '#22c55e';
@@ -1844,9 +2121,7 @@ function buildValuationsMetrics(card) {
   const peWarn   = _vNearAny(peNum,   [22, 18, 16], 1);
   const buffWarn = _vNearAny(buffNum, [160, 115, 80], 5);
   return [
-    ['CAPE',               cape ? cape[1] : '—', 'Shiller 10yr Cyclically-Adj P/E  (avg ~17×)', cape ? cape[3] : null, capeCond2, capeTriggers, _vDir(cape?.[3]), capeWarn],
-    ['Trailing P/E',       pe   ? pe[1]   : '—', 'S&P 500 Price / Trailing 12mo EPS  (avg ~16×)', pe   ? pe[3]   : null, peCond2,   peTriggers,  _vDir(pe?.[3]),   peWarn],
-    ['Buffett Indicator',  buff ? buff[1] : '—', 'Total US Mkt Cap / GDP  (fair 80–115%)',       buff ? buff[3] : null, buffCond2, buffTriggers, _vDir(buff?.[3]), buffWarn],
+    ['Trailing P/E', pe ? pe[1] : '—', 'S&P 500 Price / Trailing 12mo EPS  (avg ~16×)', pe ? pe[3] : null, peCond2, peTriggers, _vDir(pe?.[3]), peWarn],
   ];
 }
 
@@ -1874,7 +2149,7 @@ function buildYieldDiagnostics(card) {
     { label: '30Y Yield (^TYX)',      q: 'Is the 30-year yield above the critical 5% threshold for equity multiples?', a: r0 ? r0[2] : '—', c: r0 ? _tc(r0[3]) : '#94a3b8' },
     { label: '10Y Yield (^TNX)',      q: 'Is the 10-year yield in restrictive territory (≥4.5%)?',                    a: r1 ? r1[2] : '—', c: r1 ? _tc(r1[3]) : '#94a3b8' },
     { label: 'Yield Curve (3m–10Y)',  q: 'Is the yield curve inverted, flat, or steepening?',                         a: r2 ? r2[2] : '—', c: r2 ? _tc(r2[3]) : '#94a3b8' },
-    { label: 'US Dollar (UUP)',       q: 'Is dollar strength a headwind for international earnings and EM assets?',    a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
+    { label: '2Y Trend (SHY)',        q: 'Is the 2yr Treasury ETF above or below its 200-day average — is the short end easing or tightening?', a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
     { label: '5% Threshold Check',   q: 'Has the 30-year yield crossed the historically critical 5% level?',          a: threshold,         c: threshColor },
     { label: 'Combined Rate Action', q: 'What is the combined signal from yield level and curve shape?',               a: actionA,           c: actionColor },
   ];
@@ -1917,6 +2192,1018 @@ function buildYieldMetrics(card) {
   ];
 }
 
+// ── Yield Metrics: 3×3 grid (current values / days in zone / 10d ROC) ──
+function YieldMetricsBoxes({ card }) {
+  const [live, setLive] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    const today = new Date().toISOString().slice(0, 10);
+    Promise.all([
+      fetch(`/api/history?symbol=%5ETYX&range=1y&d=${today}`).then(r => r.json()),
+      fetch(`/api/history?symbol=%5ETNX&range=1y&d=${today}`).then(r => r.json()),
+      fetch(`/api/history?symbol=SHY&range=1y&d=${today}`).then(r => r.json()),
+      fetch(`/api/treasury-2y?range=20d`).then(r => r.json()),
+    ]).then(([tyx, tnx, shy, two]) => {
+      if (!alive) return;
+      const tyxC  = (tyx.closes || []).map(Number).filter(v => !isNaN(v));
+      const tnxC  = (tnx.closes || []).map(Number).filter(v => !isNaN(v));
+      const shyC  = (shy.closes || []).map(Number).filter(v => !isNaN(v));
+      const shyV2 = (shy.vs200  || []).map(v => (v == null || isNaN(Number(v))) ? null : Number(v));
+      const twoC  = (two.closes || []).map(Number).filter(v => !isNaN(v));
+      const twoY  = twoC.length > 0 ? twoC[twoC.length - 1] : null;
+      const streak = (arr, test) => {
+        let n = 0;
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const v = arr[i];
+          if (v == null || isNaN(v)) break;
+          if (test(v)) n++; else break;
+        }
+        return n > 0 ? n : null;
+      };
+      const tyx30  = tyxC.length  > 0 ? tyxC[tyxC.length - 1]   : null;
+      const tnx10  = tnxC.length  > 0 ? tnxC[tnxC.length - 1]   : null;
+      const shyV   = shyV2.length > 0 ? shyV2[shyV2.length - 1] : null;
+      const days30  = tyx30 != null ? streak(tyxC, v =>
+        tyx30 >= 5.0  ? v >= 5.0 :
+        tyx30 >= 4.5  ? v >= 4.5 && v < 5.0 :
+        tyx30 >= 3.5  ? v >= 3.5 && v < 4.5 : v < 3.5) : null;
+      const days10  = tnx10 != null ? streak(tnxC, v =>
+        tnx10 >= 4.5  ? v >= 4.5 :
+        tnx10 >= 3.5  ? v >= 3.5 && v < 4.5 : v < 3.5) : null;
+      const daysShy = shyV  != null ? streak(shyV2, v => shyV  >  0   ? v >  0   : v <= 0)  : null;
+      const roc30  = tyxC.length >= 11 ? tyxC[tyxC.length - 1] - tyxC[tyxC.length - 11] : null;
+      const roc10  = tnxC.length >= 11 ? tnxC[tnxC.length - 1] - tnxC[tnxC.length - 11] : null;
+      const rocShy = shyC.length >= 11 ? ((shyC[shyC.length - 1] / shyC[shyC.length - 11]) - 1) * 100 : null;
+      setLive({ tyx30, tnx10, shyV, days30, days10, daysShy, roc30, roc10, rocShy, twoY });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const stats   = card.stats || [];
+  const cardRows = card.rows || [];
+  const s30  = stats.find(s => (s[0]||'').includes('30Y'));
+  const s10  = stats.find(s => (s[0]||'').includes('10Y'));
+  const rShy = cardRows.find(r => (r[0]||'').includes('2Y Trend') || ((r[0]||'').includes('SHY') && !(r[0]||'').includes('Days')));
+  const normT = (s) => s === 'pos' || s === 'neg' ? s : s === 'bullish' ? 'pos' : s === 'bearish' ? 'neg' : null;
+  const _dir  = (t) => t === 'pos' ? 'up' : t === 'neg' ? 'down' : null;
+  const shyTone = normT(rShy?.[3]);
+  const near30  = live?.tyx30 != null && (Math.abs(live.tyx30 - 5.0) <= 0.2 || Math.abs(live.tyx30 - 4.5) <= 0.2);
+  const near10  = live?.tnx10 != null && (Math.abs(live.tnx10 - 4.5) <= 0.2 || Math.abs(live.tnx10 - 3.5) <= 0.2);
+
+  const y30T = [
+    { label: 'Critical Zone', text: '≥ 5%  Shorten duration; hold cash; avoid REITs and utilities', color: '#ef4444' },
+    { label: 'Danger Zone',   text: '4.5–5%  Reduce rate-sensitive exposure; watch for 5% breach',  color: '#ef4444' },
+    { label: 'Watch Zone',    text: '3.5–4.5%  Elevated; headwind for growth stocks and housing',   color: '#f59e0b' },
+    { label: 'Supportive',    text: '< 3.5%  Low rates support multiples; extend duration on dips', color: '#22c55e' },
+  ];
+  const y10T = [
+    { label: 'Restrictive',   text: '≥ 4.5%  Compressing multiples; avoid rate-sensitive sectors',  color: '#ef4444' },
+    { label: 'Elevated',      text: '3.5–4.5%  Headwind for growth stocks and housing',             color: '#f59e0b' },
+    { label: 'Accommodative', text: '< 3.5%  Supports equity multiples; growth and REIT favoured', color: '#22c55e' },
+  ];
+  const shyT = [
+    { label: 'Easing',  text: 'Above 200d SMA  Short rates falling; market pricing Fed cuts or pause', color: '#22c55e' },
+    { label: 'Hawkish', text: 'Below 200d SMA  Short rates rising; Fed in tightening mode',            color: '#ef4444' },
+  ];
+
+  // Row 1 — current benchmark values; derive conditions from live yield values for accuracy
+  const L = live;
+  const cc30  = L?.tyx30 != null
+    ? (L.tyx30 >= 5.0  ? 'At/Above 5% — Shorten Duration'
+       : L.tyx30 >= 4.5 ? 'Approaching 5% — Reduce Duration Risk'
+       : L.tyx30 >= 3.5 ? 'Watch Zone — Monitor Rate Path'
+       : 'Below 3.5% — Multiples Supported')
+    : (cardRows.find(r => (r[0]||'').includes('30Y'))?.[2] || '—');
+  const cc10  = L?.tnx10 != null
+    ? (L.tnx10 >= 4.5  ? 'Restrictive — Reduce Rate Exposure'
+       : L.tnx10 >= 3.5 ? 'Elevated — Headwind for Growth'
+       : 'Accommodative — Stay Positioned')
+    : (cardRows.find(r => (r[0]||'').includes('10Y') && !(r[0]||'').includes('Curve'))?.[2] || '—');
+  const t30   = L?.tyx30 != null ? (L.tyx30 >= 5.0 ? 'neg' : L.tyx30 >= 4.5 ? null : L.tyx30 >= 3.5 ? null : 'pos') : normT(s30?.[3]);
+  const t10   = L?.tnx10 != null ? (L.tnx10 >= 4.5 ? 'neg' : L.tnx10 >= 3.5 ? null : 'pos') : normT(s10?.[3]);
+  const ccShy = rShy?.[2] || (shyTone === 'pos' ? 'Above 200d — Short Rates Easing · Fed Dovish' : shyTone === 'neg' ? 'Below 200d — Short Rates Rising · Fed Hawkish' : '—');
+  const d30roc = L?.roc30 != null ? (L.roc30 > 0 ? 'up' : 'down') : null;
+  const d10roc = L?.roc10 != null ? (L.roc10 > 0 ? 'up' : 'down') : null;
+  const row1 = [
+    [s30?.[0] || '30Y Benchmark', s30?.[1] || '—', 'US 30-Year Yield (^TYX)', t30,      cc30,  y30T, d30roc,         near30, false],
+    [s10?.[0] || '10Y Benchmark', s10?.[1] || '—', 'US 10-Year Yield (^TNX)', t10,      cc10,  y10T, d10roc,         near10, false],
+    ['2Y Trend', L?.twoY != null ? L.twoY.toFixed(2) + '%' : (rShy?.[1] || '—'),        'SHY — 1-3yr Treasury ETF vs 200d SMA', shyTone, ccShy, shyT, _dir(shyTone), false],
+  ];
+
+  // Row 2 — days in zone
+  const fmtD   = (n) => n != null ? String(n) : '—';
+  const z30t   = L?.tyx30 != null ? (L.tyx30 >= 5.0 ? 'neg' : L.tyx30 >= 4.5 ? 'neg' : L.tyx30 >= 3.5 ? null : 'pos') : null;
+  const z10t   = L?.tnx10 != null ? (L.tnx10 >= 4.5 ? 'neg' : L.tnx10 >= 3.5 ? null : 'pos') : null;
+  const zSt    = L?.shyV  != null ? (L.shyV  >  0   ? 'pos' : 'neg') : null;
+  const z30kpi = L?.tyx30 != null ? (L.tyx30 >= 5.0 ? 'Consecutive days ≥ 5.0%' : L.tyx30 >= 4.5 ? 'Consecutive days 4.5–5.0%' : L.tyx30 >= 3.5 ? 'Consecutive days 3.5–4.5%' : 'Consecutive days < 3.5%') : 'Consecutive days in zone';
+  const z10kpi = L?.tnx10 != null ? (L.tnx10 >= 4.5 ? 'Consecutive days ≥ 4.5%' : L.tnx10 >= 3.5 ? 'Consecutive days 3.5–4.5%' : 'Consecutive days < 3.5%') : 'Consecutive days in zone';
+  const zSkpi  = L?.shyV  != null ? (L.shyV  >  0   ? 'Consecutive days above 200d SMA' : 'Consecutive days below 200d SMA') : 'Consecutive days in zone';
+  const z30c   = L?.tyx30 != null ? (L.tyx30 >= 5.0 ? 'Critical Level — Equity Headwind Active' : L.tyx30 >= 4.5 ? 'Danger Zone — Watch for 5% Breach' : L.tyx30 >= 3.5 ? 'Watch Zone — Monitor Rate Path' : 'Supportive Range — Duration Favoured') : '—';
+  const z10c   = L?.tnx10 != null ? (L.tnx10 >= 4.5 ? 'Restrictive — Compressing Multiples' : L.tnx10 >= 3.5 ? 'Elevated — Headwind for Growth' : 'Accommodative — Equities Supported') : '—';
+  const zSc    = L?.shyV  != null ? (L.shyV  >  0   ? 'Above 200d — Short Rates Easing' : 'Below 200d — Short Rates Tightening') : '—';
+  // direction: yields above 3.5% = headwind = down arrow (red); below = up (green). SHY: above 200d = up, below = down.
+  const z30dir = L?.tyx30 != null ? (L.tyx30 < 3.5 ? 'up' : 'down') : null;
+  const z10dir = L?.tnx10 != null ? (L.tnx10 < 3.5 ? 'up' : 'down') : null;
+  const daysZoneT = [
+    { label: '>60 days',   text: 'Entrenched — zone is deeply established; trend unlikely to reverse near-term; position with conviction', color: '#f59e0b' },
+    { label: '20–60 days', text: 'Confirmed — pattern established; adjust positioning to align with the zone',                            color: '#f59e0b' },
+    { label: '5–20 days',  text: 'Forming — early confirmation; watch for follow-through before adding exposure',                         color: '#94a3b8' },
+    { label: '<5 days',    text: 'Fresh entry — newly entered zone; wait for confirmation before acting on the change',                   color: '#94a3b8' },
+  ];
+  const row2 = [
+    ['30Y Days in Zone', fmtD(L?.days30),  z30kpi, z30t, z30c, daysZoneT, z30dir,    false],
+    ['10Y Days in Zone', fmtD(L?.days10),  z10kpi, z10t, z10c, daysZoneT, z10dir,    false],
+    ['SHY Days in Zone', fmtD(L?.daysShy), zSkpi,  zSt,  zSc,  daysZoneT, _dir(zSt), false],
+  ];
+
+  // Row 3 — 10d rate of change
+  const fmtBp  = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + Math.round(v * 100) + 'bp';
+  const fmtPct = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  const r30t   = L?.roc30  != null ? (L.roc30  > 0 ? 'neg' : 'pos') : null;
+  const r10t   = L?.roc10  != null ? (L.roc10  > 0 ? 'neg' : 'pos') : null;
+  const rSt    = L?.rocShy != null ? (L.rocShy > 0 ? 'pos' : 'neg') : null;
+  const r30d   = L?.roc30  != null ? (L.roc30  > 0 ? 'up' : 'down') : null;
+  const r10d   = L?.roc10  != null ? (L.roc10  > 0 ? 'up' : 'down') : null;
+  const rSd    = L?.rocShy != null ? (L.rocShy > 0 ? 'up' : 'down') : null;
+  const r30c   = L?.roc30  != null ? (L.roc30  > 0 ? 'Rising — Long-Bond Headwind Growing'  : 'Falling — Long-Bond Pressure Easing')   : '—';
+  const r10c   = L?.roc10  != null ? (L.roc10  > 0 ? 'Rising — Restrictive Trend Deepening' : 'Falling — Rate Pressure Easing')         : '—';
+  const rSc    = L?.rocShy != null ? (L.rocShy > 0 ? 'Rising — Short Rates Easing, Fed Dovish' : 'Falling — Short Rates Tightening, Fed Hawkish') : '—';
+  const rocBpT = [
+    { label: '> +25bp',   text: '>+25bp in 10 days  Rapid rise — rate shock risk; shorten duration aggressively',      color: '#ef4444' },
+    { label: '+10–25bp',  text: '+10–25bp  Rising quickly — headwind building; reduce rate-sensitive exposure',         color: '#ef4444' },
+    { label: '±10bp',     text: 'Within ±10bp  Range-bound — no directional pressure; hold current positioning',       color: '#f59e0b' },
+    { label: '-10–25bp',  text: '-10–25bp  Easing — rate pressure declining; consider extending duration',             color: '#22c55e' },
+    { label: '< -25bp',   text: '<-25bp in 10 days  Rapid easing — bond rally underway; extend duration on dips',      color: '#22c55e' },
+  ];
+  const rocShyT = [
+    { label: '> +1%',    text: '>+1% in 10 days  SHY rallying strongly — short rates falling; market pricing Fed pivot',  color: '#22c55e' },
+    { label: '+0.3–1%',  text: '+0.3–1%  Mild rally — short-end easing; monitor for continuation',                       color: '#22c55e' },
+    { label: '±0.3%',    text: 'Within ±0.3%  Stable — short rates range-bound; no directional signal',                  color: '#f59e0b' },
+    { label: '-0.3–1%',  text: '-0.3–1%  Declining — short rates rising; Fed maintaining tightening pressure',           color: '#ef4444' },
+    { label: '< -1%',    text: '<-1%  Rapid decline — short rates surging; hawkish regime deepening',                    color: '#ef4444' },
+  ];
+  const row3 = [
+    ['30Y 10d Change', fmtBp(L?.roc30),   '10-day yield change (basis points)', r30t, r30c, rocBpT,  r30d, false, false],
+    ['10Y 10d Change', fmtBp(L?.roc10),   '10-day yield change (basis points)', r10t, r10c, rocBpT,  r10d, false, false],
+    ['SHY 10d Change', fmtPct(L?.rocShy), '10-day price change',                rSt,  rSc,  rocShyT, rSd,  false, true],
+  ];
+
+  return (
+    <>
+      <div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div>
+      <div style={{ marginBottom: 10 }}><StatBoxes stats={row2} /></div>
+      <StatBoxes stats={row3} />
+    </>
+  );
+}
+
+// ── Currency: 3×3 metric boxes (vs 200d / Days in Zone / Ext. Velocity) ──────
+function CurrencyMetricsBoxes() {
+  const [uup, setUup] = useStateD(null);
+  const [fxe, setFxe] = useStateD(null);
+  const [fxy, setFxy] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    const load = (sym, set) =>
+      fetch(`/api/history?symbol=${sym}&range=1y`)
+        .then(r => r.json())
+        .then(d => { if (alive && d.summary) set(d.summary); })
+        .catch(() => {});
+    load('UUP', setUup); load('FXE', setFxe); load('FXY', setFxy);
+    return () => { alive = false; };
+  }, []);
+
+  const fmtPct = (v) => v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+  const fmtD   = (v) => v == null ? '—' : v + 'd';
+  const zDesc  = (z) => z && z.includes('bull') ? 'above 200d SMA' : 'below 200d SMA';
+
+  // UUP: dollar strength = bearish for risk assets (positiveDir=false throughout)
+  const uupT200  = (v) => v == null ? null : v >  2 ? 'neg' : v >  0 ? 'neutral' : 'pos';
+  const uupZoneT = (z) => z && z.includes('bull') ? 'neg' : z && z.includes('bear') ? 'pos' : 'neutral';
+  const uupRocT  = (v) => v == null ? null : v >  1 ? 'neg' : v > -1 ? 'neutral' : 'pos';
+
+  // FXE: euro strength = bullish for risk assets
+  const fxeT200  = (v) => v == null ? null : v >  2 ? 'pos' : v > -2 ? 'neutral' : 'neg';
+  const fxeZoneT = (z) => z && z.includes('bull') ? 'pos' : z && z.includes('bear') ? 'neg' : 'neutral';
+  const fxeRocT  = (v) => v == null ? null : v >  1 ? 'pos' : v > -1 ? 'neutral' : 'neg';
+
+  // FXY: yen is context-dependent — neutral tone
+  const fxyT200  = () => 'neutral';
+  const fxyZoneT = () => 'neutral';
+  const fxyRocT  = () => 'neutral';
+
+  const _dir = (t) => t === 'pos' ? 'up' : t === 'neg' ? 'down' : null;
+
+  const uupVs200T = [
+    { label: 'Strong',   text: '> +2%  Dollar well above 200d — headwind for equities, EM, and commodities', color: '#ef4444' },
+    { label: 'Near SMA', text: '0 to +2%  Mild dollar strength — watch for breakout or reversal',            color: '#f59e0b' },
+    { label: 'Weak',     text: '< 0%  Dollar below 200d — tailwind for risk assets and EM equities',         color: '#22c55e' },
+  ];
+  const fxeVs200T = [
+    { label: 'Strong', text: '> +2%  Euro above 200d — risk-on for European assets; USD softening', color: '#22c55e' },
+    { label: 'Near',   text: '-2% to +2%  Euro near 200d — FX signal neutral',                     color: '#f59e0b' },
+    { label: 'Weak',   text: '< -2%  Euro below 200d — risk-off; potential USD safe-haven demand', color: '#ef4444' },
+  ];
+  const fxyVs200T = [
+    { label: 'Above 200d', text: 'Yen above 200d — carry trade under pressure; watch for unwind risk', color: '#f59e0b' },
+    { label: 'Below 200d', text: 'Yen below 200d — carry trade intact; USD/JPY trend holds',           color: '#94a3b8' },
+  ];
+  const uupRocTrig = [
+    { label: 'Accel',  text: '> +1%  Dollar accelerating — reduce risk exposure, cut EM',            color: '#ef4444' },
+    { label: 'Flat',   text: '-1% to +1%  Dollar momentum neutral — no directional signal',           color: '#f59e0b' },
+    { label: 'Decel',  text: '< -1%  Dollar losing momentum — improving backdrop for risk assets',    color: '#22c55e' },
+  ];
+  const fxeRocTrig = [
+    { label: 'Accel',  text: '> +1%  Euro gaining momentum — supportive for European equities',       color: '#22c55e' },
+    { label: 'Flat',   text: '-1% to +1%  Euro momentum neutral',                                     color: '#f59e0b' },
+    { label: 'Decel',  text: '< -1%  Euro losing momentum — consider reducing European exposure',     color: '#ef4444' },
+  ];
+  const fxyRocTrig = [
+    { label: 'Rising',  text: '> +1%  Yen gaining — carry trades at risk; watch for forced unwind',  color: '#f59e0b' },
+    { label: 'Flat',    text: '-1% to +1%  Yen momentum neutral',                                     color: '#94a3b8' },
+    { label: 'Falling', text: '< -1%  Yen weakening — carry trade remains intact',                    color: '#f59e0b' },
+  ];
+
+  const u = uup, f = fxe, y = fxy;
+
+  const row0 = [
+    ['UUP vs 200d', fmtPct(u?.currentVs200), 'US Dollar ETF', uupT200(u?.currentVs200), null, uupVs200T, _dir(uupT200(u?.currentVs200)), false, false],
+    ['FXE vs 200d', fmtPct(f?.currentVs200), 'Euro ETF',      fxeT200(f?.currentVs200), null, fxeVs200T, _dir(fxeT200(f?.currentVs200)), false, true ],
+    ['FXY vs 200d', fmtPct(y?.currentVs200), 'Yen ETF',       fxyT200(),                null, fxyVs200T, null,                            false, true ],
+  ];
+  const row1 = [
+    ['UUP — Days in Zone', fmtD(u?.daysInZone), zDesc(u?.zone), uupZoneT(u?.zone), null, null, null, false, false],
+    ['FXE — Days in Zone', fmtD(f?.daysInZone), zDesc(f?.zone), fxeZoneT(f?.zone), null, null, null, false, true ],
+    ['FXY — Days in Zone', fmtD(y?.daysInZone), zDesc(y?.zone), fxyZoneT(),        null, null, null, false, true ],
+  ];
+  const row2 = [
+    ['UUP — Ext. Velocity', fmtPct(u?.currentRoc10), '10d rate of change', uupRocT(u?.currentRoc10), null, uupRocTrig, _dir(uupRocT(u?.currentRoc10)), false, false],
+    ['FXE — Ext. Velocity', fmtPct(f?.currentRoc10), '10d rate of change', fxeRocT(f?.currentRoc10), null, fxeRocTrig, _dir(fxeRocT(f?.currentRoc10)), false, true ],
+    ['FXY — Ext. Velocity', fmtPct(y?.currentRoc10), '10d rate of change', fxyRocT(),                null, fxyRocTrig, null,                            false, true ],
+  ];
+
+  return (
+    <>
+      <div style={{ marginBottom: 10 }}><StatBoxes stats={row0} /></div>
+      <div style={{ marginBottom: 10 }}><StatBoxes stats={row1} /></div>
+      <StatBoxes stats={row2} />
+    </>
+  );
+}
+
+// ── Valuations: historical-context metric boxes (CAPE / PE / Buffett) ────────
+// Follows DEEP_DIVE_STANDARDS.md: StatBoxes 8-field tuples with triggers, direction, warn.
+function ValuationsMetricsBoxes() {
+  const [vData, setVData] = useStateD(null);
+  const [bData, setBData] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    fetch('/api/valuations-history?range=30y').then(r => r.json()).then(d => { if (alive && d.summary) setVData(d); }).catch(() => {});
+    fetch('/api/buffett-history?range=30y').then(r => r.json()).then(d => { if (alive && d.summary) setBData(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  if (!vData || !bData) return (
+    <div style={{ fontFamily: DSANS, fontSize: 12, color: '#475569', padding: '16px 0', textAlign: 'center' }}>Loading metrics…</div>
+  );
+
+  const ord = (n) => {
+    if (n == null) return '—';
+    const v = n % 100;
+    if (v >= 11 && v <= 13) return n + 'th';
+    return n + (['th','st','nd','rd'][n % 10] || 'th');
+  };
+
+  const cS = vData.summary;
+  const bS = bData.summary;
+
+  const peStats = (() => {
+    const vals    = vData.peRatios || [];
+    const valid   = vals.filter(v => v != null && !isNaN(v));
+    const lastIdx = vals.map((v, i) => v != null ? i : -1).filter(i => i >= 0).pop();
+    const cur     = cS.currentPe ?? (lastIdx != null ? vals[lastIdx] : null);
+    const avg     = valid.length ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length * 10) / 10 : null;
+    const pct     = cur != null && valid.length ? Math.round(valid.filter(v => v <= cur).length / valid.length * 100) : null;
+    const asOf    = lastIdx != null && vData.dates?.[lastIdx] ? vData.dates[lastIdx].slice(0, 7) : null;
+    return { cur, avg, pct, asOf };
+  })();
+
+  // Tone (pos/neg/neutral for StatBoxes color mapping)
+  const capeT = (v) => v == null ? null : v > 35 ? 'neg'     : v > 25 ? 'neutral' : 'pos';
+  const peT   = (v) => v == null ? null : v > 25 ? 'neg'     : v > 20 ? 'neutral' : 'pos';
+  const buffT = (v) => v == null ? null : v > 115 ? 'neg'    : v > 80  ? 'neutral' : 'pos';
+  const pctT  = (p) => p == null ? null : p > 90  ? 'neg'    : p > 75  ? 'neutral' : p < 25 ? 'pos' : 'neutral';
+  const _dir  = (t) => t === 'neg' ? 'down' : t === 'pos' ? 'up' : null;
+  // _vDir: 'up'+positiveDir=false → ▲ red (elevated/bad), 'down'+positiveDir=false → ▼ green (below avg/good)
+  const _vDir = (v, ref) => v == null || ref == null ? null : v > ref ? 'up' : 'down';
+  const _near = (v, ts, m) => v != null && ts.some(t => Math.abs(v - t) <= m);
+
+  // Action text
+  const capeA = (v) => v == null ? '—' : v > 40 ? 'Extreme — Limit Equity Exposure' : v > 35 ? 'Very High — Reduce Allocation' : v > 25 ? 'Elevated — Quality & Value Bias' : 'Near Average — Normal Returns';
+  const peA   = (v) => v == null ? '—' : v > 25 ? 'Elevated — Favour Value Over Growth' : v > 20 ? 'Above Average — Quality Bias' : v > 16 ? 'Near Average — Fully Valued' : 'Below Average — Add on Weakness';
+  const buffA = (v) => v == null ? '—' : v > 160 ? 'Extreme — Limit Equity Exposure' : v > 115 ? 'Overvalued — Reduce Equity Weight' : v > 80 ? 'Fair Value — Neutral Allocation' : 'Undervalued — Accumulate on Dips';
+  const pctA  = (p) => p == null ? '—' : p > 90  ? 'Extreme — Top Decile Reading'   : p > 75  ? 'High — Above 3rd Quartile'     : p < 25 ? 'Low — Historical Opportunity'   : 'Mid-Range — No Signal';
+
+  // Trigger arrays
+  const capeTriggers = [
+    { label: 'Extreme',    text: '> 40×  Near 2000 peak — limit equity exposure',            color: '#ef4444' },
+    { label: 'Very High',  text: '35–40×  Top decile — reduce equity allocation',            color: '#ef4444' },
+    { label: 'Elevated',   text: '25–35×  Above ~17× avg — quality and value bias',          color: '#f59e0b' },
+    { label: 'Fair Value', text: '16–25×  Near long-run average — normal returns',           color: '#22c55e' },
+    { label: 'Cheap',      text: '< 16×  Below average — above-avg returns historically',    color: '#22c55e' },
+  ];
+  const peTriggers = [
+    { label: 'Elevated',   text: '> 25×  Meaningfully above history — favour value',         color: '#ef4444' },
+    { label: 'Above Avg',  text: '20–25×  Elevated — be selective in sector adds',           color: '#f59e0b' },
+    { label: 'Fair',       text: '16–20×  Near long-run average — no clear signal',          color: '#22c55e' },
+    { label: 'Cheap',      text: '< 16×  Below average — add equity on weakness',            color: '#22c55e' },
+  ];
+  const buffTriggers = [
+    { label: 'Extreme',    text: '> 160%  Near dot-com peak — materially limit equity',      color: '#ef4444' },
+    { label: 'Overvalued', text: '115–160%  Above GDP — expect below-avg 10yr returns',      color: '#ef4444' },
+    { label: 'Fair',       text: '80–115%  Fair-value range for this metric',                color: '#22c55e' },
+    { label: 'Cheap',      text: '< 80%  Undervalued vs GDP — historically above-avg returns', color: '#22c55e' },
+  ];
+  const pctTriggers = [
+    { label: '> 90th',  text: 'Extreme — top decile; historically elevated return risk',            color: '#ef4444' },
+    { label: '75–90th', text: 'High — above 3rd quartile; valuations stretched vs history',         color: '#f59e0b' },
+    { label: '25–75th', text: 'Mid-range — near historical median; no strong directional signal',   color: '#94a3b8' },
+    { label: '< 25th',  text: 'Low — below 1st quartile; historically above-average return outlook', color: '#22c55e' },
+  ];
+
+  const capeWarn = _near(cS.currentCape, [40, 35, 25, 16], 2);
+  const peWarn   = _near(peStats.cur,    [25, 20, 16],      1.5);
+  const buffWarn = _near(bS.current,     [160, 115, 80],    5);
+
+  const capeAsOf = cS.latestDate ? cS.latestDate.slice(0, 7) : '—';
+  const buffAsOf = bS.latestDate ? bS.latestDate.slice(0, 7) : '—';
+
+  // 9-field StatBoxes tuples: [label, value, desc, tone, condition, triggers, direction, warn, positiveDir]
+  // All valuation boxes use positiveDir=false: ▲ red = elevated (bad), ▼ green = below avg (good)
+  // Current & Average share same direction (current vs 30Y avg); Percentile uses pct vs 50th
+  const capeDir    = _vDir(cS.currentCape, cS.avgCape);
+  const buffDir    = _vDir(bS.current,     bS.avg);
+  const peDir      = _vDir(peStats.cur,    peStats.avg);
+  const capePctDir = _vDir(cS.percentile,  50);
+  const buffPctDir = _vDir(bS.percentile,  50);
+  const pePctDir   = _vDir(peStats.pct,    50);
+
+  const capeRow = [
+    ['CAPE Shiller', cS.currentCape != null ? cS.currentCape.toFixed(1) + '×' : '—', `as of ${capeAsOf}`,            capeT(cS.currentCape),  capeA(cS.currentCape),  capeTriggers, capeDir,    capeWarn, false],
+    ['30Y Average',  cS.avgCape     != null ? cS.avgCape.toFixed(1)     + '×' : '—', 'long-run historical average',  'neutral',              null,                   null,         capeDir,    false,    false],
+    ['Percentile',   cS.percentile  != null ? ord(cS.percentile)              : '—', 'of monthly readings in 30Y',   pctT(cS.percentile),    pctA(cS.percentile),    pctTriggers,  capePctDir, false,    false],
+  ];
+  const buffRow = [
+    ['Buffett Indicator', bS.current    != null ? bS.current.toFixed(1)    + '%' : '—', `as of ${buffAsOf}`,             buffT(bS.current),      buffA(bS.current),      buffTriggers, buffDir,    buffWarn, false],
+    ['30Y Average',   bS.avg        != null ? bS.avg.toFixed(1)        + '%' : '—', 'long-run historical average',   'neutral',              null,                   null,         buffDir,    false,    false],
+    ['Percentile',    bS.percentile != null ? ord(bS.percentile)             : '—', 'of quarterly readings in 30Y',  pctT(bS.percentile),    pctA(bS.percentile),    pctTriggers,  buffPctDir, false,    false],
+  ];
+  const peRow = [
+    ['Trailing P/E', peStats.cur != null ? peStats.cur.toFixed(1) + '×' : '—', peStats.asOf ? `as of ${peStats.asOf}` : '—', peT(peStats.cur),  peA(peStats.cur),  peTriggers,  peDir,    peWarn, false],
+    ['30Y Average',  peStats.avg != null ? peStats.avg.toFixed(1) + '×' : '—', 'long-run historical average',                 'neutral',         null,              null,        peDir,    false,  false],
+    ['Percentile',   peStats.pct != null ? ord(peStats.pct)             : '—', 'of monthly readings in 30Y',                  pctT(peStats.pct), pctA(peStats.pct), pctTriggers, pePctDir, false,  false],
+  ];
+
+  return (
+    <>
+      <div style={{ marginBottom: 10 }}><StatBoxes stats={capeRow} /></div>
+      <div style={{ marginBottom: 10 }}><StatBoxes stats={buffRow} /></div>
+      <StatBoxes stats={peRow} />
+    </>
+  );
+}
+
+// ── Valuations: tabbed Trailing P/E | CAPE | Buffett Indicator chart ─────────
+const VALUATION_TABS = [
+  { key: 'pe',      label: 'Trailing P/E', color: '#a855f7', desc: 'S&P 500 price / trailing 12-month EPS — historical avg ~16×', warnY: 22, warnLabel: 'Elevated (22×)' },
+  { key: 'cape',    label: 'CAPE',         color: '#a855f7', desc: 'Shiller cyclically-adjusted P/E ratio — historical avg ~17×',  warnY: 35, warnLabel: 'Very High (35×)' },
+  { key: 'buffett', label: 'Buffett',      color: '#a855f7', desc: 'Total US market cap / GDP — fair value 80–115%',               warnY: 115, warnLabel: 'Overvalued (115%)' },
+];
+const VALUATION_RANGES = ['5Y', '10Y', '20Y', '30Y'];
+const VALUATION_RMAP   = { '5Y': '5y', '10Y': '10y', '20Y': '20y', '30Y': '30y' };
+
+function ValuationsChart() {
+  const [range, setRange] = useStateD('30Y');
+  const [tab,   setTab]   = useStateD('pe');
+  const [live,  setLive]  = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    const r = VALUATION_RMAP[range];
+    if (tab === 'buffett') {
+      fetch(`/api/buffett-history?range=${r}`)
+        .then(res => res.json())
+        .then(j => {
+          if (!alive || !j.dates?.length) return;
+          const vals = (j.ratios || []).map(v => v == null ? null : Number(v));
+          const avg  = j.summary?.avg ?? null;
+          setLive({
+            values: vals, dates: j.dates, label: 'Buffett Indicator',
+            lineColor: '#a855f7', format: 'pct_abs',
+            thresholds: [
+              ...(avg != null ? [{ y: avg, color: '#64748b' }] : []),
+              { y: 115, color: '#f59e0b' },
+            ],
+          });
+        }).catch(() => {});
+    } else {
+      fetch(`/api/valuations-history?range=${r}`)
+        .then(res => res.json())
+        .then(j => {
+          if (!alive || !j.dates?.length) return;
+          const vals  = tab === 'cape'
+            ? (j.capes    || []).map(v => v == null ? null : Number(v))
+            : (j.peRatios || []).map(v => v == null ? null : Number(v));
+          const valid = vals.filter(v => v != null && !isNaN(v));
+          const avg   = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : null;
+          setLive({
+            values: vals, dates: j.dates,
+            label: tab === 'cape' ? 'CAPE' : 'Trailing P/E',
+            lineColor: '#a855f7',
+            thresholds: [
+              ...(avg != null ? [{ y: avg, color: '#64748b' }] : []),
+              { y: tab === 'cape' ? 35 : 22, color: '#f59e0b' },
+            ],
+          });
+        }).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [range, tab]);
+
+  const cfg = VALUATION_TABS.find(t => t.key === tab) || VALUATION_TABS[0];
+  const fakeCard = { seed: 41, trend: 0.15, metric: cfg.label, metricUnit: cfg.desc, metricVal: '' };
+  const tabBtn = (active) => ({
+    all: 'unset', cursor: 'pointer', padding: '3px 9px', borderRadius: 6,
+    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600,
+    color: active ? '#e8edf5' : '#64748b',
+    background: active ? '#1b2736' : 'transparent',
+    border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  });
+  const title = tab === 'pe' ? 'Trailing P/E Ratio' : tab === 'cape' ? 'Shiller CAPE Ratio' : 'Buffett Indicator';
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{title}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>{cfg.desc}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {VALUATION_TABS.map(t => (
+            <button key={t.key} style={tabBtn(tab === t.key)} onClick={() => setTab(t.key)}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+      <DeepChartLg card={fakeCard} cardId={`valuations-${tab}`} color={cfg.color} height={210}
+        range={range} setRange={setRange} live={live} ranges={VALUATION_RANGES} />
+      <div style={{ display: 'flex', gap: 16, marginTop: 10, justifyContent: 'flex-end', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <svg width="18" height="3" style={{ display: 'block', overflow: 'visible' }}><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#64748b" strokeWidth="1.5" strokeDasharray="4 3" /></svg>
+          <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Historical Avg</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <svg width="18" height="3" style={{ display: 'block', overflow: 'visible' }}><line x1="0" y1="1.5" x2="18" y2="1.5" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" /></svg>
+          <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>{cfg.warnLabel}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Global Flows: tabbed regional ETF chart (price + 200d SMA, one tab per region) ──
+const GLOBAL_TABS = [
+  { key: 'global',   label: 'Global',   sym: 'ACWI',    color: '#22c55e', desc: 'MSCI ACWI — All Country World ETF, price vs 200d SMA'       },
+  { key: 'usa',      label: 'USA',      sym: 'SPY',     color: '#3b82f6', desc: 'S&P 500 SPY — US Large Cap, price vs 200d SMA'               },
+  { key: 'canada',   label: 'Canada',   sym: '^GSPTSE', color: '#f97316', desc: 'S&P/TSX Composite — Canada, price vs 200d SMA'               },
+  { key: 'europe',   label: 'Europe',   sym: 'FEZ',     color: '#f59e0b', desc: 'Euro STOXX 50 FEZ — Europe, price vs 200d SMA'               },
+  { key: 'asia',     label: 'Asia',     sym: 'AIA',     color: '#a855f7', desc: 'iShares Asia 50 AIA — Asia Pacific, price vs 200d SMA'       },
+  { key: 'latam',    label: 'LatAm',    sym: 'ILF',     color: '#ec4899', desc: 'iShares LatAm 40 ILF — Latin America, price vs 200d SMA'    },
+  { key: 'emerging', label: 'Emerging', sym: 'EEM',     color: '#06b6d4', desc: 'iShares MSCI Emerging Markets EEM, price vs 200d SMA'        },
+];
+
+// ── Yield: tabbed 2Y | 10Y | 30Y | 2Y vs 10Y | 30Y vs 10Y chart ────────────
+const YIELD_CHART_TABS = [
+  { key: '2y',     label: '2Y',          color: '#22c55e', desc: 'US 2-Year Treasury Yield — the Fed expectations signal; rising = tightening cycle, falling = easing cycle' },
+  { key: '10y',    label: '10Y',         color: '#22d3ee', desc: 'US 10-Year Treasury Yield — global benchmark rate; at or above 4.5% is restrictive for equities' },
+  { key: '30y',    label: '30Y',         color: '#a855f7', desc: 'US 30-Year Treasury Yield — long-bond benchmark; at or above 5% compresses equity multiples' },
+  { key: '2y10y',  label: '10Y vs 2Y',  color: '#f97316', desc: '10Y and 2Y yields overlaid — spread (10Y−2Y) positive = normal curve, negative = inverted = recession warning' },
+  { key: 'spread', label: '30Y vs 10Y', color: '#f59e0b', desc: '30Y and 10Y yields overlaid — the gap between them shows term premium and long-end risk appetite' },
+];
+const YIELD_CHART_RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+const YIELD_CHART_RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+
+function YieldChart() {
+  const [range, setRange] = useStateD('1Y');
+  const [tab,   setTab]   = useStateD('2y');
+  const [live,  setLive]  = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    const today = new Date().toISOString().slice(0, 10);
+    const r = YIELD_CHART_RMAP[range];
+    if (tab === 'spread') {
+      Promise.all([
+        fetch(`/api/history?symbol=%5ETYX&range=${r}&d=${today}`).then(res => res.json()),
+        fetch(`/api/history?symbol=%5ETNX&range=${r}&d=${today}`).then(res => res.json()),
+      ]).then(([tyx, tnx]) => {
+        if (!alive || !tnx.dates?.length) return;
+        const tnxVals = (tnx.closes || []).map(v => v == null ? null : Number(v));
+        const tyxMap  = {};
+        (tyx.dates || []).forEach((d, i) => { tyxMap[d] = tyx.closes?.[i]; });
+        const tyxVals = tnx.dates.map(d => tyxMap[d] != null ? Number(tyxMap[d]) : null);
+        const spread  = tyxVals.map((v, i) => v == null || tnxVals[i] == null ? null : v - tnxVals[i]);
+        const dataMax = Math.max(...spread.filter(v => v != null && !isNaN(v)).map(Math.abs), 0.01);
+        const absMax  = Math.max(dataMax * 1.15, 0.3);
+        setLive({
+          values:    tyxVals,
+          dates:     tnx.dates,
+          label:     '30Y',
+          lineColor: '#a855f7',
+          overlays:  [{ label: '10Y', values: tnxVals, color: '#22d3ee', dash: null }],
+          histogram: {
+            values:     spread,
+            absMax,
+            height:     150,
+            label:      '30Y−10Y spread',
+            thresholds: [
+              { y:  1.0, color: '#ef4444', label: '>1% Elevated — Bearish' },
+              { y: -0.25, color: '#f59e0b', label: 'Inverted ▼' },
+            ],
+          },
+        });
+      }).catch(() => {});
+    } else if (tab === '2y10y') {
+      Promise.all([
+        fetch(`/api/treasury-2y?range=${r}`).then(res => res.json()),
+        fetch(`/api/history?symbol=%5ETNX&range=${r}&d=${today}`).then(res => res.json()),
+      ]).then(([two, tnx]) => {
+        if (!alive || !two.dates?.length) return;
+        // Build maps and use only dates present in BOTH sources to avoid gaps
+        const twoMap = {};
+        (two.dates || []).forEach((d, i) => { if (two.closes?.[i] != null) twoMap[d] = Number(two.closes[i]); });
+        const tnxMap = {};
+        (tnx.dates || []).forEach((d, i) => { if (tnx.closes?.[i] != null) tnxMap[d] = Number(tnx.closes[i]); });
+        const commonDates = Object.keys(twoMap).filter(d => tnxMap[d] != null).sort();
+        if (!commonDates.length) return;
+        const twoVals = commonDates.map(d => twoMap[d]);
+        const tnxVals = commonDates.map(d => tnxMap[d]);
+        const spread  = tnxVals.map((v, i) => v - twoVals[i]); // 10Y − 2Y: positive = normal, negative = inverted
+        const dataMax = Math.max(...spread.map(Math.abs), 0.01);
+        const absMax  = Math.max(dataMax * 1.15, 0.3);
+        setLive({
+          values:    twoVals,
+          dates:     commonDates,
+          label:     '2Y',
+          lineColor: '#22c55e',
+          overlays:  [{ label: '10Y', values: tnxVals, color: '#22d3ee', dash: null }],
+          histogram: {
+            values:     spread,
+            absMax,
+            height:     150,
+            label:      '10Y−2Y spread',
+            thresholds: [
+              { y:  0, color: '#475569', label: 'Zero (inversion level)' },
+            ],
+          },
+        });
+      }).catch(() => {});
+    } else if (tab === '2y') {
+      fetch(`/api/treasury-2y?range=${r}`)
+        .then(res => res.json())
+        .then(j => {
+          if (!alive || !j.dates?.length) return;
+          setLive({
+            values:    (j.closes || []).map(v => v == null ? null : Number(v)),
+            dates:     j.dates,
+            label:     '2Y',
+            lineColor: '#22c55e',
+            overlays:  [],
+          });
+        })
+        .catch(() => {});
+    } else {
+      const sym = tab === '30y' ? '%5ETYX' : '%5ETNX';
+      const col = tab === '30y' ? '#a855f7' : '#22d3ee';
+      const lbl = tab === '30y' ? '30Y' : '10Y';
+      fetch(`/api/history?symbol=${sym}&range=${r}&d=${today}`)
+        .then(res => res.json())
+        .then(j => {
+          if (!alive || !j.dates?.length) return;
+          setLive({
+            values:    (j.closes || []).map(v => v == null ? null : Number(v)),
+            dates:     j.dates,
+            label:     lbl,
+            lineColor: col,
+            overlays:  [],
+          });
+        })
+        .catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [range, tab]);
+
+  const cfg      = YIELD_CHART_TABS.find(t => t.key === tab) || YIELD_CHART_TABS[0];
+  const fakeCard = { seed: 53, trend: 0, metric: cfg.label, metricUnit: cfg.desc, metricVal: '' };
+  const tabBtn   = (active, col) => ({
+    all: 'unset', cursor: 'pointer', padding: '3px 9px', borderRadius: 6,
+    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600,
+    color: active ? '#e8edf5' : '#64748b',
+    background: active ? '#1b2736' : 'transparent',
+    border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  });
+  const title = tab === '2y' ? '2-Year Treasury Yield'
+    : tab === '10y' ? '10-Year Treasury Yield'
+    : tab === '30y' ? '30-Year Treasury Yield'
+    : tab === '2y10y' ? '10Y vs 2Y Treasury Yield'
+    : '30Y vs 10Y Treasury Yield';
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{title}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>{cfg.desc}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {YIELD_CHART_TABS.map(t => (
+            <button key={t.key} style={tabBtn(tab === t.key, t.color)} onClick={() => setTab(t.key)}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+      <DeepChartLg card={fakeCard} cardId={`yield-${tab}`} color={cfg.color} height={210}
+        range={range} setRange={setRange} live={live} ranges={YIELD_CHART_RANGES} showDelta={tab === 'spread' || tab === '2y10y'} />
+    </div>
+  );
+}
+
+// ── Yield: Yield Curve Inversion chart (10Y−2Y and 10Y−3M spreads) ──
+const YC_SPREAD_TABS = [
+  { key: '10y2y', label: '10Y−2Y', color: '#a855f7', desc: 'Fast-moving early warning — leads recession by 12–24 months (high variance)' },
+  { key: '10y3m', label: '10Y−3M', color: '#22d3ee', desc: 'Structural confirmation — leads recession by 8–12 months (tighter window)' },
+];
+const YC_SPREAD_RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+const YC_SPREAD_RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+const spreadCol = v => v >= 0 ? '#22c55e' : '#ef4444';
+
+function YieldSpreadChart() {
+  const [range, setRange] = useStateD('5Y');
+  const [tab,   setTab]   = useStateD('10y2y');
+  const [live,  setLive]  = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    const today = new Date().toISOString().slice(0, 10);
+    const r     = YC_SPREAD_RMAP[range];
+
+    if (tab === '10y2y') {
+      Promise.all([
+        fetch(`/api/history?symbol=%5ETNX&range=${r}&d=${today}`).then(res => res.json()),
+        fetch(`/api/treasury-2y?range=${r}`).then(res => res.json()),
+      ]).then(([tnx, two]) => {
+        if (!alive || !tnx.dates?.length) return;
+        const tnxVals = (tnx.closes || []).map(v => v == null ? null : Number(v));
+        const twoMap  = {};
+        (two.dates || []).forEach((d, i) => { if (two.closes?.[i] != null) twoMap[d] = Number(two.closes[i]); });
+        const twoVals = tnx.dates.map(d => twoMap[d] ?? null);
+        const spread  = tnxVals.map((v, i) => v == null || twoVals[i] == null ? null : v - twoVals[i]);
+        setLive({ values: spread, dates: tnx.dates, label: '10Y−2Y', format: 'pct',
+          colorBy: spread, colorByFn: spreadCol, thresholds: [{ y: 0, color: '#475569' }] });
+      }).catch(() => {});
+    } else {
+      Promise.all([
+        fetch(`/api/history?symbol=%5ETNX&range=${r}&d=${today}`).then(res => res.json()),
+        fetch(`/api/history?symbol=%5EIRX&range=${r}&d=${today}`).then(res => res.json()),
+      ]).then(([tnx, irx]) => {
+        if (!alive || !tnx.dates?.length) return;
+        const tnxVals = (tnx.closes || []).map(v => v == null ? null : Number(v));
+        const irxMap  = {};
+        (irx.dates || []).forEach((d, i) => { if (irx.closes?.[i] != null) irxMap[d] = Number(irx.closes[i]); });
+        const irxVals = tnx.dates.map(d => irxMap[d] ?? null);
+        const spread  = tnxVals.map((v, i) => v == null || irxVals[i] == null ? null : v - irxVals[i]);
+        setLive({ values: spread, dates: tnx.dates, label: '10Y−3M', format: 'pct',
+          colorBy: spread, colorByFn: spreadCol, thresholds: [{ y: 0, color: '#475569' }] });
+      }).catch(() => {});
+    }
+    return () => { alive = false; };
+  }, [range, tab]);
+
+  const cfg      = YC_SPREAD_TABS.find(t => t.key === tab) || YC_SPREAD_TABS[0];
+  const fakeCard = { seed: 8, trend: 0, metric: 'Yield Curve Inversion', metricUnit: '', metricVal: '' };
+  const tabBtn   = (active, col) => ({
+    all: 'unset', cursor: 'pointer', padding: '3px 9px', borderRadius: 6,
+    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600,
+    color: active ? '#e8edf5' : '#64748b',
+    background: active ? '#1b2736' : 'transparent',
+    border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  });
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Yield Curve Inversion</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>{cfg.desc} — below zero = inverted</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {YC_SPREAD_TABS.map(t => (
+            <button key={t.key} style={tabBtn(tab === t.key, t.color)} onClick={() => setTab(t.key)}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+      <DeepChartLg card={fakeCard} cardId={`yield-spread-${tab}`} color={cfg.color} height={200}
+        range={range} setRange={setRange} live={live} ranges={YC_SPREAD_RANGES} />
+    </div>
+  );
+}
+
+function GlobalFlowsChart() {
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+  const [range, setRange] = useStateD('1Y');
+  const [tabKey, setTab]  = useStateD('global');
+  const [live, setLive]   = useStateD(null);
+
+  const cfg = GLOBAL_TABS.find(t => t.key === tabKey) || GLOBAL_TABS[0];
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    const today = new Date().toISOString().slice(0, 10);
+    fetch(`/api/history?symbol=${encodeURIComponent(cfg.sym)}&range=${RMAP[range]}&d=${today}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j.dates?.length) return;
+        const closes = (j.closes || []).map(v => v == null ? null : Number(v));
+        const sma200 = (j.sma200 || []).map(v => v == null ? null : Number(v));
+        setLive({
+          values:    closes,
+          dates:     j.dates,
+          label:     cfg.sym,
+          lineColor: cfg.color,
+          overlays:  [{ label: '200d SMA', values: sma200, color: '#22d3ee', dash: [4, 3] }],
+          vs200:     (j.vs200 || []).map(v => v == null ? null : Number(v)),
+        });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range, tabKey]);
+
+  const fakeCard = { seed: GLOBAL_TABS.findIndex(t => t.key === tabKey), trend: 0, metric: cfg.label, metricUnit: cfg.desc, metricVal: '' };
+  const tabBtn = (active, col) => ({
+    all: 'unset', cursor: 'pointer', padding: '3px 9px', borderRadius: 6,
+    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600,
+    color: active ? '#e8edf5' : '#64748b',
+    background: active ? '#1b2736' : 'transparent',
+    border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  });
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{cfg.label}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>{cfg.desc}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 320 }}>
+          {GLOBAL_TABS.map(t => (
+            <button key={t.key} style={tabBtn(tabKey === t.key, t.color)} onClick={() => setTab(t.key)}>{t.label}</button>
+          ))}
+        </div>
+      </div>
+      <DeepChartLg card={fakeCard} cardId={`globalflows-${tabKey}`} color={cfg.color} height={200}
+        range={range} setRange={setRange} live={live} ranges={RANGES} />
+    </div>
+  );
+}
+
+// ── Currency: FX regime definitions ─────────────────────────────────────────
+const FX_REGIMES = [
+  {
+    key: 'boom',
+    label: 'Synchronized Global Boom',
+    bgColor: 'rgba(34,197,94,0.07)', borderColor: 'rgba(34,197,94,0.22)', labelColor: '#22c55e', impactColor: '#22c55e',
+    test: (u, e, j) => u < -2 && e > 2 && j < -2,
+    desc: 'Abundant global liquidity. Capital leaves USD safe-haven to chase corporate growth in Europe while the Yen Carry Trade is wide open — borrowing cheap JPY to buy global assets.',
+    impact: 'Strongly Bullish — abundant liquidity drives multi-sector rallies. Buy pullbacks and leverage beta.',
+  },
+  {
+    key: 'squeeze',
+    label: 'Global Liquidity Squeeze',
+    bgColor: 'rgba(239,68,68,0.07)', borderColor: 'rgba(239,68,68,0.22)', labelColor: '#ef4444', impactColor: '#ef4444',
+    test: (u, e, j) => u > 2 && e < -2 && j < -2,
+    desc: 'Textbook Safety Flight. The Federal Reserve is actively tightening. Capital is leaving global risk assets and huddling into cash-rich US Treasury accounts.',
+    impact: 'Bearish — broad market headwind. Multinationals lose on currency conversion. Favor cash or defensive value.',
+  },
+  {
+    key: 'unwind',
+    label: 'Systemic Carry Unwind',
+    bgColor: 'rgba(245,158,11,0.07)', borderColor: 'rgba(245,158,11,0.3)', labelColor: '#f59e0b', impactColor: '#f59e0b',
+    test: (u, e, j) => u < -1 && e < -1 && j > 4,
+    desc: 'Margin Call Event. A sudden violent short-squeeze in the Yen forces speculators to dump global equities to buy back JPY and settle carry trade debts.',
+    impact: 'Danger — expect rapid broad liquidation spikes. Tighten trailing stops immediately.',
+  },
+  {
+    key: 'eurozone',
+    label: 'Eurozone Crisis / Disruption',
+    bgColor: 'rgba(249,115,22,0.07)', borderColor: 'rgba(249,115,22,0.22)', labelColor: '#f97316', impactColor: '#f97316',
+    test: (u, e, j) => u > 2 && e < -4 && j > 1,
+    desc: 'Isolated European Flight. Dollar strength is artificial — EUR crashing on localized geopolitical or debt strain. Capital distributes between USD and JPY for shelter.',
+    impact: 'Neutral to Caution — highly volatile. Tech may hold as safe-haven; international value names drop.',
+  },
+  {
+    key: 'balanced',
+    label: 'Global Balance',
+    bgColor: 'rgba(148,163,184,0.05)', borderColor: 'rgba(148,163,184,0.15)', labelColor: '#94a3b8', impactColor: '#94a3b8',
+    test: (u, e, j) => Math.abs(u) < 0.5 && Math.abs(e) < 0.5 && Math.abs(j) < 0.5,
+    desc: 'Equilibrium / Churn. Central banks on hold, economic data predictable. Currency markets are quiet — equity moves are driven by raw corporate earnings, not macro noise.',
+    impact: "Neutral / Stock Picker's Market — broad indexes chop sideways. Sector rotation dominates.",
+  },
+];
+
+// ── Currency: Chart 1 — individual price vs 200d SMA ────────────────────────
+const CURRENCY_TABS = [
+  { key: 'uup', sym: 'UUP', shortLabel: 'USD', label: 'US Dollar',     color: '#f59e0b', desc: 'UUP — DB Dollar Index ETF · safety & liquidity demand — above 200d = tightening financial conditions', bearish: true  },
+  { key: 'fxe', sym: 'FXE', shortLabel: 'EUR', label: 'Euro',           color: '#22d3ee', desc: 'FXE — CurrencyShares Euro ETF · broad economic risk appetite — above 200d = risk-on signal',            bearish: false },
+  { key: 'fxy', sym: 'FXY', shortLabel: 'JPY', label: 'Japanese Yen',   color: '#a855f7', desc: 'FXY — CurrencyShares Yen ETF · global funding & volatility radar — rapid spike signals carry unwind',  bearish: false },
+];
+const CURR_RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+const CURR_RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
+
+function CurrencyChart() {
+  const [range, setRange] = useStateD('1Y');
+  const [tab,   setTab]   = useStateD('uup');
+  const [live,  setLive]  = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    const cfg = CURRENCY_TABS.find(t => t.key === tab);
+    const today = new Date().toISOString().slice(0, 10);
+    fetch(`/api/history?symbol=${cfg.sym}&range=${CURR_RMAP[range]}&d=${today}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !j.dates?.length) return;
+        const toNum = v => v == null ? null : Number(v);
+        const closes = (j.closes || []).map(toNum);
+        const sma200 = (j.sma200 || []).map(toNum);
+        const vs200  = (j.vs200  || []).map(toNum);
+        setLive({
+          values:    closes,
+          dates:     j.dates,
+          label:     cfg.sym,
+          lineColor: cfg.color,
+          overlays:  [{ label: '200d SMA', values: sma200, color: '#475569', dash: [4, 3] }],
+          vs200,
+          colorBy:   cfg.bearish ? vs200.map(v => v != null ? -v : null) : vs200,
+        });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range, tab]);
+
+  const cfg = CURRENCY_TABS.find(t => t.key === tab);
+  const seeds = { uup: 10, fxe: 11, fxy: 12 };
+  const fakeCard = { seed: seeds[tab], trend: 0, metric: cfg.label, metricUnit: cfg.desc, metricVal: '' };
+  const btnStyle = (active) => ({
+    all: 'unset', cursor: 'pointer', padding: '4px 11px', borderRadius: 7,
+    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600,
+    color: active ? '#e8edf5' : '#64748b',
+    background: active ? '#1b2736' : 'transparent',
+    border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  });
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>{cfg.label} — Price vs 200-day SMA</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>{cfg.desc}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {CURRENCY_TABS.map(t => (
+            <button key={t.key} style={btnStyle(tab === t.key)} onClick={() => setTab(t.key)}>{t.shortLabel}</button>
+          ))}
+        </div>
+      </div>
+      <DeepChartLg card={fakeCard} cardId={`currency-${tab}`} color={cfg.color} height={200}
+        range={range} setRange={setRange} live={live} ranges={CURR_RANGES} />
+    </div>
+  );
+}
+
+// ── Currency: Chart 2 — FX relationship + regime detector ───────────────────
+function CurrencyRegimeChart() {
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y'];
+  const [range, setRange] = useStateD('6M');
+  const [live,  setLive]  = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    const today = new Date().toISOString().slice(0, 10);
+    const r = RMAP[range];
+    Promise.all([
+      fetch(`/api/history?symbol=UUP&range=${r}&d=${today}`).then(res => res.json()),
+      fetch(`/api/history?symbol=FXE&range=${r}&d=${today}`).then(res => res.json()),
+      fetch(`/api/history?symbol=FXY&range=${r}&d=${today}`).then(res => res.json()),
+    ]).then(([uup, fxe, fxy]) => {
+      if (!alive) return;
+      const dates = uup.dates || [];
+      if (!dates.length) return;
+      const toNum = v => v == null ? null : Number(v);
+      const rebase = (closes) => {
+        const arr = closes.map(toNum);
+        const first = arr.find(v => v != null && v > 0);
+        if (!first) return arr;
+        return arr.map(v => v == null ? null : ((v - first) / first) * 100);
+      };
+      const fxeByDate = {}, fxyByDate = {};
+      (fxe.dates || []).forEach((d, i) => { fxeByDate[d] = (fxe.closes || [])[i]; });
+      (fxy.dates || []).forEach((d, i) => { fxyByDate[d] = (fxy.closes || [])[i]; });
+      const fxeAligned = dates.map(d => fxeByDate[d] ?? null);
+      const fxyAligned = dates.map(d => fxyByDate[d] ?? null);
+      // 20-day % change for regime detection
+      const pct20 = (arr) => {
+        const vals = arr.map(toNum).filter(v => v != null);
+        if (vals.length < 2) return 0;
+        const sl = vals.slice(-Math.min(20, vals.length));
+        return ((sl[sl.length - 1] - sl[0]) / Math.abs(sl[0])) * 100;
+      };
+      setLive({
+        values:    rebase(uup.closes || []),
+        dates,
+        label:     'UUP (USD)',
+        format:    'pct',
+        lineColor: '#f59e0b',
+        overlays: [
+          { label: 'FXE (EUR)', values: rebase(fxeAligned), color: '#22d3ee', dash: null },
+          { label: 'FXY (JPY)', values: rebase(fxyAligned), color: '#a855f7', dash: null },
+        ],
+        thresholds: [{ y: 0, color: '#94a3b8' }],
+        pcts: { u: pct20(uup.closes || []), e: pct20(fxeAligned), j: pct20(fxyAligned) },
+      });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+
+  const fakeCard = { seed: 13, trend: 0, metric: 'FX Relationship', metricUnit: 'Normalised return from period open', metricVal: '' };
+  const regime = live?.pcts ? FX_REGIMES.find(r => r.test(live.pcts.u, live.pcts.e, live.pcts.j)) : null;
+  const pcts   = live?.pcts;
+  const fmtPct = v => v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+  const pctCol = (v, invert) => v == null ? '#64748b' : (v > 0) !== invert ? '#22c55e' : '#ef4444';
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>FX Relationship — Normalised Performance</div>
+        <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>
+          <span style={{ color: '#f59e0b', fontWeight: 600 }}>USD rising</span>{' = tighter conditions · '}
+          <span style={{ color: '#22d3ee', fontWeight: 600 }}>EUR rising</span>{' = risk appetite · '}
+          <span style={{ color: '#a855f7', fontWeight: 600 }}>JPY rising</span>{' = carry unwind risk'}
+        </div>
+      </div>
+      <DeepChartLg card={fakeCard} cardId="currency-regime" color="#f59e0b" height={200}
+        range={range} setRange={setRange} live={live} ranges={RANGES} />
+      {pcts && (
+        <div style={{ marginTop: 14, background: regime ? regime.bgColor : 'rgba(100,116,139,0.05)', border: `1px solid ${regime ? regime.borderColor : 'rgba(100,116,139,0.14)'}`, borderRadius: 10, padding: '14px 16px' }}>
+          <div style={{ display: 'flex', gap: 24, marginBottom: 12, flexWrap: 'wrap' }}>
+            {[
+              { label: 'USD (UUP)', pct: pcts.u, invert: true  },
+              { label: 'EUR (FXE)', pct: pcts.e, invert: false },
+              { label: 'JPY (FXY)', pct: pcts.j, invert: false },
+            ].map(({ label, pct, invert }) => (
+              <div key={label}>
+                <div style={{ fontFamily: DMONO, fontSize: 9, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>{label} · 20D</div>
+                <div style={{ fontFamily: DMONO, fontSize: 15, fontWeight: 700, color: pctCol(pct, invert) }}>{fmtPct(pct)}</div>
+              </div>
+            ))}
+            <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+              <div style={{ fontFamily: DMONO, fontSize: 9, color: '#475569', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 3 }}>FX REGIME</div>
+              <div style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: regime ? regime.labelColor : '#64748b' }}>
+                {regime ? regime.label : 'Mixed Signal'}
+              </div>
+            </div>
+          </div>
+          {regime ? (
+            <>
+              <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', lineHeight: 1.55, marginBottom: 8 }}>{regime.desc}</div>
+              <div style={{ fontFamily: DSANS, fontSize: 11.5, fontWeight: 600, color: regime.impactColor }}>S&P 500 Impact — {regime.impact}</div>
+            </>
+          ) : (
+            <div style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b', lineHeight: 1.55 }}>
+              No dominant FX regime detected. Currency signals are mixed — equity moves are driven more by earnings and sector rotation than macro currency flows.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Credit: tabbed price + 200d SMA chart (Risk / Quality / Global) ───────────
 const CREDIT_TABS = {
   risk:    { label: 'Risk Appetite',  sym: 'HYG', color: '#22c55e', desc: 'HYG — High Yield Corp Bond ETF, price vs 200d SMA' },
@@ -1925,8 +3212,8 @@ const CREDIT_TABS = {
 };
 
 function CreditChart() {
-  const RMAP   = { '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y' };
-  const RANGES = ['1M', '3M', '6M', '1Y'];
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [range, setRange] = useStateD('1Y');
   const [tab,   setTab]   = useStateD('risk');
   const [live,  setLive]  = useStateD(null);
@@ -1986,8 +3273,8 @@ function CreditChart() {
 
 // ── Credit: HYG vs LQD normalised-return spread chart ────────────────────────
 function CreditSpreadChart() {
-  const RMAP   = { '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y' };
-  const RANGES = ['1M', '3M', '6M', '1Y'];
+  const RMAP   = { '20D': '20d', '1W': '1wk', '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y', '10Y': '10y' };
+  const RANGES = ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [range, setRange] = useStateD('3M');
   const [live,  setLive]  = useStateD(null);
 
@@ -2547,6 +3834,61 @@ function buildEquitiesMetrics(card) {
   ];
 }
 
+// ── Currency Metrics ─────────────────────────────────────────────────────────
+function buildCurrencyMetrics(card) {
+  const rows = card.rows || [];
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2];
+
+  const toTone = (t) => t === 'bullish' ? 'pos' : t === 'bearish' ? 'neg' : 'neutral';
+  const toDir  = (valStr) => {
+    if (!valStr) return null;
+    const num = parseFloat(String(valStr).replace('−', '-'));
+    return isNaN(num) ? null : num > 0 ? 'up' : num < 0 ? 'down' : null;
+  };
+
+  const uupT = r0 ? toTone(r0[3]) : 'neutral';
+  const fxeT = r1 ? toTone(r1[3]) : 'neutral';
+  const fxyT = r2 ? toTone(r2[3]) : 'neutral';
+
+  const uupAction = uupT === 'neg' ? 'Reduce Risk — Tightening Conditions'
+                  : uupT === 'pos' ? 'Add Risk — Dollar Easing Aids Liquidity'
+                  : 'Neutral — Hold Positioning';
+  const fxeAction = fxeT === 'neg' ? 'Risk-Off Signal — Global Stress Rising'
+                  : fxeT === 'pos' ? 'Risk-On — European Liquidity Supportive'
+                  : 'Neutral — Follow Earnings';
+  const fxyAction = fxyT === 'neg' ? 'Carry Unwind Risk — Tighten Stops Immediately'
+                  : fxyT === 'pos' ? 'Carry Trade Open — Monitor for Reversal'
+                  : 'Carry Stable — Monitor for Surge';
+
+  const uupTriggers = [
+    { label: '> +3%',   text: 'Major tightening — reduce EM/international exposure; shift to USD cash', color: '#ef4444' },
+    { label: '+1–3%',   text: 'Headwind building — underweight risk assets and commodities',             color: '#ef4444' },
+    { label: '±1%',     text: 'Neutral Dollar — no directional pressure; follow earnings',              color: '#f59e0b' },
+    { label: '−1–3%',   text: 'Dollar easing — tailwind for risk, EM, and commodities; add exposure',  color: '#22c55e' },
+    { label: '< −3%',   text: 'Dollar breakdown — significant liquidity injection; rotate into risk',   color: '#22c55e' },
+  ];
+  const fxeTriggers = [
+    { label: '> +2%',     text: 'Euro strength — Eurozone improving; European stocks attractive',           color: '#22c55e' },
+    { label: '+0.5–2%',   text: 'Euro firming — mild risk-on signal; hold international exposure',         color: '#22c55e' },
+    { label: '±0.5%',     text: 'Euro neutral — no signal; equity returns driven by earnings',             color: '#f59e0b' },
+    { label: '−0.5–2%',   text: 'Euro softening — risk appetite waning; reduce cyclical/international',   color: '#ef4444' },
+    { label: '< −2%',     text: 'Euro stress — Eurozone under pressure; shift to defensive positioning',   color: '#ef4444' },
+  ];
+  const fxyTriggers = [
+    { label: '> +2%',     text: 'DANGER: Yen surge — carry-trade unwind; reduce risk immediately',         color: '#ef4444' },
+    { label: '+0.5–2%',   text: 'Yen strengthening — carry unwinding; tighten stops on risk assets',      color: '#ef4444' },
+    { label: '±0.5%',     text: 'Yen stable — carry trade holding; no emergency action needed',            color: '#f59e0b' },
+    { label: '−0.5–2%',   text: 'Yen weakening — carry trade extending; favorable for risk-on assets',    color: '#22c55e' },
+    { label: '< −2%',     text: 'Yen extreme weak — elevated crash risk if reversed; monitor closely',     color: '#f59e0b' },
+  ];
+
+  return [
+    [r0?.[0] || 'UUP (Dollar)', r0?.[1] || '—', 'US Dollar vs 200-day SMA', uupT, uupAction, uupTriggers, toDir(r0?.[1]), false, false],
+    [r1?.[0] || 'FXE (Euro)',   r1?.[1] || '—', 'Euro ETF vs 200-day SMA',  fxeT, fxeAction, fxeTriggers, toDir(r1?.[1]), false, true ],
+    [r2?.[0] || 'FXY (Yen)',    r2?.[1] || '—', 'Yen ETF vs 200-day SMA',   fxyT, fxyAction, fxyTriggers, null,           false       ],
+  ];
+}
+
 // ── Dispatchers ─────────────────────────────────────────────────────────────
 function getDiagnostics(cardId, card, computedStats) {
   switch (cardId) {
@@ -2571,6 +3913,7 @@ function getMetricsRow(cardId, card) {
     case 'globalflows': return buildGlobalFlowsMetrics(card);
     case 'sectors':     return buildSectorsMetrics(card);
     case 'equities':    return buildEquitiesMetrics(card);
+    case 'currency':    return buildCurrencyMetrics(card);
     default:            return null;
   }
 }
@@ -2909,6 +4252,301 @@ function buildLeadershipMetrics(card, computedStats, qcRange) {
   return { row1, row2 };
 }
 
+// ── Crowd Signals deep dive — Kalshi events + Polymarket macro signals ──
+function CrowdSignalsDeepDive() {
+  const [kalshi, setKalshi]           = useStateD(null);
+  const [poly, setPoly]               = useStateD(null);
+  const [summary, setSummary]         = useStateD(null);
+  const [summaryStatus, setSummaryStatus] = useStateD('idle');
+  useEffectD(() => {
+    let alive = true;
+    fetch('/api/kalshi').then(r => r.json())
+      .then(d => { if (alive) setKalshi(d); })
+      .catch(() => { if (alive) setKalshi({ events: [] }); });
+    fetch('/api/polymarket').then(r => r.json())
+      .then(d => { if (alive) setPoly(d); })
+      .catch(() => { if (alive) setPoly({ signals: [] }); });
+    return () => { alive = false; };
+  }, []);
+
+  // Fire once when both data sources are loaded
+  useEffectD(() => {
+    if (!kalshi || !poly) return;
+    setSummaryStatus('loading');
+    let alive = true;
+    fetch('/api/crowd-signals-summary', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kalshi, poly }),
+    })
+      .then(r => r.json())
+      .then(d => {
+        if (!alive) return;
+        if (d.summary) { setSummary(d.summary); setSummaryStatus('ready'); }
+        else setSummaryStatus('error');
+      })
+      .catch(() => { if (alive) setSummaryStatus('error'); });
+    return () => { alive = false; };
+  }, [kalshi, poly]);
+
+  const secLabel = (txt) => (
+    <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 10 }}>{txt}</div>
+  );
+
+  const kalshiEvents = kalshi?.events || [];
+  const polySignals  = poly?.signals   || [];
+  const fomcEvent    = kalshiEvents.find(e => e.type === 'fomc');
+  const cpiEvent     = kalshiEvents.find(e => e.type === 'cpi');
+
+  const renderKalshiBox = (evt) => {
+    const isFomc      = evt.type === 'fomc';
+    const actionColor = evt.action === 'Cut' ? '#22c55e' : evt.action === 'Hike' ? '#ef4444' : '#f59e0b';
+    const conf        = evt.confidence ?? 0;
+    const cpiVal      = !isFomc ? parseFloat((evt.consensus || '').replace(/[~%]/g, '')) : 0;
+
+    const implication = isFomc
+      ? evt.action === 'Cut'  ? 'Add duration. Bonds (TLT), utilities (XLU), and real estate (XLRE) historically rally into Fed easing cycles.'
+      : evt.action === 'Hike' ? 'Reduce duration. Financials (XLF) and short-term bonds outperform during tightening cycles.'
+      :                         'No Fed catalyst. Earnings and sector momentum are the primary near-term driver.'
+      : cpiVal < 0
+      ? 'Soft CPI reinforces the cut narrative. Growth stocks and longer-duration bonds may benefit.'
+      : cpiVal > 0.2
+      ? 'Sticky CPI may delay Fed cuts. Commodities and value stocks outperform in persistent-inflation environments.'
+      : 'Muted CPI keeps Fed optionality intact. Neutral — focus on earnings and sector rotation.';
+
+    const convictionLabel = conf >= 70 ? 'High conviction' : conf >= 50 ? 'Moderate conviction' : 'Low conviction';
+    const barColor        = isFomc ? actionColor : '#a855f7';
+
+    // FOMC: show current rate → market-implied rate
+    const fomcFromTo = isFomc && evt.currentRate != null ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12 }}>
+        <div>
+          <div style={{ fontFamily: DMONO, fontSize: 26, fontWeight: 700, color: '#64748b', lineHeight: 1 }}>{evt.currentRate.toFixed(2)}%</div>
+          <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginTop: 4 }}>Current rate</div>
+        </div>
+        <div style={{ fontFamily: DSANS, fontSize: 20, color: '#94a3b8', lineHeight: 1, paddingBottom: 14 }}>→</div>
+        <div>
+          <div style={{ fontFamily: DMONO, fontSize: 26, fontWeight: 700, color: actionColor, lineHeight: 1 }}>{evt.consensus}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginTop: 4 }}>Market-implied</div>
+        </div>
+        {evt.action && (
+          <div style={{ marginLeft: 'auto', padding: '4px 10px', borderRadius: 7, background: actionColor + '22', border: `1px solid ${actionColor}44`, alignSelf: 'flex-start' }}>
+            <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, color: actionColor }}>{evt.action.toUpperCase()}</span>
+          </div>
+        )}
+      </div>
+    ) : null;
+
+    // CPI: show last actual → crowd estimate
+    const la = evt.lastActual;
+    const cpiFromTo = !isFomc ? (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12 }}>
+        {la ? (
+          <div>
+            <div style={{ fontFamily: DMONO, fontSize: 26, fontWeight: 700, color: '#64748b', lineHeight: 1 }}>
+              {la.value >= 0 ? '+' : ''}{la.value.toFixed(1)}%
+            </div>
+            <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginTop: 4 }}>Last actual ({la.month})</div>
+          </div>
+        ) : null}
+        {la && <div style={{ fontFamily: DSANS, fontSize: 20, color: '#94a3b8', lineHeight: 1, paddingBottom: 14 }}>→</div>}
+        <div>
+          <div style={{ fontFamily: DMONO, fontSize: 26, fontWeight: 700, color: '#a855f7', lineHeight: 1 }}>{evt.consensus}</div>
+          <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginTop: 4 }}>Crowd estimate ({evt.date})</div>
+        </div>
+      </div>
+    ) : null;
+
+    return (
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#64748b' }}>
+          {evt.label} · {evt.date}{evt.unit ? ` · ${evt.unit}` : ''}
+        </div>
+        {fomcFromTo || cpiFromTo}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>Market confidence</span>
+            <span style={{ fontFamily: DMONO, fontSize: 13, color: '#e8edf5', fontWeight: 600 }}>{conf}%</span>
+          </div>
+          <div style={{ height: 6, borderRadius: 3, background: '#1e2d3d', overflow: 'hidden', marginBottom: 6 }}>
+            <div style={{ height: '100%', width: `${conf}%`, background: barColor, borderRadius: 3, transition: 'width 0.5s ease' }} />
+          </div>
+          <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#94a3b8' }}>{convictionLabel} · {conf}% of market pricing this outcome</div>
+        </div>
+        <div style={{ background: '#060e19', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${barColor}55` }}>
+          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#475569', marginBottom: 5 }}>What this means</div>
+          <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>{implication}</div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPolyRow = (sig, i, total) => {
+    const sentColor  = sig.sentiment === 'bullish' ? '#22c55e' : sig.sentiment === 'bearish' ? '#ef4444' : '#f59e0b';
+    const sentLabel  = sig.sentiment === 'bullish' ? 'Risk-On' : sig.sentiment === 'bearish' ? 'Risk-Off' : 'Neutral';
+    const probPct    = (sig.probability * 100).toFixed(1);
+    const pp         = sig.weekChange != null ? sig.weekChange * 100 : null;
+    const ppStr      = pp != null ? `${pp >= 0 ? '+' : ''}${pp.toFixed(1)}pp / 7d` : null;
+    const ppColor    = pp != null ? (pp >= 0 ? '#22c55e' : '#ef4444') : '#64748b';
+    const endLabel   = sig.endDate ? 'Resolves ' + new Date(sig.endDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' }) : null;
+
+    const p      = sig.probability;
+    const rising = sig.weekChange != null && sig.weekChange > 0.02;
+
+    const implication = sig.sentiment === 'bullish'
+      ? p >= 0.65
+        ? rising  ? 'Crowd conviction building — risk-on assets and growth stocks supported by this signal.'
+                  : 'Strong crowd signal but momentum cooling — risk-on positioning intact, watch for reversal.'
+        : p >= 0.40 ? 'Crowd is divided — wait for conviction above 65% before positioning on this outcome.'
+                    : 'Crowd is not pricing this bullish scenario — risk assets may face headwinds.'
+      : sig.sentiment === 'bearish'
+      ? p >= 0.65
+        ? rising  ? 'Bearish conviction rising — consider trimming cyclicals, adding defensives (XLV, XLP) or cash.'
+                  : 'Elevated bearish signal but momentum stalling — cautiously defensive, watch for stabilization.'
+        : p >= 0.40 ? 'Split signal — maintain balanced positioning until this resolves above 65% or below 35%.'
+                    : 'Crowd is not pricing this bearish outcome — markets are looking through this risk for now.'
+      : 'No strong directional crowd signal — focus on earnings and sector momentum near-term.';
+
+    return (
+      <div key={i} style={{ padding: '16px 0', borderBottom: i === total - 1 ? 'none' : '1px solid #1a2942' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 10 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.45, marginBottom: 5 }}>{sig.label}</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ padding: '2px 8px', borderRadius: 5, background: sentColor + '22', border: `1px solid ${sentColor}44`, fontFamily: DSANS, fontSize: 10, fontWeight: 700, color: sentColor }}>{sentLabel}</span>
+              {ppStr && <span style={{ fontFamily: DMONO, fontSize: 10.5, color: ppColor }}>{ppStr}</span>}
+              {endLabel && <span style={{ fontFamily: DSANS, fontSize: 10, color: '#94a3b8' }}>{endLabel}</span>}
+            </div>
+          </div>
+          <div style={{ flexShrink: 0, textAlign: 'right' }}>
+            <div style={{ fontFamily: DMONO, fontSize: 20, fontWeight: 700, color: sentColor, lineHeight: 1 }}>{probPct}%</div>
+            <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginTop: 2 }}>probability</div>
+          </div>
+        </div>
+        <div style={{ height: 5, borderRadius: 2.5, background: '#1e2d3d', overflow: 'hidden', marginBottom: 8 }}>
+          <div style={{ height: '100%', width: `${probPct}%`, background: sentColor, borderRadius: 2.5, opacity: 0.75 }} />
+        </div>
+        <div style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', lineHeight: 1.5 }}>{implication}</div>
+      </div>
+    );
+  };
+
+  const loading = (
+    <div style={{ fontFamily: DSANS, fontSize: 13, color: '#475569', padding: '16px 0' }}>Loading…</div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div>
+        {secLabel('Kalshi — Prediction Markets')}
+        {!kalshi ? loading : kalshiEvents.length === 0 ? (
+          <div style={{ fontFamily: DSANS, fontSize: 13, color: '#475569', padding: '12px 0' }}>No open Kalshi events found.</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: fomcEvent && cpiEvent ? '1fr 1fr' : '1fr', gap: 14 }}>
+            {fomcEvent && renderKalshiBox(fomcEvent)}
+            {cpiEvent  && renderKalshiBox(cpiEvent)}
+          </div>
+        )}
+      </div>
+      <div>
+        {secLabel('Polymarket — Macro Signals')}
+        {!poly ? loading : polySignals.length === 0 ? (
+          <div style={{ fontFamily: DSANS, fontSize: 13, color: '#475569', padding: '12px 0' }}>No qualifying Polymarket signals found.</div>
+        ) : (
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '4px 20px' }}>
+            {polySignals.map((sig, i) => renderPolyRow(sig, i, polySignals.length))}
+          </div>
+        )}
+      </div>
+      {(summaryStatus === 'loading' || summaryStatus === 'ready') && (
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: '3px solid #60a5fa', borderRadius: 14, padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: summaryStatus === 'ready' ? 12 : 0 }}>
+            <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#60a5fa', flex: 1 }}>Crowd Signal Summary</span>
+            <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '2px 7px', borderRadius: 4, background: '#0d1e35', border: '1px solid #1a3a5c', letterSpacing: '.04em' }}>✦ CLAUDE</span>
+          </div>
+          {summaryStatus === 'loading' && (
+            <span style={{ fontFamily: DSANS, fontSize: 13, color: '#64748b' }}>Synthesizing crowd signals…</span>
+          )}
+          {summaryStatus === 'ready' && summary && (
+            <p style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{summary}</p>
+          )}
+        </div>
+      )}
+      {kalshi && poly && (() => {
+        const top5      = polySignals.slice(0, 5);
+        const bulls     = top5.filter(s => s.sentiment === 'bullish').length;
+        const bears     = top5.filter(s => s.sentiment === 'bearish').length;
+        const n         = top5.length;
+        const skewDir   = bulls > bears ? 'bullish' : bears > bulls ? 'bearish' : 'neutral';
+        const skewColor = skewDir === 'bullish' ? '#22c55e' : skewDir === 'bearish' ? '#ef4444' : '#f59e0b';
+        const skewLabel = bulls > bears ? `${bulls}/${n} Bullish` : bears > bulls ? `${bears}/${n} Bearish` : `Mixed ${n > 0 ? n + '/'+n : ''}`;
+
+        const fedAction = fomcEvent?.action || null;
+        const fedColor  = fedAction === 'Cut' ? '#22c55e' : fedAction === 'Hike' ? '#ef4444' : '#f59e0b';
+
+        const cpiRaw  = cpiEvent ? parseFloat((cpiEvent.consensus || '').replace(/[~+%\s]/g, '')) : NaN;
+        const cpiColor = !isNaN(cpiRaw) ? (cpiRaw > 0.2 ? '#ef4444' : cpiRaw < 0 ? '#22c55e' : '#f59e0b') : '#f59e0b';
+
+        let direction, dirColor, dirText;
+        if (fedAction === 'Cut' && skewDir === 'bullish') {
+          direction = 'Risk-On';    dirColor = '#22c55e';
+          dirText   = 'Rate cuts anticipated and crowd sentiment is constructive — equity exposure and duration are supported near-term.';
+        } else if ((fedAction === 'Hold' || fedAction === 'Hike') && skewDir === 'bearish') {
+          direction = 'Risk-Off';   dirColor = '#ef4444';
+          dirText   = 'No rate relief expected and crowd sentiment is bearish — reduce risk, favor cash and defensives.';
+        } else if (fedAction === 'Cut' && skewDir === 'bearish') {
+          direction = 'Divergence'; dirColor = '#f59e0b';
+          dirText   = 'Fed pivot is priced in but crowd risk sentiment is bearish — macro uncertainty is elevated; position cautiously.';
+        } else if (fedAction === 'Hold' && skewDir === 'bullish') {
+          direction = 'Selective';  dirColor = '#f59e0b';
+          dirText   = 'Rates on hold but the crowd remains constructive — earnings momentum and sector rotation drive near-term returns.';
+        } else {
+          direction = 'Mixed';      dirColor = '#f59e0b';
+          dirText   = 'No clear directional conviction from prediction markets — await a catalyst before adding directional exposure.';
+        }
+
+        const cols = [fomcEvent, cpiEvent, n > 0].filter(Boolean).length || 1;
+
+        return (
+          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '18px 20px' }}>
+            <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 14 }}>Aggregated Crowd Signal</div>
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12, marginBottom: 14 }}>
+              {fomcEvent && (
+                <div style={{ padding: '11px 13px', background: '#080c14', borderRadius: 10, border: `1px solid ${fedColor}28` }}>
+                  <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>Rate Markets</div>
+                  <div style={{ fontFamily: DMONO, fontSize: 15, fontWeight: 700, color: fedColor }}>{fomcEvent.action}</div>
+                  <div style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b', marginTop: 4 }}>{fomcEvent.confidence}% confidence · {fomcEvent.consensus}</div>
+                </div>
+              )}
+              {cpiEvent && (
+                <div style={{ padding: '11px 13px', background: '#080c14', borderRadius: 10, border: `1px solid ${cpiColor}28` }}>
+                  <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>Inflation</div>
+                  <div style={{ fontFamily: DMONO, fontSize: 15, fontWeight: 700, color: cpiColor }}>CPI {cpiEvent.consensus}</div>
+                  <div style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b', marginTop: 4 }}>{cpiEvent.confidence}% crowd consensus</div>
+                </div>
+              )}
+              {n > 0 && (
+                <div style={{ padding: '11px 13px', background: '#080c14', borderRadius: 10, border: `1px solid ${skewColor}28` }}>
+                  <div style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '.06em' }}>Crowd Skew</div>
+                  <div style={{ fontFamily: DMONO, fontSize: 15, fontWeight: 700, color: skewColor }}>{skewLabel}</div>
+                  <div style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b', marginTop: 4 }}>Polymarket top {n} signals</div>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '11px 14px', borderRadius: 9, background: dirColor + '0f', border: `1px solid ${dirColor}28`, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <span style={{ fontFamily: DMONO, fontSize: 11, fontWeight: 700, color: dirColor, whiteSpace: 'nowrap', letterSpacing: '.04em' }}>{direction}</span>
+              <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.55 }}>{dirText}</span>
+            </div>
+          </div>
+        );
+      })()}
+      <div style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
+        Kalshi: KXFED (Fed funds rate) and KXCPI (CPI MoM) series — FOMC confidence reflects implied probability at the market-implied rate. Polymarket: top macro signals by volume from Macro Single and Macro Indicators tags, filtered for yield-relevant keywords.
+      </div>
+    </div>
+  );
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -3064,8 +4702,8 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           <div>
             {sectionLabel('Market Diagnostics')}
             <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
-              {(() => { const items = buildBreadthDiagnostics(card); return items ? (<div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>{items.map(({ label, q, a, c }, idx, arr) => (<div key={label} style={{ paddingTop: idx===0?0:11, paddingBottom: idx<arr.length-1?11:0, borderBottom: idx<arr.length-1?'1px solid #0d1e2e':'none' }}><div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 3 }}>{label}</div><div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div><div style={{ fontFamily: DSANS, fontSize: 11, color: '#3d5166', lineHeight: 1.4 }}>{q}</div></div>))}</div>) : null; })()}
-              <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 7 }}>Market Narrative</div>
+              {(() => { const items = buildBreadthDiagnostics(card); return items ? (<div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>{items.map(({ label, q, a, c }, idx, arr) => (<div key={label} style={{ paddingTop: idx===0?0:11, paddingBottom: idx<arr.length-1?11:0, borderBottom: idx<arr.length-1?'1px solid #0d1e2e':'none' }}><div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 3 }}>{label}</div><div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div><div style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>{q}</div></div>))}</div>) : null; })()}
+              <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 7 }}>Market Narrative</div>
               <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
             </div>
           </div>
@@ -3097,14 +4735,18 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           <div>
             {sectionLabel('Market Diagnostics')}
             <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
-              {(() => { const items = buildEquitiesDiagnostics(card); return items ? (<div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>{items.map(({ label, q, a, c }, idx, arr) => (<div key={label} style={{ paddingTop: idx===0?0:11, paddingBottom: idx<arr.length-1?11:0, borderBottom: idx<arr.length-1?'1px solid #0d1e2e':'none' }}><div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 3 }}>{label}</div><div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div><div style={{ fontFamily: DSANS, fontSize: 11, color: '#3d5166', lineHeight: 1.4 }}>{q}</div></div>))}</div>) : null; })()}
-              <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 7 }}>Market Narrative</div>
+              {(() => { const items = buildEquitiesDiagnostics(card); return items ? (<div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>{items.map(({ label, q, a, c }, idx, arr) => (<div key={label} style={{ paddingTop: idx===0?0:11, paddingBottom: idx<arr.length-1?11:0, borderBottom: idx<arr.length-1?'1px solid #0d1e2e':'none' }}><div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 3 }}>{label}</div><div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div><div style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>{q}</div></div>))}</div>) : null; })()}
+              <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 7 }}>Market Narrative</div>
               <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{card.note}</p>
             </div>
           </div>
         )}
       </div>
     );
+  }
+
+  if (cardId === 'crowdsignals') {
+    return <CrowdSignalsDeepDive />;
   }
 
   // Credit card: reorder rows and reformat value for deep dive only
@@ -3120,7 +4762,25 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       }
       return r;
     });
-  })() : card.rows;
+  // Global Flows: show the 7 regional ETF rows in geographic order; skip the 'Regional Bull' summary row
+  // Global and Emerging rows carry vs200 on line 1 of value (for the card tile); strip it here so the
+  // Indicators table shows just the price, consistent with the other 5 regional rows.
+  })() : cardId === 'globalflows' ? (() => {
+    const ORDER = ['Global', 'USA', 'Canada', 'Europe', 'Asia', 'LatAm', 'Emerging'];
+    return ORDER.map(label => {
+      const r = card.rows.find(row => row[0] === label);
+      if (!r) return null;
+      if ((label === 'Global' || label === 'Emerging') && r[1]?.includes('\n')) {
+        const price = r[1].split('\n')[1];
+        return [r[0], price, r[2], r[3], r[4], r[5], r[6]];
+      }
+      return r;
+    }).filter(Boolean);
+  })() : cardId === 'valuations' ? card.rows.filter(r => !['CAPE', 'Buffett Ind.', 'Buffett Indicator'].includes(r[0])) : card.rows;
+
+  const GF_FLAG_IMG = (code, alt) => <img src={`/market-hub/assets/flags/${code}.svg`} alt={alt} style={{ width: 22, height: 15, borderRadius: 2, objectFit: 'cover', border: '1px solid #1e2d3d' }} />;
+  const GF_FLAGS = { Global: '🌐', USA: GF_FLAG_IMG('us', 'US'), Canada: GF_FLAG_IMG('ca', 'CA'), Europe: '🌏', Asia: '🌏', LatAm: '🌎', Emerging: '🌍' };
+  const gfIcons = cardId === 'globalflows' ? indicatorRows.map(r => GF_FLAGS[r[0]] || null) : null;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
@@ -3133,8 +4793,19 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {/* credit-only: HYG / LQD / EMB vs 200d three-line chart */}
       {cardId === 'credit' && <CreditChart />}
       {cardId === 'credit' && <CreditSpreadChart />}
-      {/* chart card — hidden for sectors and credit (replaced by custom charts above) */}
-      {cardId !== 'sectors' && cardId !== 'credit' && <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      {/* valuations-only: tabbed Trailing P/E | CAPE | Buffett Indicator chart */}
+      {cardId === 'valuations' && <ValuationsChart />}
+      {/* yield-only: tabbed 30Y / 10Y / 30Y vs 10Y chart + yield curve inversion */}
+      {cardId === 'yield' && <YieldChart />}
+      {cardId === 'yield' && <YieldSpreadChart />}
+      {/* currency-only: USD/EUR/JPY vs 200d + FX regime relationship chart */}
+      {cardId === 'currency' && <CurrencyChart />}
+      {cardId === 'currency' && <CurrencyRegimeChart />}
+      {/* globalflows-only: tabbed regional ETF chart + country watchlist */}
+      {cardId === 'globalflows' && <GlobalFlowsChart />}
+      {cardId === 'globalflows' && <CountryWatchlistChart />}
+      {/* chart card — hidden for sectors, credit, globalflows, yield, currency, valuations (all replaced by custom charts above) */}
+      {cardId !== 'sectors' && cardId !== 'credit' && cardId !== 'globalflows' && cardId !== 'yield' && cardId !== 'currency' && cardId !== 'valuations' && <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
           <div>
             <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>
@@ -3151,7 +4822,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <DeepChartLg card={card} cardId={cardId} color={cardId === 'leadership' ? (qualityCheck.live?.lineColor || sg.c) : sg.c} height={chartHeight}
           range={activeRange} setRange={setActiveRange}
           live={cardId === 'leadership' ? qualityCheck.live : live}
-          ranges={cardId === 'leadership' ? ['20D', '50D', '200D'] : cardId === 'regime' ? ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'] : undefined} />
+          ranges={cardId === 'leadership' ? ['20D', '50D', '200D'] : cardId === 'regime' ? ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y', '20Y'] : (cardId === 'commodities' || cardId === 'equities') ? ['20D', '1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'] : undefined} />
       </div>}
       {cardId === 'commodities' && <CommoditiesWatchlistChart />}
       {/* regime timeline — always 1Y, never tied to chart range */}
@@ -3161,20 +4832,15 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
           <RegimeTimeline card={card} cardId={cardId} asOf={asOf} liveData={regimeLive} />
         </div>
       </div>
-      {/* flags (global flows) */}
-      {card.flags && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 30, height: 20, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
-        </div>
-      )}
-      {/* indicators — hidden for regime and leadership (superseded by metrics boxes) */}
-      {cardId !== 'regime' && cardId !== 'leadership' && (
+      {/* indicators — hidden for regime, leadership, yield, and currency (superseded by metrics boxes) */}
+      {cardId !== 'regime' && cardId !== 'leadership' && cardId !== 'yield' && cardId !== 'currency' && (
         <div>
           {sectionLabel('Indicators')}
           <IndicatorTable rows={indicatorRows}
             indicatorWidth={cardId === 'commodities' || cardId === 'sectors' ? 80 : 285}
             signalDescriptions={cardId === 'commodities' ? COMM_DESCRIPTIONS : cardId === 'sectors' ? SECT_DESCRIPTIONS : null}
-            hoverDescriptions={cardId === 'commodities' ? COMM_WHY : cardId === 'sectors' ? SECT_WHY : null} />
+            hoverDescriptions={cardId === 'commodities' ? COMM_WHY : cardId === 'sectors' ? SECT_WHY : null}
+            icons={gfIcons} />
         </div>
       )}
       {/* country breakdown — global flows card only */}
@@ -3214,7 +4880,9 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
                 )}
               </>
             );
-          })() : cardId === 'credit' ? (() => {
+          })() : cardId === 'currency' ? (
+            <CurrencyMetricsBoxes />
+          ) : cardId === 'credit' ? (() => {
             const { row0, row1, row2 } = buildCreditMetrics(card);
             return (
               <>
@@ -3223,7 +4891,11 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
                 {row2.length > 0 && <StatBoxes stats={row2} />}
               </>
             );
-          })() : (() => { const row = getMetricsRow(cardId, card); return row ? <StatBoxes stats={row} /> : <StatBoxes stats={card.stats} />; })()}
+          })() : cardId === 'valuations' ? (
+            <ValuationsMetricsBoxes />
+          ) : cardId === 'yield' ? (
+            <YieldMetricsBoxes card={card} />
+          ) : (() => { const row = getMetricsRow(cardId, card); return row ? <StatBoxes stats={row} /> : <StatBoxes stats={card.stats} />; })()}
         </div>
       )}
       {/* summary note */}
@@ -3242,15 +4914,15 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
                       paddingBottom: idx < arr.length - 1 ? 11 : 0,
                       borderBottom: idx < arr.length - 1 ? '1px solid #0d1e2e' : 'none',
                     }}>
-                      <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 3 }}>{label}</div>
+                      <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 3 }}>{label}</div>
                       <div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div>
-                      <div style={{ fontFamily: DSANS, fontSize: 11, color: '#3d5166', lineHeight: 1.4 }}>{q}</div>
+                      <div style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>{q}</div>
                     </div>
                   ))}
                 </div>
               );
             })()}
-            <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#334155', marginBottom: 7 }}>Market Narrative</div>
+            <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 7 }}>Market Narrative</div>
             <p style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.7, margin: 0 }}>{card.note}</p>
           </div>
         </div>
@@ -3259,4 +4931,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, DeepDiveContent });
