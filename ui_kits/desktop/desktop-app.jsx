@@ -896,20 +896,22 @@ function YieldMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
   const [data, setData] = useStateA(null);
   useEffectA(() => {
     let alive = true;
+    const safe = (p) => p.then(r => r.json()).catch(() => ({}));
     Promise.all([
-      fetch('/api/history?symbol=%5ETYX&range=20d').then(r => r.json()),
-      fetch('/api/history?symbol=%5ETNX&range=20d').then(r => r.json()),
-      fetch('/api/treasury-2y?range=20d').then(r => r.json()),
+      safe(fetch('/api/history?symbol=%5ETYX&range=20d')),
+      safe(fetch('/api/history?symbol=%5ETNX&range=20d')),
+      safe(fetch('/api/treasury-2y?range=20d')),
     ]).then(([tyx, tnx, two]) => {
       if (!alive) return;
       const toArr = (arr) => (arr || []).slice(-20).map(v => v == null ? null : Number(v));
-      setData({ tyx: toArr(tyx.closes), tnx: toArr(tnx.closes), two: toArr(two.closes) });
-    }).catch(() => {});
+      const d = { tyx: toArr(tyx.closes), tnx: toArr(tnx.closes), two: toArr(two.closes) };
+      if (d.tyx.length || d.tnx.length) setData(d);
+    });
     return () => { alive = false; };
   }, []);
-  if (!data) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  if (!data) return <SparkD seed={seed} trend={trend} color="#a855f7" w={w} h={h} />;
   const allVals = [...data.tyx, ...data.tnx, ...data.two].filter(v => v != null && !isNaN(v));
-  if (!allVals.length) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  if (!allVals.length) return <SparkD seed={seed} trend={trend} color="#a855f7" w={w} h={h} />;
   const lo = Math.min(...allVals), hi = Math.max(...allVals), span = hi - lo || 1;
   const n = Math.max(data.tyx.length, data.tnx.length, data.two.length);
   const dx = w / Math.max(n - 1, 1);
