@@ -304,14 +304,9 @@
     // it comes from the seed fallback (API already includes it in categories when server-side).
     const macroIdx = categories.findIndex((c) => /macro/i.test(c.label));
     const currencyStatus = byId['currency']?.status;
-    if (currencyStatus) {
-      if (macroIdx !== -1) {
-        const mc = categories[macroIdx];
-        categories[macroIdx] = { ...mc, cards: [...mc.cards, currencyStatus] };
-      }
-      if (currencyStatus === 'bullish') agg.bullish = (agg.bullish ?? 0) + 1;
-      else if (currencyStatus === 'bearish') agg.bearish = (agg.bearish ?? 0) + 1;
-      else agg.neutral = (agg.neutral ?? 0) + 1;
+    if (currencyStatus && macroIdx !== -1) {
+      const mc = categories[macroIdx];
+      categories[macroIdx] = { ...mc, cards: [...mc.cards, currencyStatus] };
     }
 
     // Preserve the kit's group ordering, keep only ids the API actually returned.

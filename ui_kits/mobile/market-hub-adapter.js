@@ -80,7 +80,7 @@
     const seed = (window.GLANCE || {}).cards || {};
     ['currency', 'crowdsignals'].forEach((id) => { if (!byId[id] && seed[id]) byId[id] = seed[id]; });
 
-    // Currency counts as a Macro signal — add to category dots + exec counts.
+    // Currency shows in Macro Conditions dots but is excluded from the scored denominator (10 cards only).
     const categories = (agg.categories || []).map((cat) => ({
       label: cat.label,
       weight: Math.round((cat.weight || 0) * 100) + '%',
@@ -88,14 +88,9 @@
     }));
     const macroIdx = categories.findIndex((c) => /macro/i.test(c.label));
     const currStatus = byId['currency']?.status;
-    if (currStatus) {
-      if (macroIdx !== -1) {
-        const mc = categories[macroIdx];
-        categories[macroIdx] = { ...mc, cards: [...mc.cards, currStatus] };
-      }
-      if (currStatus === 'bullish') agg.bullish = (agg.bullish ?? 0) + 1;
-      else if (currStatus === 'bearish') agg.bearish = (agg.bearish ?? 0) + 1;
-      else agg.neutral = (agg.neutral ?? 0) + 1;
+    if (currStatus && macroIdx !== -1) {
+      const mc = categories[macroIdx];
+      categories[macroIdx] = { ...mc, cards: [...mc.cards, currStatus] };
     }
 
     const GROUPS = [

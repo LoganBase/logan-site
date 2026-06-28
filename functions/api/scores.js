@@ -1757,12 +1757,13 @@ function computeDeltas(current, previous) {
 const SIGNAL_CATEGORIES = [
   { key: 'trend',         label: 'Trend / Momentum',  ids: ['regime', 'leadership', 'sectors', 'equities'], weight: 0.4 },
   { key: 'participation', label: 'Participation',      ids: ['breadth', 'globalflows', 'commodities'],       weight: 0.3 },
-  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit', 'currency'],   weight: 0.3 },
+  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit'],               weight: 0.3 },
 ];
 
 function buildAggregate(cards) {
+  const scoredIds = new Set(SIGNAL_CATEGORIES.flatMap(cat => cat.ids));
   const counts = { bullish: 0, neutral: 0, bearish: 0 };
-  cards.forEach(c => counts[c.status]++);
+  cards.forEach(c => { if (scoredIds.has(c.id)) counts[c.status]++; });
 
   const byId = {};
   cards.forEach(c => { byId[c.id] = c; });
