@@ -3889,6 +3889,39 @@ function buildCurrencyMetrics(card) {
   ];
 }
 
+// ── Currency Diagnostics ─────────────────────────────────────────────────────
+function buildCurrencyDiagnostics(card) {
+  const rows = card.rows || [];
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2], r3 = rows[3];
+
+  const carryRiskA = r2 == null ? '—'
+    : r2[3] === 'bearish'
+    ? 'Active — FXY has risen sharply above its 200d SMA; prior carry-unwind episodes (Aug 2024, 2022) triggered equity de-risking within days'
+    : 'Not Active — FXY is below its 200d spike threshold; carry trade is intact, no emergency hedging required';
+  const carryRiskC = r2 == null ? '#94a3b8' : r2[3] === 'bearish' ? '#ef4444' : '#22c55e';
+
+  const bullCount = rows.filter(r => r && r[3] === 'bullish').length;
+  const bearCount = rows.filter(r => r && r[3] === 'bearish').length;
+  const carryBear = r2 && r2[3] === 'bearish';
+  const actionA = carryBear
+    ? 'Carry unwind risk is active — reduce risk assets and leveraged positions immediately; rotate to cash and defensives'
+    : bullCount >= 2
+    ? 'FX conditions are supportive — maintain equity and EM exposure; USD weakness is a macro tailwind'
+    : bearCount >= 2
+    ? 'FX headwinds are building — reduce EM and international exposure; favour USD cash and domestic large-caps'
+    : 'FX signals are mixed — no dominant directional pressure; follow earnings and sector rotation';
+  const actionC = carryBear ? '#ef4444' : bullCount >= 2 ? '#22c55e' : bearCount >= 2 ? '#ef4444' : '#f59e0b';
+
+  return [
+    { label: 'USD Trend (UUP)',    q: 'Is the US Dollar ETF above its 200d SMA, tightening global financial conditions?',         a: r0 ? r0[2] : '—', c: r0 ? _tc(r0[3]) : '#94a3b8' },
+    { label: 'EUR/USD (FXE)',      q: 'Is the Euro ETF above its 200d SMA, signalling global risk appetite is constructive?',     a: r1 ? r1[2] : '—', c: r1 ? _tc(r1[3]) : '#94a3b8' },
+    { label: 'JPY Carry (FXY)',    q: 'Is the Yen ETF rising sharply, signalling a carry-trade unwind is in progress?',           a: r2 ? r2[2] : '—', c: r2 ? _tc(r2[3]) : '#94a3b8' },
+    { label: 'FX Regime',         q: 'What composite FX regime emerges from the USD, EUR, and JPY signals combined?',            a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
+    { label: 'Carry Risk Status',  q: 'Is the global carry trade at risk of an unwind that could trigger equity de-risking?',     a: carryRiskA,        c: carryRiskC },
+    { label: 'Portfolio Action',   q: 'What is the overall portfolio action implied by the current FX regime?',                   a: actionA,           c: actionC },
+  ];
+}
+
 // ── Dispatchers ─────────────────────────────────────────────────────────────
 function getDiagnostics(cardId, card, computedStats) {
   switch (cardId) {
@@ -3902,6 +3935,7 @@ function getDiagnostics(cardId, card, computedStats) {
     case 'sectors':     return buildSectorsDiagnostics(card);
     case 'commodities': return buildCommoditiesDiagnostics(card);
     case 'equities':    return buildEquitiesDiagnostics(card);
+    case 'currency':    return buildCurrencyDiagnostics(card);
     default:            return null;
   }
 }
