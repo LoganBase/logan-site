@@ -55,10 +55,10 @@ CF_API_TOKEN  = os.environ.get('CF_API_TOKEN',  '').strip()
 CF_D1_DB_ID   = os.environ.get('CF_D1_DB_ID',   '').strip()
 
 # All symbols read from D1 by the scores API
-DAILY_SYMBOLS = ['SPY', 'RSP', 'QQQ', 'QQEW', 'USCI', 'HYG', 'LQD', 'EMB']
+DAILY_SYMBOLS = ['SPY', 'RSP', 'QQQ', 'QQEW', 'USCI', 'HYG', 'LQD', 'EMB', 'UUP', 'FXE', 'FXY']
 
 SYMBOLS = DAILY_SYMBOLS if DAILY_MODE else [
-    'EMB',  # set this list for manual full historical seeds
+    'UUP', 'FXE', 'FXY',  # set this list for manual full historical seeds
 ]
 
 # ── D1 REST API ───────────────────────────────────────────────────────────────
@@ -239,13 +239,13 @@ def main():
         sys.exit(1)
 
     mode_label = f'Daily ({DAILY_IND_ROWS} indicator rows/symbol)' if DAILY_MODE else 'Full historical'
-    print('─' * 60)
+    print('-' * 60)
     print(f'  Market Hub Seeder — Direct D1 Upload')
     print(f'  Mode   : {mode_label}')
-    print(f'  Period : {START}  →  {END}')
+    print(f'  Period : {START}  ->  {END}')
     print(f'  Symbols: {len(SYMBOLS)}  ({", ".join(SYMBOLS)})')
     print(f'  Batch  : auto (~{D1_MAX_VARS} vars/call)')
-    print('─' * 60 + '\n')
+    print('-' * 60 + '\n')
 
     init_schema()
 
@@ -254,9 +254,9 @@ def main():
         print(f'[{i:02d}/{len(SYMBOLS)}] ', end='')
         total += seed_symbol(sym)
 
-    print(f'\n{"─" * 60}')
+    print(f'\n{"-" * 60}')
     print(f'  Done. {total:,} price rows uploaded to D1.')
-    print('─' * 60)
+    print('-' * 60)
 
 if __name__ == '__main__':
     main()
