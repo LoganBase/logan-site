@@ -110,7 +110,7 @@ function HeroGauge({ exec }) {
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontFamily: MONO, fontWeight: 700, color: '#e8edf5', letterSpacing: '-0.02em', lineHeight: 1 }}>
-            <span style={{ fontSize: 50 }}>{exec.bull}</span><span style={{ fontSize: 26, color: '#8295a9' }}>/{total}</span>
+            <span style={{ fontSize: 46 }}>{total > 0 ? Math.round(exec.bull / total * 100) : 0}</span><span style={{ fontSize: 22, color: '#8295a9' }}>%</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 11, color: '#64748b', marginTop: 5, letterSpacing: '.06em', textTransform: 'uppercase' }}>bullish</div>
         </div>
@@ -139,17 +139,14 @@ function CategoryBreadth({ cats }) {
       {cats.map((c) => {
         const bull = c.cards.filter((s) => s === 'bullish').length;
         return (
-          <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 104, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <span style={{ fontFamily: SANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500 }}>{c.label}</span>
-              <span style={{ fontFamily: MONO, fontSize: 9.5, color: '#64748b', letterSpacing: '.04em' }}>{c.weight} weight</span>
-            </div>
-            <div style={{ flex: 1, display: 'flex', gap: 7, alignItems: 'center' }}>
+          <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ width: 126, flexShrink: 0, fontFamily: SANS, fontSize: 12, color: '#cbd5e1', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.label}</span>
+            <div style={{ flex: 1, display: 'flex', gap: 7, alignItems: 'center', paddingLeft: 6 }}>
               {c.cards.map((s, i) => (
                 <span key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: SIG[s].c, boxShadow: `0 0 7px ${SIG[s].glow}` }} />
               ))}
             </div>
-            <span style={{ fontFamily: MONO, fontSize: 12.5, color: '#94a3b8', whiteSpace: 'nowrap' }}>{bull}/{c.cards.length}<span style={{ color: '#8295a9' }}> bull</span></span>
+            <span style={{ fontFamily: MONO, fontSize: 12, color: '#94a3b8', whiteSpace: 'nowrap' }}>{bull}/{c.cards.length}<span style={{ color: '#8295a9' }}> bull</span></span>
           </div>
         );
       })}
