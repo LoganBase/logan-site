@@ -340,18 +340,24 @@ function getDiagnostics(cardId, card) {
 }
 function DiagnosticsSection({ cardId, card }) {
   const items = getDiagnostics(cardId, card);
-  if (!items || !items.length) return null;
+  if (cardId === 'crowdsignals') return null;
   return (
     <div>
       <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Market Diagnostics</div>
-      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>
-        {items.map((item, i) => (
-          <div key={i} style={{ padding: '12px 0', borderBottom: i < items.length - 1 ? '1px solid #16202e' : 'none' }}>
-            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: item.c, marginBottom: 4 }}>{item.label}</div>
-            <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.5 }}>{item.a}</div>
-          </div>
-        ))}
-      </div>
+      {items && items.length > 0 ? (
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>
+          {items.map((item, i) => (
+            <div key={i} style={{ padding: '12px 0', borderBottom: i < items.length - 1 ? '1px solid #16202e' : 'none' }}>
+              <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: item.c, marginBottom: 4 }}>{item.label}</div>
+              <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.5 }}>{item.a}</div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '14px' }}>
+          <span style={{ fontFamily: SANS, fontSize: 12, color: '#64748b' }}>—</span>
+        </div>
+      )}
     </div>
   );
 }
