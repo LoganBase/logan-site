@@ -240,6 +240,62 @@ function YieldCardRow({ card, onTap }) {
   );
 }
 
+// ── Crowd Signals card row — live Fed Action / CPI / Rate from /api/kalshi ───
+function CrowdSignalsCardRow({ card, onTap }) {
+  const sig = SIG[card.status] || SIG.neutral;
+  const [press, setPress] = useState(false);
+  const [kpis, setKpis] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/kalshi').then(r => r.json()).catch(() => ({ events: [] }))
+      .then(k => {
+        if (!alive) return;
+        const fomc = (k.events || []).find(e => e.type === 'fomc');
+        const cpi  = (k.events || []).find(e => e.type === 'cpi');
+        const actionTone = fomc?.action === 'Cut' ? 'bullish' : fomc?.action === 'Hike' ? 'bearish' : 'neutral';
+        const cpiVal  = cpi ? parseFloat((cpi.consensus || '').replace(/[~%]/g, '')) : null;
+        const cpiTone = cpiVal == null ? 'neutral' : cpiVal <= 0 ? 'bullish' : cpiVal > 0.2 ? 'bearish' : 'neutral';
+        setKpis([
+          { label: 'Fed Action',  val: fomc?.action    || '—', tone: actionTone },
+          { label: 'CPI Crowd',   val: cpi?.consensus  || '—', tone: cpiTone    },
+          { label: 'Rate Target', val: fomc?.consensus || '—', tone: actionTone },
+        ]);
+      });
+    return () => { alive = false; };
+  }, []);
+  const items = kpis || [
+    { label: 'Fed Action',  val: '—', tone: 'neutral' },
+    { label: 'CPI Crowd',   val: '—', tone: 'neutral' },
+    { label: 'Rate Target', val: '—', tone: 'neutral' },
+  ];
+  return (
+    <button onClick={onTap} onPointerDown={() => setPress(true)} onPointerUp={() => setPress(false)} onPointerLeave={() => setPress(false)}
+      style={{ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 11, padding: '12px 14px',
+        borderRadius: 14, background: '#111827', border: '1px solid #1e2d3d',
+        boxShadow: press ? 'none' : '0 1px 2px rgba(0,0,0,.3)', transform: press ? 'scale(0.99)' : 'scale(1)',
+        transition: 'transform .12s ease', borderLeft: `3px solid ${sig.c}`, width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
+        <span style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: '#e8edf5', flex: 1, minWidth: 0 }}>{card.title}</span>
+        <svg width="7" height="12" viewBox="0 0 7 12" style={{ flexShrink: 0 }}><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {items.map(({ label, val, tone }, i) => {
+          const rs = SIG[tone] || SIG.neutral;
+          return (
+            <div key={i} style={{ flex: 1, minWidth: 0, paddingLeft: i ? 9 : 0, borderLeft: i ? '1px solid #1b2736' : 'none' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: rs.c, boxShadow: `0 0 5px ${rs.glow}`, flexShrink: 0 }} />
+                <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: rs.c, whiteSpace: 'nowrap' }}>{val}</span>
+              </div>
+              <div style={{ fontFamily: SANS, fontSize: 9.5, color: '#64748b', marginTop: 3, lineHeight: 1.25, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+            </div>
+          );
+        })}
+      </div>
+    </button>
+  );
+}
+
 // ── Daily Brief card row ──────────────────────────────────────────────────────
 function DailyBriefRow({ brief, onTap }) {
   const [press, setPress] = useState(false);
@@ -607,6 +663,8 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
             {g.ids.map((id) => D.cards[id]
               ? id === 'yield'
                 ? <YieldCardRow key={id} card={D.cards[id]} onTap={() => onOpen(id)} />
+                : id === 'crowdsignals'
+                ? <CrowdSignalsCardRow key={id} card={D.cards[id]} onTap={() => onOpen(id)} />
                 : <CardRow key={id} card={D.cards[id]} onTap={() => onOpen(id)} />
               : null
             )}
