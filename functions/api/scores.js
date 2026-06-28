@@ -20,7 +20,7 @@ const HEADERS = {
 const ALL_SYMBOLS = [
   'SPY','QQQ','RSP','QQEW','IVW','IVE',          // Regime + Leadership
   'RSPD',                                          // Breadth proxy
-  '^TYX','^TNX','^IRX','TLT','UUP',               // Yield
+  '^TYX','^TNX','^IRX','SHY','UUP',               // Yield
   'HYG','LQD','EMB',                               // Credit
   'ACWI','FEZ','AIA','ILF','EEM',                  // Global Flows \u2014 regional
   '^GSPTSE','EWU','EWG','EWQ','EWL','EWN','EWI','EWP',  // Global Flows \u2014 Europe countries
@@ -876,12 +876,11 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
 }
 
 function buildYield(q) {
-  const tyx = q['^TYX'], tnx = q['^TNX'], irx = q['^IRX'], uup = q['UUP'];
+  const tyx = q['^TYX'], tnx = q['^TNX'], irx = q['^IRX'], shy = q['SHY'];
 
   const yieldVal   = tyx?.price;
   const yieldRnd   = yieldVal != null ? Math.round(yieldVal * 100) / 100 : null;
   const yieldStat  = yieldRnd == null ? 'neutral' : yieldRnd >= 5 ? 'bearish' : yieldRnd > 4.5 ? 'neutral' : 'bullish';
-  const uupBull    = uup && uup.price < uup.sma200;
 
   const curveSpread  = tnx?.price != null && irx?.price != null ? tnx.price - irx.price : null;
   const curveStatus  = curveSpread == null ? 'neutral' : curveSpread < 0 ? 'bearish' : curveSpread < 1 ? 'neutral' : 'bullish';
@@ -893,14 +892,14 @@ function buildYield(q) {
 
   const rows = [
     {
-      label: '30Y Benchmark',
+      label: '30Y Yield',
       indicator: 'US 30-Year Yield (^TYX)',
       value: yieldVal ? yieldVal.toFixed(2) + '%' : '\u2014',
       condition: yieldRnd == null ? '\u2014' : yieldRnd >= 5 ? 'At/Above 5% \u2014 Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% \u2014 Reduce Duration Risk' : 'Below 5% \u2014 Multiples Supported',
       status: yieldStat,
     },
     {
-      label: '10Y Benchmark',
+      label: '10Y Yield',
       indicator: 'US 10-Year Yield (^TNX)',
       value: tnx?.price ? tnx.price.toFixed(2) + '%' : '\u2014',
       condition: tnx?.price == null ? '\u2014'
@@ -921,11 +920,13 @@ function buildYield(q) {
       status: curveStatus,
     },
     {
-      label: 'Dollar Strength',
-      indicator: 'UUP \u2014 US Dollar ETF (DXY proxy)',
-      value: uup ? usd(uup.price) : '\u2014',
-      condition: uupBull ? 'Weakening \u2014 EM Positive' : (uup ? 'Strengthening \u2014 Multinational & EM Headwind' : '\u2014'),
-      status: uupBull ? 'bullish' : (uup ? 'bearish' : 'neutral'),
+      label: '2Y Trend',
+      indicator: 'SHY \u2014 1-3yr Treasury ETF vs 200d SMA',
+      value: shy?.price != null ? usd(shy.price) : '\u2014',
+      condition: shy?.vs200 == null ? '\u2014'
+        : shy.vs200 > 0 ? 'Above 200d \u2014 Short Rates Easing \u00b7 Fed Dovish'
+        : 'Below 200d \u2014 Short Rates Rising \u00b7 Fed Hawkish',
+      status: shy?.vs200 == null ? 'neutral' : shy.vs200 > 0 ? 'bullish' : 'bearish',
     },
   ];
   const status = yieldStat === 'bearish' ? 'bearish' : cardStatus(rows);
@@ -941,13 +942,13 @@ function buildYield(q) {
       : curveSpread < 0 ? ` The yield curve is inverted (${pct(curveSpread, 2)}) — historically, inversions precede recessions by 12–18 months; a hard landing remains a risk.`
       : curveSpread < 1 ? ` The yield curve is flat (${pct(curveSpread, 2)}) — transitioning from inversion; steepening would signal a recovery outlook.`
       : ` The yield curve is steepening (${pct(curveSpread, 2)}) — growth expectations are rebuilding; cyclicals historically outperform in this phase.`;
-    const sDollar = uup
-      ? ` The US dollar is ${uupBull ? 'weakening (UUP below 200d SMA) — a tailwind for EM assets, commodities, and US multinationals' : 'strengthening (UUP above 200d SMA) — a headwind for EM debt and international earnings'}.`
+    const sShy = shy?.vs200 != null
+      ? ` SHY (2yr Treasury ETF) is ${shy.vs200 > 0 ? 'above its 200d SMA — the short end is in an uptrend; the market is pricing Fed rate cuts or a pause' : 'below its 200d SMA — the short end is under pressure; the Fed remains in tightening mode'}.`
       : '';
     const sAction = yieldRnd != null
       ? (yieldRnd >= 5 ? ' Action: shorten duration, tilt to value, hold cash as a real asset.' : yieldRnd > 4.5 ? ' Action: reduce duration risk; favour short-dated bonds and dividend growers.' : ' Action: rates are supportive — maintain equity exposure and consider adding duration on dips.')
       : '';
-    return s30 + s10 + sCurve + sDollar + sAction;
+    return s30 + s10 + sCurve + sShy + sAction;
   })();
   const stats = [
     ['30Y Yield',    yieldVal   != null ? yieldVal.toFixed(2)          + '%' : '\u2014', '5% = equity headwind',    yieldStat    === 'bearish' ? 'neg' : yieldStat   === 'bullish' ? 'pos' : null],
@@ -1007,14 +1008,42 @@ function buildGlobalFlows(q) {
   const total = cardSyms.length;
   const gStatus = bull >= 6 ? 'bullish' : bull >= 4 ? 'neutral' : 'bearish';
 
-  const rows = cardDetails.map(({ sym, label, region, above, vs200Str, value }) => {
+  // Helper: build one regional row (ACWI and EEM get vs200 as lead value for card tile)
+  const makeRow = (sym, label, region) => {
+    const cd = cardDetails.find(d => d.sym === sym);
+    if (!cd) return null;
+    const { above, vs200Str, value } = cd;
     const condition = sym === 'ACWI'
       ? (above ? `Bull Market Intact (${vs200Str}) \u2014 Stay Invested`  : `Bear Market Signal (${vs200Str}) \u2014 Raise Cash`)
       : sym === 'EEM'
       ? (above ? `EM Risk-On (${vs200Str}) \u2014 Add EM Exposure`        : `EM Risk-Off (${vs200Str}) \u2014 Reduce EM`)
       : (above ? `Uptrend (${vs200Str}) \u2014 Overweight`                : `Downtrend (${vs200Str}) \u2014 Underweight`);
-    return { label: region, indicator: `${label} (${sym})`, value, condition, status: above ? 'bullish' : 'bearish' };
-  });
+    const displayValue = (sym === 'ACWI' || sym === 'EEM') && vs200Str !== '\u2014'
+      ? `${vs200Str}<br>${value}`
+      : value;
+    return { label: region, indicator: `${label} (${sym})`, value: displayValue, condition, status: above ? 'bullish' : 'bearish' };
+  };
+
+  const rows = [
+    // rows[0-2]: KPI rows shown on card tile
+    {
+      label: 'Regional Bull',
+      indicator: `${bull}/${total} indexes above 200d SMA`,
+      value: `${bull} / ${total}`,
+      condition: bull >= 6 ? 'Synchronized Expansion \u2014 Full Allocation'
+        : bull >= 4 ? 'Partial Expansion \u2014 Favour Leaders'
+        : 'Global Weakness \u2014 Raise Cash',
+      status: gStatus,
+    },
+    makeRow('ACWI',    'MSCI ACWI',      'Global'),
+    makeRow('EEM',     'Emerging Mkts',  'Emerging'),
+    // rows[3-7]: remaining regional rows (shown in deep dive Indicators table)
+    makeRow('SPY',     'S&P 500',        'USA'),
+    makeRow('^GSPTSE', 'S&P/TSX',        'Canada'),
+    makeRow('FEZ',     'Euro STOXX 50',  'Europe'),
+    makeRow('AIA',     'Asia 50',        'Asia'),
+    makeRow('ILF',     'LatAm 40',       'LatAm'),
+  ].filter(Boolean);
 
   // ── Country deep-dive details ──────────────────────────────────────────────
   const details = countrySyms.map(({ sym, label, group }) => {
@@ -1055,7 +1084,7 @@ function buildGlobalFlows(q) {
     ['ACWI vs 200d',  acwiDetail?.vs200Str || '\u2014',   'global market proxy',    acwiDetail?.above ? 'pos' : 'neg'],
     ['Emerg. Mkts',   eemDetail?.vs200Str  || '\u2014',   'EM risk appetite',       eemDetail?.above  ? 'pos' : 'neg'],
   ];
-  return { id: 'globalflows', number: 7, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, stats, details, hideIndicator: true, note: flowNote };
+  return { id: 'globalflows', number: 8, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, stats, details, hideIndicator: true, note: flowNote };
 }
 
 function buildSectors(q) {
@@ -1172,7 +1201,7 @@ function buildSectors(q) {
     ['Cyclicals',  `${cycBull} / ${cycRows.length}`,  'above 200d SMA',  cycBull >= 5 ? 'pos' : cycBull < 3 ? 'neg' : null],
     ['Defensives', `${defBull} / ${defRows.length}`, 'above 200d SMA',  defBull >= 3 ? 'neg' : defBull <= 1 ? 'pos' : null],
   ];
-  return { id: 'sectors', number: 8, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, stats, allRows, hideIndicator: true, note: sectNote };
+  return { id: 'sectors', number: 9, title: 'Sectors', subtitle: 'The Rotation', status: sectStatus, rows, stats, allRows, hideIndicator: true, note: sectNote };
 }
 
 function buildCommodities(q, commCtx) {
@@ -1350,7 +1379,7 @@ function buildCommodities(q, commCtx) {
       ['USCI Extension Velocity', velStr,                                                     '10d ROC of stretch',     velTone],
     );
   }
-  return { id: 'commodities', number: 9, title: 'Commodities', subtitle: 'The Growth Engine',
+  return { id: 'commodities', number: 10, title: 'Commodities', subtitle: 'The Growth Engine',
     status, rows, stats, hideIndicator: true, note: commNote, commDeltas: commCtx?.deltas ?? null };
 }
 
@@ -1438,7 +1467,7 @@ function buildEquities(q) {
     ['Russell 2000',    iwmVs200,              'small-cap risk appetite', iwm?.vs200 != null ? (iwmAbove ? 'pos' : 'neg') : null],
     ['Freeport (FCX)',  fcxVs200,              'copper / global growth',  fcx?.vs200 != null ? (fcxAbove ? 'pos' : 'neg') : null],
   ];
-  return { id: 'equities', number: 10, title: 'Equities', subtitle: 'The Execution Layer',
+  return { id: 'equities', number: 11, title: 'Equities', subtitle: 'The Execution Layer',
     status, rows, stats, hideIndicator: true, note: equityNote };
 }
 
@@ -1462,7 +1491,7 @@ function buildCredit(q, creditCtx) {
       label: 'Risk Appetite',
       indicator: 'HYG \u2014 High Yield Corp Bond ETF',
       value: hyg?.vs200 != null
-        ? `HYG&nbsp;${pct(hyg.vs200)}<br>${usd(hyg.price)}`
+        ? `${pct(hyg.vs200)}<br>${usd(hyg.price)}`
         : hyg ? usd(hyg.price) : '\u2014',
       condition: hygBull == null ? '\u2014' : hygBull ? 'Above 200d \u2014 Appetite Healthy' : 'Below 200d \u2014 Risk Signal',
       status: hygBull == null ? 'neutral' : hygBull ? 'bullish' : 'bearish',
@@ -1471,7 +1500,7 @@ function buildCredit(q, creditCtx) {
       label: 'Credit Quality',
       indicator: 'LQD \u2014 Investment Grade Bond ETF',
       value: lqd?.vs200 != null
-        ? `LQD&nbsp;${pct(lqd.vs200)}<br>${usd(lqd.price)}`
+        ? `${pct(lqd.vs200)}<br>${usd(lqd.price)}`
         : lqd ? usd(lqd.price) : '\u2014',
       condition: lqdBull == null ? '\u2014' : lqdBull ? 'Above 200d \u2014 Credit Quality Firm' : 'Below 200d \u2014 Credit Quality Weak',
       status: lqdBull == null ? 'neutral' : lqdBull ? 'bullish' : 'bearish',
@@ -1480,7 +1509,7 @@ function buildCredit(q, creditCtx) {
       label: 'Global Credit',
       indicator: 'EMB \u2014 EM USD Bond ETF (JP Morgan)',
       value: emb?.vs200 != null
-        ? `EMB&nbsp;${pct(emb.vs200)}<br>${usd(emb.price)}`
+        ? `${pct(emb.vs200)}<br>${usd(emb.price)}`
         : emb ? usd(emb.price) : '\u2014',
       condition: embBull == null ? '\u2014' : embBull
         ? 'Above 200d \u2014 EM Credit Stable'
@@ -1495,7 +1524,7 @@ function buildCredit(q, creditCtx) {
       label: 'Spread Signal',
       indicator: 'HYG vs LQD \u2014 HY vs IG (200d basis)',
       value: hyg?.vs200 != null && lqd?.vs200 != null
-        ? `HYG&nbsp;${pct(hyg.vs200)}<br>LQD&nbsp;${pct(lqd.vs200)}`
+        ? `${pct(hyg.vs200)}<br>${pct(lqd.vs200)}`
         : '\u2014',
       condition: spreadTightening == null ? '\u2014' : spreadTightening ? 'HY Outperforming IG \u2014 Rate-Driven' : 'IG Outperforming HY \u2014 Credit-Driven',
       status: spreadTightening == null ? 'neutral' : spreadTightening ? 'bullish' : 'bearish',
@@ -1576,6 +1605,21 @@ function placeholderCard(num, title, subtitle) {
 }
 
 // ── DELTA ─────────────────────────────────────────────────────────────────────
+
+// Reconstruct weighted composite pct (0–1) from a stored {id: status} map,
+// using the same SIGNAL_CATEGORIES weights as buildAggregate.
+function computeWeightedPct(statuses) {
+  let pct = 0;
+  for (const cat of SIGNAL_CATEGORIES) {
+    const catStatuses = cat.ids.map(id => statuses[id]).filter(Boolean);
+    if (!catStatuses.length) continue;
+    const bull = catStatuses.filter(s => s === 'bullish').length;
+    const neu  = catStatuses.filter(s => s === 'neutral').length;
+    pct += (bull + neu * 0.5) / catStatuses.length * cat.weight;
+  }
+  return pct;
+}
+
 function computeDeltas(current, previous) {
   const rank = { bullish: 2, neutral: 1, bearish: 0 };
   const out = {};
@@ -1626,14 +1670,41 @@ function buildAggregate(cards) {
                     + (byKey.participation?.pct  ?? 0) * 0.3
                     + (byKey.macro?.pct          ?? 0) * 0.3;
 
-  const glow  = weightedPct >= 0.75 ? 'green' : weightedPct >= 0.55 ? 'yellow' : 'red';
-  const label = weightedPct >= 0.75 ? 'Risk-On \u2014 Broad Participation' : weightedPct >= 0.55 ? 'Mixed Signals \u2014 Selective' : 'Risk-Off \u2014 Reduce Exposure';
+  const glow    = weightedPct >= 0.75 ? 'green' : weightedPct >= 0.55 ? 'yellow' : 'red';
+  const label   = weightedPct >= 0.75 ? 'Risk-On \u2014 Broad Participation' : weightedPct >= 0.55 ? 'Mixed Signals \u2014 Selective' : 'Risk-Off \u2014 Reduce Exposure';
   const posture = weightedPct >= 0.75 ? 'Risk-On, Not Complacent' : weightedPct >= 0.55 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
 
   const regimeBearish = byId['regime']?.status === 'bearish';
 
+  // Divergence: fire when any two categories are ≥2 glow levels apart (green=2, yellow=1, red=0).
+  // That means one category is fully green AND another is fully red — a rare, meaningful split.
+  // Priority: trend vs macro > trend vs participation > participation vs macro.
+  const glowLevel = { green: 2, yellow: 1, red: 0 };
+  const DIV_MSG = {
+    'trend-macro':           ['Trend intact but macro conditions are restrictive — upside may be capped.',
+                              'Macro conditions improving but the primary trend is broken — wait for confirmation.'],
+    'trend-participation':   ['Narrow rally — breadth is not confirming trend strength. Historically fragile.',
+                              'Broad participation without a confirmed trend — potential early-recovery signal.'],
+    'participation-macro':   ['Broad participation but macro headwinds remain — be selective on duration.',
+                              'Macro is constructive but breadth is absent — sector selection is critical.'],
+  };
+  let divergence = null;
+  for (const [a, b] of [['trend','macro'],['trend','participation'],['participation','macro']]) {
+    const la = glowLevel[byKey[a]?.glow ?? 'yellow'];
+    const lb = glowLevel[byKey[b]?.glow ?? 'yellow'];
+    if (Math.abs(la - lb) >= 2) {
+      const msgs = DIV_MSG[`${a}-${b}`];
+      divergence = {
+        high: byKey[la > lb ? a : b]?.label,
+        low:  byKey[la > lb ? b : a]?.label,
+        message: la > lb ? msgs[0] : msgs[1],
+      };
+      break;
+    }
+  }
+
   return { bullish: counts.bullish, neutral: counts.neutral, bearish: counts.bearish,
-    score: `${(weightedPct * 10).toFixed(1)}/10`, label, posture, glow, categories, regimeBearish };
+    score: `${(weightedPct * 10).toFixed(1)}/10`, label, posture, glow, categories, regimeBearish, divergence };
 }
 
 // ── HANDLER ───────────────────────────────────────────────────────────────────
@@ -1708,6 +1779,7 @@ export async function onRequest(context) {
   ];
 
   // ── DELTA: compare today vs previous trading day ───────────────────────────
+  let scoreDirection = 'same';
   if (kv) {
     try {
       const today = new Date().toISOString().slice(0, 10);
@@ -1720,15 +1792,26 @@ export async function onRequest(context) {
       cards.forEach(c => { todayStatuses[c.id] = c.status; });
 
       let deltas = {};
+      let prevStatuses = null;
       if (!current || current.date < today) {
+        prevStatuses = current?.statuses ?? null;
         if (current) await kv.put('card-statuses:previous', JSON.stringify(current));
         await kv.put('card-statuses:current', JSON.stringify({ date: today, statuses: todayStatuses }));
         if (current) deltas = computeDeltas(todayStatuses, current.statuses);
       } else {
+        prevStatuses = previous?.statuses ?? null;
         if (previous) deltas = computeDeltas(todayStatuses, previous.statuses);
       }
 
       cards.forEach(c => { c.delta = deltas[c.id] || 'same'; });
+
+      if (prevStatuses) {
+        const todayPct = computeWeightedPct(todayStatuses);
+        const prevPct  = computeWeightedPct(prevStatuses);
+        scoreDirection = todayPct > prevPct + 0.049 ? 'up'
+                       : todayPct < prevPct - 0.049 ? 'down'
+                       : 'same';
+      }
     } catch { /* non-fatal */ }
   }
 
@@ -1736,10 +1819,13 @@ export async function onRequest(context) {
     : missing.length === 0 ? 'd1'
     : 'd1+yahoo';
 
+  const agg = buildAggregate(cards);
+  agg.scoreDirection = scoreDirection;
+
   const body = JSON.stringify({
     timestamp: new Date().toISOString(),
     source,
-    aggregate: buildAggregate(cards),
+    aggregate: agg,
     cards,
   });
 
