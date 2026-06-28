@@ -16,11 +16,12 @@ const HEADERS = {
   'Referer': 'https://finance.yahoo.com/',
 };
 
-// ── ALL SYMBOLS NEEDED ACROSS 9 CARDS ────────────────────────────────────────
+// ── ALL SYMBOLS NEEDED ACROSS 11 CARDS ───────────────────────────────────────
 const ALL_SYMBOLS = [
   'SPY','QQQ','RSP','QQEW','IVW','IVE',          // Regime + Leadership
   'RSPD',                                          // Breadth proxy
-  '^TYX','^TNX','^IRX','SHY','UUP',               // Yield
+  '^TYX','^TNX','^IRX','SHY',                     // Yield
+  'UUP','FXE','FXY',                               // Currency
   'HYG','LQD','EMB',                               // Credit
   'ACWI','FEZ','AIA','ILF','EEM',                  // Global Flows \u2014 regional
   '^GSPTSE','EWU','EWG','EWQ','EWL','EWN','EWI','EWP',  // Global Flows \u2014 Europe countries
@@ -1599,6 +1600,126 @@ function buildCredit(q, creditCtx) {
   };
 }
 
+function buildCurrency(q) {
+  const uup = q['UUP'];
+  const fxe = q['FXE'];
+  const fxy = q['FXY'];
+
+  // UUP above 200d = strong dollar = bearish (tightens global conditions)
+  // FXE above 200d = strong EUR    = bullish (global risk-on)
+  // FXY >+3% above 200d = sharp Yen rise = bearish (carry unwind risk); otherwise neutral
+  const uupStatus = uup?.vs200 == null ? 'neutral' : uup.vs200 > 0 ? 'bearish' : 'bullish';
+  const fxeStatus = fxe?.vs200 == null ? 'neutral' : fxe.vs200 > 0 ? 'bullish' : 'bearish';
+  const fxyStatus = fxy?.vs200 == null ? 'neutral' : fxy.vs200 > 3 ? 'bearish' : 'neutral';
+
+  const bulls = [uupStatus, fxeStatus, fxyStatus].filter(s => s === 'bullish').length;
+  const bears = [uupStatus, fxeStatus, fxyStatus].filter(s => s === 'bearish').length;
+  // JPY carry unwind overrides — single dominant risk signal that trumps USD/EUR balance
+  const status = fxyStatus === 'bearish' ? 'bearish'
+               : bulls >= 2 ? 'bullish'
+               : bears >= 2 ? 'bearish'
+               : 'neutral';
+
+  // FX Regime composite label
+  const uupAbove = uup?.vs200 != null && uup.vs200 > 0;
+  const fxeAbove = fxe?.vs200 != null && fxe.vs200 > 0;
+  const fxyAbove = fxy?.vs200 != null && fxy.vs200 > 3;
+  let regimeLabel, regimeCond, regimeStatus;
+  if (fxyAbove) {
+    regimeLabel  = 'Carry Unwind';
+    regimeCond   = 'JPY strengthening — carry unwind risk; watch for equity de-risk';
+    regimeStatus = 'bearish';
+  } else if (!uupAbove && fxeAbove) {
+    regimeLabel  = 'Risk-On';
+    regimeCond   = 'USD soft · EUR firm — supportive for EM and international equities';
+    regimeStatus = 'bullish';
+  } else if (uupAbove && !fxeAbove) {
+    regimeLabel  = 'Risk-Off';
+    regimeCond   = 'USD firm · EUR soft — tightening conditions; favour defensives';
+    regimeStatus = 'bearish';
+  } else if (!uupAbove && !fxeAbove) {
+    regimeLabel  = 'Soft Dollar';
+    regimeCond   = 'USD and EUR both soft — watch for regime clarity before positioning';
+    regimeStatus = 'neutral';
+  } else {
+    regimeLabel  = 'Mixed';
+    regimeCond   = 'USD and EUR both firm — no dominant FX trend; selective approach';
+    regimeStatus = 'neutral';
+  }
+
+  const rows = [
+    {
+      label: 'USD Trend',
+      indicator: 'UUP — US Dollar ETF (DXY proxy) vs 200d SMA',
+      value: pct(uup?.vs200),
+      condition: uup?.vs200 == null ? '—'
+        : uup.vs200 > 2  ? 'Above 200d — Dollar Strengthening · Tightening Conditions'
+        : uup.vs200 > 0  ? 'Above 200d — Dollar Firm · Mild Headwind'
+        : uup.vs200 > -2 ? 'Below 200d — Dollar Soft · Conditions Easing'
+        :                  'Below 200d — Dollar Weak · EM & Commodity Tailwind',
+      status: uupStatus,
+    },
+    {
+      label: 'EUR/USD',
+      indicator: 'FXE — Euro Currency ETF vs 200d SMA',
+      value: pct(fxe?.vs200),
+      condition: fxe?.vs200 == null ? '—'
+        : fxe.vs200 > 2  ? 'Above 200d — EUR Firm · European Risk-On'
+        : fxe.vs200 > 0  ? 'Above 200d — EUR Stable · Risk Appetite Intact'
+        : fxe.vs200 > -2 ? 'Below 200d — EUR Soft · Risk Appetite Fading'
+        :                  'Below 200d — EUR Weak · Global Risk Appetite Low',
+      status: fxeStatus,
+    },
+    {
+      label: 'JPY Carry',
+      indicator: 'FXY — Japanese Yen ETF vs 200d SMA',
+      value: pct(fxy?.vs200),
+      condition: fxy?.vs200 == null ? '—'
+        : fxy.vs200 > 3  ? 'Above 200d — Yen Rising · Carry Unwind Risk'
+        : fxy.vs200 > 0  ? 'Above 200d — Yen Firm · Monitor Carry Positions'
+        :                  'Below 200d — Yen Weak · Carry Trade Intact',
+      status: fxyStatus,
+    },
+    {
+      label: 'FX Regime',
+      indicator: 'USD · EUR · JPY composite signal',
+      value: regimeLabel,
+      condition: regimeCond,
+      status: regimeStatus,
+    },
+  ];
+
+  const currNote = (() => {
+    const sUup = uup?.vs200 == null ? 'The US Dollar (UUP) data is unavailable.'
+      : uup.vs200 > 0
+        ? `The US Dollar (UUP) is ${pct(uup.vs200)} above its 200d SMA — a strengthening dollar tightens global financial conditions, pressures EM debt, and creates an earnings headwind for US multinationals.`
+        : `The US Dollar (UUP) is ${pct(uup.vs200)} below its 200d SMA — a weakening dollar eases global conditions, supports EM assets and commodities, and is a tailwind for US exporters.`;
+    const sFxe = fxe?.vs200 != null
+      ? ` The Euro (FXE) is ${fxe.vs200 > 0 ? 'above' : 'below'} its 200d SMA (${pct(fxe.vs200)}) — ${fxe.vs200 > 0 ? 'EUR strength confirms global risk appetite is intact and European growth conditions are constructive' : 'EUR weakness signals reduced global risk appetite and a relative flight toward US dollar assets'}.`
+      : '';
+    const sFxy = fxy?.vs200 != null
+      ? fxy.vs200 > 3
+        ? ` The Yen (FXY) is ${pct(fxy.vs200)} above its 200d SMA — a sharply rising Yen is the key carry-trade unwind signal; prior episodes (Aug 2024, 2022) have caused sudden equity de-risking within days.`
+        : ` The Yen (FXY) is ${pct(fxy.vs200)} vs its 200d SMA — ${fxy.vs200 > 0 ? 'Yen is firming but the carry trade is not yet unwinding' : 'Yen is weak, confirming the carry trade is intact and providing a global liquidity tailwind'}.`
+      : '';
+    const sAction = status === 'bullish'
+      ? ' Action: FX conditions are supportive — favour EM and international equity exposure alongside domestic risk.'
+      : status === 'bearish'
+      ? ' Action: FX conditions are restrictive — reduce EM and international exposure, shorten duration, and monitor carry positions closely.'
+      : ' Action: mixed FX signals — maintain diversified exposure and watch UUP for trend confirmation.';
+    return sUup + sFxe + sFxy + sAction;
+  })();
+
+  const stats = [
+    ['UUP vs 200d', pct(uup?.vs200), 'USD vs 200d SMA',  uupStatus === 'bullish' ? 'pos' : uupStatus === 'bearish' ? 'neg' : null],
+    ['FXE vs 200d', pct(fxe?.vs200), 'EUR vs 200d SMA',  fxeStatus === 'bullish' ? 'pos' : fxeStatus === 'bearish' ? 'neg' : null],
+    ['FXY vs 200d', pct(fxy?.vs200), 'JPY carry signal',  fxyStatus === 'bearish' ? 'neg' : null],
+  ];
+
+  return { id: 'currency', number: 7, title: 'Currency', subtitle: 'The FX Regime',
+    status, rows, stats, hideIndicator: true, note: currNote };
+}
+
 function placeholderCard(num, title, subtitle) {
   return { id: title.toLowerCase(), number: num, title, subtitle, status: 'neutral',
     rows: [{ label: '\u2014', indicator: 'Data unavailable', value: '\u2014', condition: '\u2014', status: 'neutral' }] };
@@ -1636,7 +1757,7 @@ function computeDeltas(current, previous) {
 const SIGNAL_CATEGORIES = [
   { key: 'trend',         label: 'Trend / Momentum',  ids: ['regime', 'leadership', 'sectors', 'equities'], weight: 0.4 },
   { key: 'participation', label: 'Participation',      ids: ['breadth', 'globalflows', 'commodities'],       weight: 0.3 },
-  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit'],               weight: 0.3 },
+  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit', 'currency'],   weight: 0.3 },
 ];
 
 function buildAggregate(cards) {
@@ -1771,6 +1892,7 @@ export async function onRequest(context) {
     buildBreadth(q, breadthData, breadthCtx),
     buildValuations(shiller, buffett, forwardPe, japanPe),
     buildYield(q),
+    buildCurrency(q),
     buildGlobalFlows(q),
     buildSectors(q),
     buildCommodities(q, commCtx),

@@ -186,12 +186,49 @@ These four cards had a template interpolation bug (count was missing from the st
 | 04 | Valuations | ✅ (majority-wins on rows[0..2] only; Japan P/E excluded — deep-dive context only) | ✅ (Trailing P/E 3-band; CAPE 4-band; Buffett 3-band; Japan P/E relative) | ✅ | ✅ |
 | 05 | Yield | ✅* (partial override: if 30Y ≥ 5% → card bearish; else majority-wins) | ✅ (30Y 3-band; 10Y 3-band; Curve 3-band) | ✅ | ✅ |
 | 06 | Credit | ✅ (threshold: ≥3 bullish → bullish; ≥2 → neutral; else bearish) | ✅ (EMB 3-tier below-200d conditions) | ✅ | ✅ |
-| 07 | Global Flows | ✅* (bull-count threshold: ≥6 → bullish, ≥4 → neutral, else bearish) | ✅ (ACWI/EEM binary; all others above/below 200d) | ✅ | ✅ |
-| 08 | Sectors | ✅* (cycVsDef spread: >+1% → bullish, <-1% → bearish, else neutral) | ✅ (cyclical 3-way; defensive 3-way; Gold/Silver inverted) | ✅ | ✅ |
-| 09 | Commodities | ✅ (bull-count: ≥6 → bullish, ≥4 → neutral, else bearish; Gold/Silver use macro-signal status) | ✅ (Gold 3-band inverted; Agriculture 3-band; Uranium 3-band) | ✅ | ✅ |
-| 10 | Equities | ✅ (bull-count of above-both-MAs: ≥7 → bullish, ≥5 → neutral, else bearish) | ✅ (3-tier: above-both / above-200d-only / below-200d) | ✅ | ✅ |
+| 07 | Currency | ✅* (JPY override: carry unwind trumps USD/EUR balance; else majority-wins on 3 tones) | ✅ (UUP/FXE 2-band above/below 200d; FXY 2-band >+3% threshold; FX Regime 5-state composite) | ✅ | ✅ |
+| 08 | Global Flows | ✅* (bull-count threshold: ≥6 → bullish, ≥4 → neutral, else bearish) | ✅ (ACWI/EEM binary; all others above/below 200d) | ✅ | ✅ |
+| 09 | Sectors | ✅* (cycVsDef spread: >+1% → bullish, <-1% → bearish, else neutral) | ✅ (cyclical 3-way; defensive 3-way; Gold/Silver inverted) | ✅ | ✅ |
+| 10 | Commodities | ✅ (bull-count: ≥6 → bullish, ≥4 → neutral, else bearish; Gold/Silver use macro-signal status) | ✅ (Gold 3-band inverted; Agriculture 3-band; Uranium 3-band) | ✅ | ✅ |
+| 11 | Equities | ✅ (bull-count of above-both-MAs: ≥7 → bullish, ≥5 → neutral, else bearish) | ✅ (3-tier: above-both / above-200d-only / below-200d) | ✅ | ✅ |
 
 `✅*` = intentional custom/override logic, not a plain `cardStatus(rows)` call — documented inline in `scores.js` with a why-comment.
+
+---
+
+## Mini sparkline colors (desktop-app.jsx)
+
+Each card tile has a mini sparkline in the top-right corner. Most are multi-series SVG components defined in `desktop-app.jsx`; two fall back to the generic `SparkD` (single line, card status color). Colors are fixed per-series and must match the corresponding deep-dive chart.
+
+**Color standard** — 1 line: purple. 2 lines: purple + cyan. 3 lines: purple + cyan + green. The bottom layer (drawn first) is always purple so it reads as the primary series.
+
+| Card | Component | Series | Color |
+|---|---|---|---|
+| 01 Regime | `RegimeMiniSpark` | 200d SMA | `#a855f7` purple |
+| | | SPY | `#22d3ee` cyan |
+| 02 Leadership | `LeadershipMiniSpark` | RSP (equal-weight) | `#a855f7` purple |
+| | | SPY (cap-weight) | `#22d3ee` cyan |
+| 03 Breadth | `BreadthMiniSpark` | MMTH (% above 200d) | `#a855f7` purple |
+| | | MMFI (% above 50d) | `#22d3ee` cyan |
+| 04 Valuations | `SparkD` | CAPE (single line) | `#a855f7` purple |
+| 05 Yield | `YieldMiniSpark` | 30Y `^TYX` | `#a855f7` purple |
+| | | 10Y `^TNX` | `#22d3ee` cyan |
+| | | 2Y treasury | `#22c55e` green |
+| 06 Credit | `CreditMiniSpark` | HYG (high yield) | `#a855f7` purple |
+| | | LQD (investment grade) | `#22d3ee` cyan |
+| | | EMB (EM bonds) | `#22c55e` green |
+| 07 Currency | `SparkD` | UUP (single line) | `#a855f7` purple |
+| 08 Global Flows | `GlobalFlowsMiniSpark` | ACWI (global) | `#a855f7` purple |
+| | | EEM (emerging) | `#22d3ee` cyan |
+| 09 Sectors | `SectorsMiniSpark` | Cyclicals | `#a855f7` purple |
+| | | Defensives | `#22d3ee` cyan |
+| 10 Commodities | `CommoditiesMiniSpark` | USCI | `#22d3ee` cyan |
+| | | 200d SMA | `#a855f7` purple |
+| 11 Equities | `EquitiesMiniSpark` | IWM (Russell 2000) | `#a855f7` purple |
+| | | FCX (Freeport) | `#22d3ee` cyan |
+| | | GDX (Gold Miners) | `#22c55e` green |
+
+**Rule:** when adding a new `MiniSpark` component, update the ternary in **all three** locations in `desktop-app.jsx` — `ScoreTile`, `OptionWorkspace`, and `OptionGlancePage`. Missing one causes the sparkline to silently fall back to `SparkD` in that layout.
 
 ---
 

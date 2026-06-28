@@ -297,12 +297,11 @@
       weight: Math.round((cat.weight || 0) * 100) + '%',
       cards: (cat.cards || []).map((c) => c.status),
     }));
-    // Inject seed-only cards the API doesn't return yet (e.g. currency).
-    // When /api/scores eventually returns them, byId already has their value and this is a no-op.
+    // Inject seed-only cards the API doesn't return (crowdsignals only — currency is now in /api/scores).
     const seedCards = (window.GLANCE || {}).cards || {};
     ['currency', 'crowdsignals'].forEach(id => { if (!byId[id] && seedCards[id]) byId[id] = seedCards[id]; });
-    // Currency is a Macro Conditions signal — inject it into the display category and exec counts.
-    // (Server-side composite score stays unchanged; this only affects client-side display.)
+    // Currency is a Macro Conditions signal — inject into display category and exec counts when
+    // it comes from the seed fallback (API already includes it in categories when server-side).
     const macroIdx = categories.findIndex((c) => /macro/i.test(c.label));
     const currencyStatus = byId['currency']?.status;
     if (currencyStatus) {
