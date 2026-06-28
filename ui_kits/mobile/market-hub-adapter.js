@@ -44,7 +44,9 @@
   function asOfLabel() { return new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
   function stripHtml(s) {
     if (!s) return '';
-    return String(s).split(/<br\s*\/?>/i)[0].replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
+    // Split on newline OR <br> — Leadership rows encode spread + breakdown as "spread\nRSP… SPY…"
+    const first = String(s).split(/\n|<br\s*\/?>/i)[0];
+    return first.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
   }
 
   function mapCard(c) {
