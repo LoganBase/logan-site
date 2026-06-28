@@ -719,6 +719,20 @@ function DeepChart({ card, cardId, color }) {
   );
 }
 
+// ── Error boundary for diagnostics ───────────────────────────────────────────
+class DiagBoundary extends React.Component {
+  constructor(p) { super(p); this.state = { err: null }; }
+  static getDerivedStateFromError(e) { return { err: e ? (e.message || String(e)) : 'unknown' }; }
+  render() {
+    if (this.state.err) return (
+      <div style={{ background: '#1a0a0a', border: '1px solid #ef4444', borderRadius: 12, padding: '10px 14px', fontFamily: MONO, fontSize: 11, color: '#ef4444', wordBreak: 'break-all' }}>
+        Diagnostics error: {this.state.err}
+      </div>
+    );
+    return this.props.children;
+  }
+}
+
 // ── Structural card deep-dive ─────────────────────────────────────────────────
 function DeepDive({ card, cardId, onBack }) {
   const sig = SIG[card.status] || SIG.neutral;
@@ -764,9 +778,11 @@ function DeepDive({ card, cardId, onBack }) {
             {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 26, height: 17, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
           </div>
         )}
-        <DiagnosticsSection cardId={cardId} card={card} />
+        <DiagBoundary>
+          <DiagnosticsSection cardId={cardId} card={card} />
+        </DiagBoundary>
         <div>
-          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Indicators</div>
+          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Indicators ▼</div>
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>
             {card.rows.map((r, i) => {
               const rs = SIG[r[3]] || SIG.neutral;
