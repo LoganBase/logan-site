@@ -170,7 +170,6 @@ function CardRow({ card, onTap }) {
         transition: 'transform .12s ease', borderLeft: `3px solid ${sig.c}`, width: '100%', boxSizing: 'border-box' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%' }}>
         <span style={{ fontFamily: SANS, fontSize: 14.5, fontWeight: 600, color: '#e8edf5', flex: 1, minWidth: 0 }}>{card.title}</span>
-        <Spark seed={card.seed} trend={card.trend} color={sig.c} w={50} h={18} />
         <svg width="7" height="12" viewBox="0 0 7 12" style={{ flexShrink: 0 }}><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
