@@ -63,6 +63,298 @@ function sentimentColor(s) {
   if (s == null) return '#f59e0b';
   return s >= 2 ? '#22c55e' : s <= -2 ? '#ef4444' : '#f59e0b';
 }
+function _tc(st) { return st === 'bullish' ? '#22c55e' : st === 'bearish' ? '#ef4444' : '#f59e0b'; }
+
+// ── Market Diagnostics (pure functions — same logic as desktop-parts.jsx) ────
+function buildRegimeDiagnostics(card) {
+  const rows = card.rows || [], stats = card.stats || [];
+  const r1 = rows[0], r2 = rows[1], r3 = rows[2];
+  const findStat = (l) => stats.find((s) => s[0] === l);
+  const pctStat = findStat('Percentile Rank'), durStat = findStat('Regime Duration'), velStat = findStat('Extension Velocity');
+  const tS = (st) => st === 'bullish' ? '#22c55e' : st === 'bearish' ? '#ef4444' : '#f59e0b';
+  const tT = (t)  => t  === 'pos'     ? '#22c55e' : t  === 'neg'     ? '#ef4444' : '#f59e0b';
+  const pN = pctStat ? parseInt(pctStat[1], 10) : null;
+  const dN = durStat ? parseInt(durStat[1], 10) : null;
+  const vN = velStat ? parseFloat(velStat[1])   : null;
+  const pA = pN == null ? null : pN >= 90 ? 'Reduce Exposure' : pN >= 70 ? 'Monitor for Reversion' : pN <= 10 ? 'Watch for Bounce' : pN <= 30 ? 'Watch for Reversal' : 'No Action';
+  const dA = dN == null ? null : dN > 250 ? 'Trail Stops' : dN > 60 ? 'Hold Core' : dN < 10 ? 'Await Confirmation' : 'Monitor';
+  const vA = vN == null ? null : vN > 0.05 ? 'Monitor Stretch' : vN < -0.05 ? 'Pressure Easing' : 'No Signal Change';
+  return [
+    { label: 'SPY Regime',         a: r1 ? r1[2] : '—', c: r1 ? tS(r1[3]) : '#94a3b8' },
+    { label: 'Stretch Risk',       a: r2 ? r2[2] : '—', c: r2 ? tS(r2[3]) : '#94a3b8' },
+    { label: 'Trend Cross',        a: r3 ? r3[2] : '—', c: r3 ? tS(r3[3]) : '#94a3b8' },
+    { label: 'Percentile Rank',    a: pctStat ? `${pctStat[1]} percentile — ${pA}` : '—', c: pctStat ? tT(pctStat[3]) : '#94a3b8' },
+    { label: 'Regime Duration',    a: durStat ? `${durStat[1]} ${durStat[2]} — ${dA}` : '—', c: durStat ? tT(durStat[3]) : '#94a3b8' },
+    { label: 'Extension Velocity', a: velStat ? `${velStat[1]} (${velStat[2]}) — ${vA}` : '—', c: velStat ? tT(velStat[3]) : '#94a3b8' },
+  ];
+}
+function buildLeadershipDiagnostics(card) {
+  const rows = card.rows || [], stats = card.stats || [];
+  const tS = (st) => st === 'bullish' ? '#22c55e' : st === 'bearish' ? '#ef4444' : '#f59e0b';
+  const tT = (t)  => t  === 'pos'     ? '#22c55e' : t  === 'neg'     ? '#ef4444' : '#f59e0b';
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2];
+  const mktSt = stats.find(s => { const l = (s[0]||'').toLowerCase(); return !l.includes('streak') && !l.includes('tech') && !l.includes('qqew') && !l.includes('qqq') && !l.includes('growth') && !l.includes('style'); });
+  const strSt = stats.find(s => (s[0]||'').toLowerCase().includes('streak'));
+  const techSt = stats.find(s => { const l = (s[0]||'').toLowerCase(); return l.includes('tech') || l.includes('qqew') || l.includes('qqq'); });
+  return [
+    { label: 'Market Breadth', a: r0 ? (r0[2] || '—') : '—', c: r0 ? tS(r0[3]) : '#94a3b8' },
+    { label: 'Tech Breadth',   a: r1 ? (r1[2] || '—') : '—', c: r1 ? tS(r1[3]) : '#94a3b8' },
+    { label: 'Style Bias',     a: r2 ? (r2[2] || '—') : '—', c: r2 ? tS(r2[3]) : '#94a3b8' },
+    { label: 'Market Spread',  a: mktSt  ? `${mktSt[1]}  —  ${mktSt[2]}`  : '—', c: mktSt  ? tT(mktSt[3])  : '#94a3b8' },
+    { label: 'Tech Spread',    a: techSt ? `${techSt[1]}  —  ${techSt[2]}` : '—', c: techSt ? tT(techSt[3]) : '#94a3b8' },
+    { label: 'Daily Streak',   a: strSt  ? `${strSt[1]} ${strSt[2]}`       : '—', c: strSt  ? tT(strSt[3])  : '#94a3b8' },
+  ];
+}
+function buildBreadthDiagnostics(card) {
+  const rows = card.rows || [];
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2], r3 = rows[3];
+  const p0 = r0 ? parseFloat(r0[1]) : null, p1 = r1 ? parseFloat(r1[1]) : null;
+  const zone = p0 == null ? 'No data'
+    : p0 >= 70 ? `Bull Zone — ${p0.toFixed(1)}% above 200d; broad participation confirmed`
+    : p0 >= 40 ? `Mixed Zone — ${p0.toFixed(1)}% above 200d; market is bifurcating`
+    : `Bear Zone — ${p0.toFixed(1)}% above 200d; broad exposure carries elevated risk`;
+  const zoneC = p0 == null ? '#94a3b8' : p0 >= 70 ? '#22c55e' : p0 >= 40 ? '#f59e0b' : '#ef4444';
+  const align = p0 != null && p1 != null
+    ? (p0 >= 60 && p1 >= 60 ? 'Bullishly Aligned — both 50d and 200d breadth confirm the uptrend; durable setup'
+      : p0 < 40 && p1 < 40 ? 'Bearishly Aligned — both measures confirm deterioration; no near-term floor visible'
+      : Math.abs(p0 - p1) > 20 ? 'Diverging — watch the faster 50d SMA for an early-turn signal'
+      : 'Neutral Mix — no strong alignment; monitor for convergence') : '—';
+  const alignC = p0 != null && p1 != null ? (p0 >= 60 && p1 >= 60 ? '#22c55e' : p0 < 40 && p1 < 40 ? '#ef4444' : '#f59e0b') : '#94a3b8';
+  return [
+    { label: 'NYSE 200d Breadth',     a: r0 ? r0[2] : '—', c: r0 ? _tc(r0[3]) : '#94a3b8' },
+    { label: 'NYSE 50d Breadth',      a: r1 ? r1[2] : '—', c: r1 ? _tc(r1[3]) : '#94a3b8' },
+    { label: 'Sector Breadth',        a: r2 ? r2[2] : '—', c: r2 ? _tc(r2[3]) : '#94a3b8' },
+    { label: 'Consumer Health Check', a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
+    { label: 'Breadth Zone',          a: zone,              c: zoneC },
+    { label: '50d vs 200d Alignment', a: align,             c: alignC },
+  ];
+}
+function buildValuationsDiagnostics(card) {
+  const rows = card.rows || [];
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2], r3 = rows[3];
+  const cv = r1 ? parseFloat(r1[1]) : null;
+  const capeImpl = cv == null ? '—'
+    : cv > 35 ? `At ${cv.toFixed(1)}× — 10-year real returns historically 0–2% p.a.; favour cash flow over growth`
+    : cv > 25 ? `At ${cv.toFixed(1)}× — expected 10-year real returns below the ~6% historical average; quality bias is prudent`
+    : `At ${cv.toFixed(1)}× — near long-run average; forward return expectations are more normal`;
+  const capeC = cv == null ? '#94a3b8' : cv > 35 ? '#ef4444' : cv > 25 ? '#f59e0b' : '#22c55e';
+  const sts = rows.slice(0, 3).map(r => r ? r[3] : null).filter(Boolean);
+  const allBear = sts.length > 0 && sts.every(s => s === 'bearish');
+  const allBull = sts.length > 0 && sts.every(s => s === 'bullish');
+  const cons = allBear ? 'All Three Signals Bearish — valuation risk is broad-based; multiples are uniformly elevated'
+    : allBull ? 'All Three Signals Constructive — valuation metrics near average; near-normal expected returns'
+    : 'Mixed Signals — weight CAPE and Buffett Indicator over Trailing P/E for long-run return outlook';
+  return [
+    { label: 'Trailing P/E (S&P 500)', a: r0 ? r0[2] : '—', c: r0 ? _tc(r0[3]) : '#94a3b8' },
+    { label: 'CAPE (Shiller)',          a: r1 ? r1[2] : '—', c: r1 ? _tc(r1[3]) : '#94a3b8' },
+    { label: 'Buffett Indicator',       a: r2 ? r2[2] : '—', c: r2 ? _tc(r2[3]) : '#94a3b8' },
+    { label: 'Japan vs US Valuation',   a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
+    { label: 'CAPE Return Implication', a: capeImpl,          c: capeC },
+    { label: 'Signal Consistency',      a: cons, c: allBear ? '#ef4444' : allBull ? '#22c55e' : '#f59e0b' },
+  ];
+}
+function buildYieldDiagnostics(card) {
+  const rows = card.rows || [];
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2], r3 = rows[3];
+  const y30 = r0 ? parseFloat(r0[1]) : null;
+  const thresh = y30 == null ? '—'
+    : y30 >= 5 ? `${y30.toFixed(2)}% — ABOVE the 5% critical level; equity multiple compression historically confirmed`
+    : y30 > 4.5 ? `${y30.toFixed(2)}% — approaching 5%; elevated but not yet at the critical threshold`
+    : `${y30.toFixed(2)}% — below 5%; long-duration assets and growth equities are supported`;
+  const threshC = y30 == null ? '#94a3b8' : y30 >= 5 ? '#ef4444' : y30 > 4.5 ? '#f59e0b' : '#22c55e';
+  const actionA = r0 && r2
+    ? (r0[3]==='bearish'&&r2[3]==='bearish' ? 'Both 30Y yield and curve are bearish — shorten duration aggressively, hold cash, avoid rate-sensitive sectors'
+      : r0[3]==='bullish'&&r2[3]==='bullish' ? 'Both 30Y yield and curve are constructive — maintain equity and bond exposure; duration is not a drag'
+      : 'Mixed signals — reduce new rate-sensitive adds; wait for yield level and curve to align') : '—';
+  const actionC = r0 && r2 ? (r0[3]==='bearish'&&r2[3]==='bearish' ? '#ef4444' : r0[3]==='bullish'&&r2[3]==='bullish' ? '#22c55e' : '#f59e0b') : '#94a3b8';
+  return [
+    { label: '30Y Yield (^TYX)',      a: r0 ? r0[2] : '—', c: r0 ? _tc(r0[3]) : '#94a3b8' },
+    { label: '10Y Yield (^TNX)',      a: r1 ? r1[2] : '—', c: r1 ? _tc(r1[3]) : '#94a3b8' },
+    { label: 'Yield Curve (3m–10Y)',  a: r2 ? r2[2] : '—', c: r2 ? _tc(r2[3]) : '#94a3b8' },
+    { label: '2Y Trend (SHY)',        a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
+    { label: '5% Threshold Check',    a: thresh,            c: threshC },
+    { label: 'Combined Rate Action',  a: actionA,           c: actionC },
+  ];
+}
+function buildCreditDiagnostics(card) {
+  const rows = card.rows || [];
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2], r3 = rows[3];
+  const leadA = r0 == null ? '—' : r0[3]==='bearish'
+    ? 'Active — HYG is below its 200d SMA; historically leads equity drawdowns by 4–6 weeks'
+    : 'Not Active — HYG is above its 200d SMA; no leading credit stress signal at this time';
+  const leadC = r0 == null ? '#94a3b8' : r0[3]==='bearish' ? '#ef4444' : '#22c55e';
+  const bc = rows.filter(r => r && r[3]==='bullish').length;
+  const actionA = bc >= 3 ? 'Credit is broadly constructive — maintain equity and HY exposure; watch HYG as the early warning system'
+    : bc >= 2 ? 'Mixed signals — stay selective; favour IG over HY and reduce EM bond duration'
+    : 'Credit risk is elevated — reduce HY exposure, shorten duration, shift toward IG or cash';
+  return [
+    { label: 'HYG — Risk Appetite',      a: r0 ? r0[2] : '—', c: r0 ? _tc(r0[3]) : '#94a3b8' },
+    { label: 'Spread Signal (HY vs IG)', a: r1 ? r1[2] : '—', c: r1 ? _tc(r1[3]) : '#94a3b8' },
+    { label: 'LQD — Investment Grade',   a: r2 ? r2[2] : '—', c: r2 ? _tc(r2[3]) : '#94a3b8' },
+    { label: 'EMB — EM Debt',            a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
+    { label: 'Leading Signal Status',    a: leadA, c: leadC },
+    { label: 'Portfolio Action',         a: actionA, c: bc >= 3 ? '#22c55e' : bc >= 2 ? '#f59e0b' : '#ef4444' },
+  ];
+}
+function buildGlobalFlowsDiagnostics(card) {
+  const rows = card.rows || [];
+  const byR = (lbl) => rows.find(r => (r[0]||'').toLowerCase() === lbl.toLowerCase());
+  const rG = byR('Global'), rU = byR('USA'), rE = byR('Europe'), rEm = byR('Emerging');
+  const bc = rows.filter(r => r[3]==='bullish').length;
+  const usVs = rU ? (rU[3]==='bullish'
+    ? 'US is above its 200d SMA — domestic leadership intact; a US-first allocation bias is justified until international breadth improves'
+    : 'US is below its 200d SMA — domestic leadership broken; consider reallocating toward regions still above their 200d SMA') : '—';
+  const globalAct = bc >= 6 ? 'Broad global expansion — maintain full international allocation; equal-weight regional exposure'
+    : bc >= 4 ? 'Partial expansion — favour the strongest regions; underweight those below their 200d SMA'
+    : bc >= 2 ? 'Global weakness — raise cash and shift toward the few regions with intact trends'
+    : 'Broad global weakness — underweight international equity; favour domestic or cash';
+  return [
+    { label: 'ACWI — Global Benchmark', a: rG  ? rG[2]  : '—', c: rG  ? _tc(rG[3])  : '#94a3b8' },
+    { label: 'USA (S&P 500)',            a: rU  ? rU[2]  : '—', c: rU  ? _tc(rU[3])  : '#94a3b8' },
+    { label: 'Europe (Euro STOXX)',      a: rE  ? rE[2]  : '—', c: rE  ? _tc(rE[3])  : '#94a3b8' },
+    { label: 'Emerging Markets (EEM)',   a: rEm ? rEm[2] : '—', c: rEm ? _tc(rEm[3]) : '#94a3b8' },
+    { label: 'US vs International',      a: usVs, c: rU ? _tc(rU[3]) : '#94a3b8' },
+    { label: 'Global Allocation Action', a: globalAct, c: bc >= 6 ? '#22c55e' : bc >= 4 ? '#f59e0b' : '#ef4444' },
+  ];
+}
+function buildSectorsDiagnostics(card) {
+  const rows = card.rows || [], stats = card.stats || [];
+  const sCyc = stats.find(s => (s[0]||'').toLowerCase().includes('cyclical vs') || (s[0]||'').toLowerCase().includes('cyc vs'));
+  const sCycs = stats.find(s => (s[0]||'').toLowerCase() === 'cyclicals');
+  const sDefs = stats.find(s => (s[0]||'').toLowerCase() === 'defensives');
+  const sv = sCyc ? parseFloat(sCyc[1]) : null;
+  const rW = rows.filter(r => r[5] != null && r[6] != null);
+  const abv = rW.filter(r => r[6] > r[5]).length;
+  const tot = rows.length || 11;
+  const bA = `${abv} of ${tot} sectors above their 200d SMA — ${abv >= 9 ? 'near-universal participation; regime is broadly supported' : abv >= 7 ? 'broad sector health; rally is well-supported — stay long' : abv >= 5 ? 'mixed participation; rally narrowing — concentrate in leaders' : abv >= 3 ? 'thin breadth; most sectors below trend — defensive posture warranted' : 'sector breakdown — raise cash and wait for breadth to recover'}`;
+  const bC = abv >= 7 ? '#22c55e' : abv >= 5 ? '#f59e0b' : '#ef4444';
+  const cyP = sCycs ? sCycs[1].split('/') : null;
+  const cyB = cyP ? parseInt(cyP[0].trim()) : null, cyT = cyP ? parseInt(cyP[1].trim()) : 7;
+  const cyC = sCycs ? (sCycs[3]==='pos' ? '#22c55e' : sCycs[3]==='neg' ? '#ef4444' : '#f59e0b') : '#94a3b8';
+  const cyA = cyB == null ? '—' : `${cyB} of ${cyT} cyclical sectors above 200d SMA — ${cyB >= 6 ? 'broad cyclical strength; overweight with high conviction' : cyB >= 4 ? 'majority in trend; selective cyclical exposure is warranted' : cyB === 3 ? 'mixed cyclical breadth; pick individual leaders only' : 'cyclicals breaking down; avoid broad cyclical ETFs'}`;
+  const deP = sDefs ? sDefs[1].split('/') : null;
+  const deB = deP ? parseInt(deP[0].trim()) : null, deT = deP ? parseInt(deP[1].trim()) : 4;
+  const deC = sDefs ? (sDefs[3]==='pos' ? '#22c55e' : sDefs[3]==='neg' ? '#ef4444' : '#f59e0b') : '#94a3b8';
+  const deA = deB == null ? '—' : `${deB} of ${deT} defensive sectors above 200d SMA — ${deB >= 4 ? 'full safe-haven bid; risk-off tilt is warranted' : deB === 3 ? 'strong defensive bid; lean defensive until cyclicals recapture 200d' : deB === 2 ? 'mixed defensive posture; stay balanced' : 'defensives not in trend; no safe-haven demand — risk-on supported'}`;
+  const top3 = rows.slice(0, 3);
+  const ldA = top3.length ? top3.map(r => `${r[0]} (${r[4] || '—'}): ${r[2]}`).join(' · ') : '—';
+  const stCyc = cyB != null && cyB >= 5, stDef = deB != null && deB >= 3;
+  const acA = sv == null ? '—' : sv > 3 && stCyc ? 'Strong Risk-On — overweight cyclicals; reduce defensives to minimum' : sv > 1 ? 'Risk-On Lean — favor cyclicals outpacing SPY; hold diversified core' : sv < -3 && stDef ? 'Strong Risk-Off — shift to defensives; reduce cyclicals; raise cash' : sv < -1 ? 'Defensive Lean — reduce cyclical overweight; let defensives anchor portfolio' : 'Neutral — no dominant rotation signal; stay diversified';
+  return [
+    { label: 'Rotation Signal',   a: sv == null ? '—' : `${(sv >= 0 ? '+' : '') + sv.toFixed(1)}% cyclical vs defensive spread — ${sv > 1 ? 'cyclicals leading; risk-on rotation confirmed' : sv < -1 ? 'defensives leading; risk-off rotation confirmed' : 'near parity; no clear rotation signal yet'}`, c: sv == null ? '#94a3b8' : sv > 1 ? '#22c55e' : sv < -1 ? '#ef4444' : '#f59e0b' },
+    { label: 'Sector Breadth',    a: bA, c: bC },
+    { label: 'Cyclical Health',   a: cyA, c: cyC },
+    { label: 'Defensive Posture', a: deA, c: deC },
+    { label: 'Sector Leaders',    a: ldA, c: '#22c55e' },
+    { label: 'Portfolio Action',  a: acA, c: sv == null ? '#94a3b8' : sv > 1 ? '#22c55e' : sv < -1 ? '#ef4444' : '#f59e0b' },
+  ];
+}
+function buildCommoditiesDiagnostics(card) {
+  const rows = card.rows || [], stats = card.stats || [];
+  const byL = (l) => rows.find(r => (r[0]||'').toLowerCase() === l.toLowerCase());
+  const rCu = byL('Copper'), rAu = byL('Gold'), rEn = byL('Energy'), rAg = byL('Agriculture');
+  const sBull = stats.find(s => (s[0]||'').toLowerCase().includes('bull'));
+  const bc = sBull ? parseInt(sBull[1]) : rows.filter(r => r[3]==='bullish').length;
+  const cgA = rCu && rAu
+    ? (rCu[3]==='bullish'&&rAu[3]!=='bullish' ? 'Copper leading gold — industrial demand exceeds safe-haven demand; risk-on regime confirmed'
+      : rAu[3]==='bullish'&&rCu[3]!=='bullish' ? 'Gold leading copper — safe-haven demand exceeds industrial growth; risk-off tilt warranted'
+      : rCu[3]==='bullish'&&rAu[3]==='bullish' ? 'Both above 200d — growth and uncertainty simultaneously elevated; stagflation environment'
+      : 'Both below 200d — neither growth nor safety is bid; cautious positioning appropriate') : '—';
+  const cgC = rCu && rAu ? (rCu[3]==='bullish'&&rAu[3]!=='bullish' ? '#22c55e' : rAu[3]==='bullish'&&rCu[3]!=='bullish' ? '#f59e0b' : rCu[3]==='bullish'&&rAu[3]==='bullish' ? '#f59e0b' : '#ef4444') : '#94a3b8';
+  const acA = bc >= 6 ? 'Broadly risk-on — overweight copper, energy, and industrial metals'
+    : bc >= 4 ? 'Mixed signals — selectively overweight commodity themes above 200d; avoid broad ETF exposure'
+    : 'Broadly weak — underweight real assets; wait for copper or energy to reclaim their 200d SMA';
+  return [
+    { label: 'Copper (CPER)',             a: rCu ? rCu[2] : '—', c: rCu ? _tc(rCu[3]) : '#94a3b8' },
+    { label: 'Gold (GLD)',                a: rAu ? rAu[2] : '—', c: rAu ? _tc(rAu[3]) : '#94a3b8' },
+    { label: 'Energy (IXC)',              a: rEn ? rEn[2] : '—', c: rEn ? _tc(rEn[3]) : '#94a3b8' },
+    { label: 'Agriculture (DBA)',         a: rAg ? rAg[2] : '—', c: rAg ? _tc(rAg[3]) : '#94a3b8' },
+    { label: 'Copper vs Gold (Key Read)', a: cgA, c: cgC },
+    { label: 'Portfolio Action',          a: acA, c: bc >= 6 ? '#22c55e' : bc >= 4 ? '#f59e0b' : '#ef4444' },
+  ];
+}
+function buildEquitiesDiagnostics(card) {
+  const rows = card.rows || [], stats = card.stats || [];
+  const bySym = (sym) => rows.find(r => (r[4]||'') === sym);
+  const rIwm = bySym('IWM'), rFcx = bySym('FCX'), rGdx = bySym('GDX');
+  const sBull = stats.find(s => (s[0]||'').toLowerCase().includes('names'));
+  const bc = sBull ? parseInt(sBull[1]) : rows.filter(r => r[3]==='bullish').length;
+  const tot = rows.length;
+  const execE = bc >= 7 ? 'Favourable — broad participation; execute longs with normal sizing across active themes'
+    : bc >= 5 ? 'Selective — majority of themes intact; add only on dips to 50d in names above 200d'
+    : bc >= 3 ? 'Cautious — fewer than half the themes intact; hold only high-conviction names with tight stops'
+    : 'Unfavourable — most names below their MAs; stand aside and wait for MA recapture';
+  const execC = bc >= 7 ? '#22c55e' : bc >= 5 ? '#f59e0b' : '#ef4444';
+  const riskA = rIwm && rFcx
+    ? (rIwm[3]==='bullish'&&rFcx[3]==='bullish' ? 'High — small caps and copper both active; risk appetite is broad and global growth is confirmed'
+      : (rIwm[3]==='bullish'||rFcx[3]==='bullish') ? 'Moderate — one of the two growth signals is intact; selective exposure is appropriate'
+      : 'Low — IWM and FCX both below 200d; risk appetite is closed; stand aside until both recover') : '—';
+  const riskC = rIwm && rFcx ? (rIwm[3]==='bullish'&&rFcx[3]==='bullish' ? '#22c55e' : (rIwm[3]==='bullish'||rFcx[3]==='bullish') ? '#f59e0b' : '#ef4444') : '#94a3b8';
+  return [
+    { label: 'Russell 2000 (IWM)',    a: rIwm ? rIwm[2] : '—', c: rIwm ? _tc(rIwm[3]) : '#94a3b8' },
+    { label: 'Freeport (FCX)',        a: rFcx ? rFcx[2] : '—', c: rFcx ? _tc(rFcx[3]) : '#94a3b8' },
+    { label: 'Gold Miners (GDX)',     a: rGdx ? rGdx[2] : '—', c: rGdx ? _tc(rGdx[3]) : '#94a3b8' },
+    { label: 'Watchlist Health',      a: `${bc} / ${tot} names above both MAs`, c: execC },
+    { label: 'Execution Environment', a: execE, c: execC },
+    { label: 'Risk Appetite Check',   a: riskA, c: riskC },
+  ];
+}
+function buildCurrencyDiagnostics(card) {
+  const rows = card.rows || [];
+  const r0 = rows[0], r1 = rows[1], r2 = rows[2], r3 = rows[3];
+  const crA = r2 == null ? '—' : r2[3]==='bearish'
+    ? 'Active — FXY has risen sharply above its 200d SMA; prior carry-unwind episodes (Aug 2024, 2022) triggered equity de-risking within days'
+    : 'Not Active — FXY is below its 200d spike threshold; carry trade is intact, no emergency hedging required';
+  const crC = r2 == null ? '#94a3b8' : r2[3]==='bearish' ? '#ef4444' : '#22c55e';
+  const bc = rows.filter(r => r && r[3]==='bullish').length;
+  const beC = rows.filter(r => r && r[3]==='bearish').length;
+  const cBear = r2 && r2[3]==='bearish';
+  const acA = cBear ? 'Carry unwind risk is active — reduce risk assets and leveraged positions immediately; rotate to cash and defensives'
+    : bc >= 2 ? 'FX conditions are supportive — maintain equity and EM exposure; USD weakness is a macro tailwind'
+    : beC >= 2 ? 'FX headwinds are building — reduce EM and international exposure; favour USD cash and domestic large-caps'
+    : 'FX signals are mixed — no dominant directional pressure; follow earnings and sector rotation';
+  return [
+    { label: 'USD Trend (UUP)',   a: r0 ? r0[2] : '—', c: r0 ? _tc(r0[3]) : '#94a3b8' },
+    { label: 'EUR/USD (FXE)',     a: r1 ? r1[2] : '—', c: r1 ? _tc(r1[3]) : '#94a3b8' },
+    { label: 'JPY Carry (FXY)',   a: r2 ? r2[2] : '—', c: r2 ? _tc(r2[3]) : '#94a3b8' },
+    { label: 'FX Regime',        a: r3 ? r3[2] : '—', c: r3 ? _tc(r3[3]) : '#94a3b8' },
+    { label: 'Carry Risk Status', a: crA, c: crC },
+    { label: 'Portfolio Action',  a: acA, c: cBear ? '#ef4444' : bc >= 2 ? '#22c55e' : beC >= 2 ? '#ef4444' : '#f59e0b' },
+  ];
+}
+function getDiagnostics(cardId, card) {
+  switch (cardId) {
+    case 'regime':      return buildRegimeDiagnostics(card);
+    case 'leadership':  return buildLeadershipDiagnostics(card);
+    case 'breadth':     return buildBreadthDiagnostics(card);
+    case 'valuations':  return buildValuationsDiagnostics(card);
+    case 'yield':       return buildYieldDiagnostics(card);
+    case 'credit':      return buildCreditDiagnostics(card);
+    case 'globalflows': return buildGlobalFlowsDiagnostics(card);
+    case 'sectors':     return buildSectorsDiagnostics(card);
+    case 'commodities': return buildCommoditiesDiagnostics(card);
+    case 'equities':    return buildEquitiesDiagnostics(card);
+    case 'currency':    return buildCurrencyDiagnostics(card);
+    default:            return null;
+  }
+}
+function DiagnosticsSection({ cardId, card }) {
+  const items = getDiagnostics(cardId, card);
+  if (!items || !items.length) return null;
+  return (
+    <div>
+      <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Market Diagnostics</div>
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>
+        {items.map((item, i) => (
+          <div key={i} style={{ padding: '12px 0', borderBottom: i < items.length - 1 ? '1px solid #16202e' : 'none' }}>
+            <div style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: item.c, marginBottom: 4 }}>{item.label}</div>
+            <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.5 }}>{item.a}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ── Seeded sparkline ──────────────────────────────────────────────────────────
 function Spark({ seed, trend, color, w = 64, h = 24 }) {
@@ -466,6 +758,7 @@ function DeepDive({ card, cardId, onBack }) {
             {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 26, height: 17, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
           </div>
         )}
+        <DiagnosticsSection cardId={cardId} card={card} />
         <div>
           <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Indicators</div>
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>

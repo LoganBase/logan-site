@@ -13,7 +13,7 @@
     regime:      { url: (r) => `/api/history?symbol=SPY&range=${r}`,    field: 'vs200'    },
     leadership:  { url: (r) => `/api/leadership?range=${r}`,            field: 'rspVsSpy' },
     breadth:     { url: (r) => `/api/breadth-history?range=${r}`,       field: 'mmth'     },
-    valuations:  { url: (r) => `/api/valuations-history?range=${r}`,    field: 'capes'    },
+    valuations:  { url: (r) => { const vr = ['5y','10y','20y'].includes(r) ? r : '5y'; return `/api/valuations-history?range=${vr}`; }, field: 'capes' },
     yield:       { url: (r) => `/api/history?symbol=%5ETNX&range=${r}`, field: 'closes'   },
     credit:      { url: (r) => `/api/history?symbol=HYG&range=${r}`,    field: 'closes'   },
     currency:    { url: (r) => `/api/history?symbol=UUP&range=${r}`,    field: 'closes'   },
@@ -50,7 +50,8 @@
   }
 
   function mapCard(c) {
-    const rows = (c.rows || []).map((r) => [r.label, stripHtml(r.value || ''), r.condition || '', r.status || 'neutral']);
+    const rowSource = c.allRows || c.rows || [];
+    const rows = rowSource.map((r) => [r.label, stripHtml(r.value || ''), r.condition || '', r.status || 'neutral', r.indicator || '', r.sma200 ?? null, r.price ?? null]);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       id: c.id, title: c.title, status: c.status,
