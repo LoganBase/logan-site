@@ -110,7 +110,7 @@ function HeroGauge({ exec }) {
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ fontFamily: MONO, fontWeight: 700, color: '#e8edf5', letterSpacing: '-0.02em', lineHeight: 1 }}>
-            <span style={{ fontSize: 46 }}>{total > 0 ? Math.round(exec.bull / total * 100) : 0}</span><span style={{ fontSize: 22, color: '#8295a9' }}>%</span>
+            <span style={{ fontSize: 46 }}>{total > 0 ? Math.round((exec.bull + exec.neutral * 0.5) / total * 100) : 0}</span><span style={{ fontSize: 22, color: '#8295a9' }}>%</span>
           </div>
           <div style={{ fontFamily: SANS, fontSize: 11, color: '#64748b', marginTop: 5, letterSpacing: '.06em', textTransform: 'uppercase' }}>bullish</div>
         </div>
