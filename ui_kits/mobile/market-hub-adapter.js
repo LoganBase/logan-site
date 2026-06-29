@@ -65,6 +65,7 @@
         r.status === 'bullish' ? 'pos' : r.status === 'bearish' ? 'neg' : null,
       ]),
       rows,
+      note: c.note || null,
     };
     if (c.id === 'globalflows' && Array.isArray(c.details)) {
       out.flags = c.details.map((d) => FLAG[d.sym || d.symbol]).filter(Boolean);
