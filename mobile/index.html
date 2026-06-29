@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#080c14">
-<title>Market Hub v28e</title>
+<title>Market Hub v28f</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'><rect x='0' y='14' width='7' height='12' rx='1.5' fill='%23ef4444'/><rect x='11' y='7' width='7' height='19' rx='1.5' fill='%23f59e0b'/><rect x='22' y='1' width='8' height='25' rx='1.5' fill='%2322c55e'/></svg>">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,8 +52,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script src="../ui_kits/mobile/glance-data.js?v=20260628e"></script>
-<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260628e"></script>
+<script src="../ui_kits/mobile/glance-data.js?v=20260629f"></script>
+<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260629f"></script>
 <script type="text/babel">
 // Market Hub mobile — Glance view.
 // Structural cards (regime…equities) + Crowd Signals rendered via CardRow.
@@ -509,7 +509,6 @@ function CardRow({ card, onTap }) {
 
 // ── Yield card row — 3rd KPI is live 2Y from /api/treasury-2y (matches Desktop) ──
 function YieldCardRow({ card, onTap }) {
-  const sig = SIG[card.status] || SIG.neutral;
   const [press, setPress] = useState(false);
   const [twoY, setTwoY] = useState(null);
   useEffect(() => {
@@ -523,11 +522,19 @@ function YieldCardRow({ card, onTap }) {
   }, []);
   const rows = card.rows || [];
   const r0 = rows[0], r1 = rows[1];
-  const twoYTone = twoY != null ? (twoY >= 4.5 ? 'bearish' : twoY >= 3.5 ? 'neutral' : 'bullish') : 'neutral';
+  const twoYTone = twoY != null ? (twoY >= 4.5 ? 'bearish' : twoY >= 3.5 ? 'neutral' : 'bullish') : null;
+  // Match desktop: derive live status from [30Y, 10Y, 2Y] majority vote (≥2 wins)
+  const liveStatus = twoYTone != null ? (() => {
+    const tones = [r0?.[3] || 'neutral', r1?.[3] || 'neutral', twoYTone];
+    const bulls = tones.filter(t => t === 'bullish').length;
+    const bears = tones.filter(t => t === 'bearish').length;
+    return bulls >= 2 ? 'bullish' : bears >= 2 ? 'bearish' : 'neutral';
+  })() : card.status;
+  const sig = SIG[liveStatus] || SIG.neutral;
   const kpis = [
     r0 ? { label: r0[0], val: r0[1].split('\n')[0], tone: r0[3] } : { label: '30Y Yield', val: '—', tone: 'neutral' },
     r1 ? { label: r1[0], val: r1[1].split('\n')[0], tone: r1[3] } : { label: '10Y Yield', val: '—', tone: 'neutral' },
-    { label: '2Y Yield', val: twoY != null ? twoY.toFixed(2) + '%' : '—', tone: twoYTone },
+    { label: '2Y Yield', val: twoY != null ? twoY.toFixed(2) + '%' : '—', tone: twoYTone ?? 'neutral' },
   ];
   return (
     <button onClick={onTap} onPointerDown={() => setPress(true)} onPointerUp={() => setPress(false)} onPointerLeave={() => setPress(false)}
@@ -1048,7 +1055,7 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
           <span style={{ fontFamily: SANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28e</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28f</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, background: '#0d1520', border: '1px solid #1e2d3d' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
             <span style={{ fontFamily: MONO, fontSize: 11, color: '#94a3b8' }}>As of {D.asOf}</span>
