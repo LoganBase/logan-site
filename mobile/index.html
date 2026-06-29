@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#080c14">
-<title>Market Hub v28f</title>
+<title>Market Hub v28g</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'><rect x='0' y='14' width='7' height='12' rx='1.5' fill='%23ef4444'/><rect x='11' y='7' width='7' height='19' rx='1.5' fill='%23f59e0b'/><rect x='22' y='1' width='8' height='25' rx='1.5' fill='%2322c55e'/></svg>">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,8 +52,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script src="../ui_kits/mobile/glance-data.js?v=20260629f"></script>
-<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260629f"></script>
+<script src="../ui_kits/mobile/glance-data.js?v=20260629g"></script>
+<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260629g"></script>
 <script type="text/babel">
 // Market Hub mobile — Glance view.
 // Structural cards (regime…equities) + Crowd Signals rendered via CardRow.
@@ -566,9 +566,9 @@ function YieldCardRow({ card, onTap }) {
 
 // ── Crowd Signals card row — live Fed Action / CPI / Rate from /api/kalshi ───
 function CrowdSignalsCardRow({ card, onTap }) {
-  const sig = SIG[card.status] || SIG.neutral;
   const [press, setPress] = useState(false);
   const [kpis, setKpis] = useState(null);
+  const [liveStatus, setLiveStatus] = useState(null);
   useEffect(() => {
     let alive = true;
     fetch('/api/kalshi').then(r => r.json()).catch(() => ({ events: [] }))
@@ -579,14 +579,19 @@ function CrowdSignalsCardRow({ card, onTap }) {
         const actionTone = fomc?.action === 'Cut' ? 'bullish' : fomc?.action === 'Hike' ? 'bearish' : 'neutral';
         const cpiVal  = cpi ? parseFloat((cpi.consensus || '').replace(/[~%]/g, '')) : null;
         const cpiTone = cpiVal == null ? 'neutral' : cpiVal <= 0 ? 'bullish' : cpiVal > 0.2 ? 'bearish' : 'neutral';
-        setKpis([
+        const next = [
           { label: 'Fed Action',  val: fomc?.action    || '—', tone: actionTone },
           { label: 'CPI Crowd',   val: cpi?.consensus  || '—', tone: cpiTone    },
           { label: 'Rate Target', val: fomc?.consensus || '—', tone: actionTone },
-        ]);
+        ];
+        const bulls = next.filter(i => i.tone === 'bullish').length;
+        const bears = next.filter(i => i.tone === 'bearish').length;
+        setLiveStatus(bulls >= 2 ? 'bullish' : bears >= 2 ? 'bearish' : 'neutral');
+        setKpis(next);
       });
     return () => { alive = false; };
   }, []);
+  const sig = SIG[liveStatus || card.status] || SIG.neutral;
   const items = kpis || [
     { label: 'Fed Action',  val: '—', tone: 'neutral' },
     { label: 'CPI Crowd',   val: '—', tone: 'neutral' },
@@ -1055,7 +1060,7 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
           <span style={{ fontFamily: SANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28f</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28g</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, background: '#0d1520', border: '1px solid #1e2d3d' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
             <span style={{ fontFamily: MONO, fontSize: 11, color: '#94a3b8' }}>As of {D.asOf}</span>
