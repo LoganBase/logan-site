@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#080c14">
-<title>Market Hub v28d</title>
+<title>Market Hub v28e</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'><rect x='0' y='14' width='7' height='12' rx='1.5' fill='%23ef4444'/><rect x='11' y='7' width='7' height='19' rx='1.5' fill='%23f59e0b'/><rect x='22' y='1' width='8' height='25' rx='1.5' fill='%2322c55e'/></svg>">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,8 +52,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script src="../ui_kits/mobile/glance-data.js?v=20260628d"></script>
-<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260628d"></script>
+<script src="../ui_kits/mobile/glance-data.js?v=20260628e"></script>
+<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260628e"></script>
 <script type="text/babel">
 // Market Hub mobile — Glance view.
 // Structural cards (regime…equities) + Crowd Signals rendered via CardRow.
@@ -822,7 +822,7 @@ function DeepDive({ card, cardId, onBack }) {
   const sig = SIG[card.status] || SIG.neutral;
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ paddingTop: 54, background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
+      <div style={{ paddingTop: 'env(safe-area-inset-top, 54px)', background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
           <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
             <svg width="9" height="15" viewBox="0 0 9 15"><path d="M7.5 1L1.5 7.5l6 6.5" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -905,7 +905,7 @@ function DailyBriefDive({ brief, onBack }) {
   if (!brief) {
     return (
       <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ paddingTop: 54 }}>
+        <div style={{ paddingTop: 'env(safe-area-inset-top, 54px)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
             <BackBtn />
             <span style={{ fontFamily: SANS, fontSize: 18, fontWeight: 700, color: '#e8edf5' }}>Daily Brief</span>
@@ -920,7 +920,7 @@ function DailyBriefDive({ brief, onBack }) {
   const sc = sentimentColor(brief.isWeekly ? (brief.avgSentiment ?? 0) : (brief.sentiment ?? 0));
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ paddingTop: 54, background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
+      <div style={{ paddingTop: 'env(safe-area-inset-top, 54px)', background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
           <BackBtn />
           <span style={{ width: 9, height: 9, borderRadius: '50%', background: sc, boxShadow: `0 0 8px ${sc}` }} />
@@ -983,7 +983,7 @@ function MacroBriefDive({ brief, loading, onBack }) {
     : null;
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ paddingTop: 54, background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
+      <div style={{ paddingTop: 'env(safe-area-inset-top, 54px)', background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '4px 14px 12px' }}>
           <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
             <svg width="9" height="15" viewBox="0 0 9 15"><path d="M7.5 1L1.5 7.5l6 6.5" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -1039,7 +1039,7 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
     letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', paddingLeft: 4,
   };
   return (
-    <div style={{ minHeight: '100%', background: '#080c14', paddingTop: 54 }}>
+    <div style={{ minHeight: '100%', background: '#080c14', paddingTop: 'env(safe-area-inset-top, 54px)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 18px 12px', position: 'sticky', top: 0, zIndex: 30,
         background: 'linear-gradient(#080c14 70%, rgba(8,12,20,0))' }}>
         <svg width="22" height="19" viewBox="0 0 30 26"><rect x="0" y="14" width="7" height="12" rx="1.5" fill="#ef4444" /><rect x="11.5" y="7" width="7" height="19" rx="1.5" fill="#f59e0b" /><rect x="23" y="0" width="7" height="26" rx="1.5" fill="#22c55e" /></svg>
@@ -1048,7 +1048,7 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
           <span style={{ fontFamily: SANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28d</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28e</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, background: '#0d1520', border: '1px solid #1e2d3d' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
             <span style={{ fontFamily: MONO, fontSize: 11, color: '#94a3b8' }}>As of {D.asOf}</span>
