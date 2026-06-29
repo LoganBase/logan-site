@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#080c14">
-<title>Market Hub v28b</title>
+<title>Market Hub v28c</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'><rect x='0' y='14' width='7' height='12' rx='1.5' fill='%23ef4444'/><rect x='11' y='7' width='7' height='19' rx='1.5' fill='%23f59e0b'/><rect x='22' y='1' width='8' height='25' rx='1.5' fill='%2322c55e'/></svg>">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,8 +52,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script src="../ui_kits/mobile/glance-data.js?v=20260628b"></script>
-<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260628b"></script>
+<script src="../ui_kits/mobile/glance-data.js?v=20260628c"></script>
+<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260628c"></script>
 <script type="text/babel">
 // Market Hub mobile — Glance view.
 // Structural cards (regime…equities) + Crowd Signals rendered via CardRow.
@@ -755,6 +755,68 @@ class DiagBoundary extends React.Component {
   }
 }
 
+// ── History calendar (seeded synthetic monthly bull/neutral/bear blocks) ──────
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function regimeHistoryData(seed, status, months) {
+  let s = seed * 7919 + 104729;
+  const rnd = () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+  const order = ['bearish','neutral','bullish'];
+  const target = order.indexOf(status);
+  let idx = Math.max(0, Math.min(2, target + (rnd() < 0.5 ? -1 : 1)));
+  const out = [];
+  for (let i = 0; i < months; i++) {
+    const pull = (i / months) > 0.55 && rnd() < 0.45;
+    if (pull) idx += Math.sign(target - idx) || 0;
+    else if (rnd() < 0.28) idx += rnd() < 0.5 ? -1 : 1;
+    idx = Math.max(0, Math.min(2, idx));
+    out.push(order[idx]);
+  }
+  out[months - 1] = status;
+  if (months > 1) out[months - 2] = rnd() < 0.6 ? status : out[months - 2];
+  return out;
+}
+function getMonthLabels(n) {
+  const now = new Date();
+  return Array.from({ length: n }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (n - 1 - i), 1);
+    return MONTHS[d.getMonth()];
+  });
+}
+function HistoryCalendar({ card }) {
+  const hist   = regimeHistoryData(card.seed, card.status, 12);
+  const labels = getMonthLabels(12);
+  return (
+    <div>
+      <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>{card.title} History</div>
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '14px 14px 10px' }}>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {hist.map((st, i) => {
+            const isLast = i === hist.length - 1;
+            const c = (SIG[st] || SIG.neutral).c, glow = (SIG[st] || SIG.neutral).glow;
+            return (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+                <div style={{ width: '100%', height: 28, borderRadius: 4, background: c,
+                  opacity: isLast ? 1 : 0.5 + (i / 12) * 0.42,
+                  boxShadow: isLast ? `0 0 8px ${glow}` : 'none',
+                  outline: isLast ? '1px solid rgba(232,237,245,.45)' : 'none' }} />
+                <span style={{ fontFamily: MONO, fontSize: 7.5, color: isLast ? '#cbd5e1' : '#475569', fontWeight: isLast ? 700 : 400 }}>{labels[i]}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
+          {[['bullish','Bullish'],['neutral','Neutral'],['bearish','Bearish']].map(([k, lab]) => (
+            <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: (SIG[k]||SIG.neutral).c, flexShrink: 0 }} />
+              <span style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8' }}>{lab}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Structural card deep-dive ─────────────────────────────────────────────────
 function DeepDive({ card, cardId, onBack }) {
   const sig = SIG[card.status] || SIG.neutral;
@@ -783,17 +845,34 @@ function DeepDive({ card, cardId, onBack }) {
           </div>
           <DeepChart card={card} cardId={cardId} color={sig.c} />
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {card.stats.map((st, i) => {
-            const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#e8edf5';
-            return (
-              <div key={i} style={{ flex: 1, minWidth: 0, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 10px' }}>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: tone }}>{st[1]}</div>
-                <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.2 }}>{st[0]}</div>
-                <div style={{ fontFamily: SANS, fontSize: 9, color: '#8295a9', marginTop: 2, lineHeight: 1.2 }}>{st[2]}</div>
-              </div>
-            );
-          })}
+        <HistoryCalendar card={card} />
+        <div>
+          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>{card.title} Metrics</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 8 }}>
+            {card.rows.slice(0, 3).map((r, i) => {
+              const tone = _tc(r[3]);
+              const val = r[1].split(' vs ')[0].split('\n')[0];
+              return (
+                <div key={i} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 10px' }}>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: tone, lineHeight: 1.2 }}>{val}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.2 }}>{r[0]}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 9, color: tone, marginTop: 2, lineHeight: 1.2 }}>— {r[2]}</div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {card.stats.map((st, i) => {
+              const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#e8edf5';
+              return (
+                <div key={i} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 10px' }}>
+                  <div style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: tone, lineHeight: 1.2 }}>{st[1]}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.2 }}>{st[0]}</div>
+                  <div style={{ fontFamily: SANS, fontSize: 9, color: '#8295a9', marginTop: 2, lineHeight: 1.2 }}>{st[2]}</div>
+                </div>
+              );
+            })}
+          </div>
         </div>
         {card.flags && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
@@ -987,7 +1066,7 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
           <span style={{ fontFamily: SANS, fontSize: 10.5, color: '#64748b' }}>Macro Framework</span>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28b</span>
+          <span style={{ fontFamily: MONO, fontSize: 9, color: '#334155', letterSpacing: '.04em' }}>v28c</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 8, background: '#0d1520', border: '1px solid #1e2d3d' }}>
             <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#22c55e', boxShadow: '0 0 6px #22c55e' }} />
             <span style={{ fontFamily: MONO, fontSize: 11, color: '#94a3b8' }}>As of {D.asOf}</span>
