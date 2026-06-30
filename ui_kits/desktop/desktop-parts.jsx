@@ -4287,6 +4287,65 @@ function buildLeadershipMetrics(card, computedStats, qcRange) {
 }
 
 // ── Crowd Signals deep dive — Kalshi events + Polymarket macro signals ──
+// ── CPI Inflation — Headline & Core historical chart (CrowdSignals deep dive) ──
+const CPI_RANGES = ['1Y', '2Y', '5Y', '10Y', '20Y'];
+function CpiHistoryChart() {
+  const RMAP = { '1Y': '1y', '2Y': '2y', '5Y': '5y', '10Y': '10y', '20Y': '20y' };
+  const [range, setRange] = useStateD('10Y');
+  const [live, setLive]   = useStateD(null);
+  const [latest, setLatest] = useStateD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null);
+    setLatest(null);
+    fetch(`/api/cpi-history?range=${RMAP[range]}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive || !Array.isArray(j.headline) || !j.headline.length) return;
+        const last = [...j.headline].reverse().find(v => v != null);
+        if (last != null) setLatest(last);
+        setLive({
+          values:     j.headline,
+          dates:      j.dates,
+          label:      'Headline CPI',
+          format:     'pct',
+          lineColor:  '#a855f7',
+          overlays:   [{ label: 'Core CPI', values: j.core || [], color: '#22d3ee', dash: null }],
+          thresholds: [
+            { y: 0.167, color: '#22c55e' },   // ≈ 2% annualized — Fed target
+            { y: 0.4,   color: '#ef4444' },   // ≈ 5% annualized — elevated
+          ],
+        });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+
+  const fakeCard = { seed: 7, trend: 0.02, metric: 'CPI MoM', metricUnit: '', metricVal: '' };
+  const hColor   = latest == null ? '#f59e0b' : latest > 0.4 ? '#ef4444' : latest > 0.167 ? '#f59e0b' : '#22c55e';
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>CPI Inflation — Headline &amp; Core</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Month-over-month % change (seasonally adjusted)</div>
+        </div>
+        {latest != null && (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+            <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Latest MoM</span>
+            <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 700, color: hColor }}>
+              {(latest >= 0 ? '+' : '') + latest.toFixed(2)}%
+            </span>
+          </div>
+        )}
+      </div>
+      <DeepChartLg card={fakeCard} cardId="cpi" color="#a855f7" height={220} range={range} setRange={setRange} live={live} ranges={CPI_RANGES} />
+    </div>
+  );
+}
+
 function CrowdSignalsDeepDive() {
   const [kalshi, setKalshi]           = useStateD(null);
   const [poly, setPoly]               = useStateD(null);
@@ -4471,6 +4530,10 @@ function CrowdSignalsDeepDive() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div>
+        {secLabel('CPI Inflation History')}
+        <CpiHistoryChart />
+      </div>
       <div>
         {secLabel('Kalshi — Prediction Markets')}
         {!kalshi ? loading : kalshiEvents.length === 0 ? (
@@ -4965,4 +5028,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, DeepDiveContent });
