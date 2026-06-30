@@ -189,8 +189,21 @@ export async function onRequest(context) {
       distribution: [],
     };
 
-    const events = [parseCPI(cpiMarkets, lastActual), fedResult]
-      .filter(Boolean)
+    // Fallback for between-release gap: no open KXCPI markets → show last actual reading
+    const sign = lastActual.value >= 0 ? '+' : '';
+    const cpiResult = parseCPI(cpiMarkets, lastActual) || {
+      label:      `${lastActual.month} CPI`,
+      date:       'Markets Pending',
+      closeTime:  null,
+      consensus:  `${sign}${lastActual.value.toFixed(1)}%`,
+      action:     '',
+      unit:       'MoM actual',
+      confidence: 0,
+      type:       'cpi',
+      lastActual,
+    };
+
+    const events = [cpiResult, fedResult]
       .sort((a, b) => (a.closeTime && b.closeTime) ? new Date(a.closeTime) - new Date(b.closeTime) : a.closeTime ? -1 : 1);
 
     return new Response(JSON.stringify({ events, timestamp: new Date().toISOString(), source: 'kalshi' }), {
