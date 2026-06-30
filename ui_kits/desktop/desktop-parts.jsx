@@ -4299,7 +4299,8 @@ function CpiHistoryChart() {
     let alive = true;
     setLive(null);
     setLatest(null);
-    fetch(`/api/cpi-history?range=${RMAP[range]}`)
+    const mo = new Date().toISOString().slice(0, 7); // YYYY-MM — busts cache monthly
+    fetch(`/api/cpi-history?range=${RMAP[range]}&d=${mo}`)
       .then(r => r.json())
       .then(j => {
         if (!alive || !Array.isArray(j.headline) || !j.headline.length) return;

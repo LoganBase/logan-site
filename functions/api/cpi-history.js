@@ -23,6 +23,32 @@ function parseObs(observations) {
   return { dates, values };
 }
 
+// Fill interior null gaps with linear interpolation so chart lines stay continuous.
+// Only fills nulls that have valid values on both sides — leading/trailing nulls stay null.
+function fillInteriorGaps(values) {
+  const out = [...values];
+  let i = 0;
+  while (i < out.length) {
+    if (out[i] == null) {
+      const left = i - 1;
+      let right = i + 1;
+      while (right < out.length && out[right] == null) right++;
+      if (left >= 0 && right < out.length) {
+        const steps = right - left;
+        for (let k = i; k < right; k++) {
+          out[k] = parseFloat((out[left] + (out[right] - out[left]) * (k - left) / steps).toFixed(3));
+        }
+        i = right;
+      } else {
+        i++;
+      }
+    } else {
+      i++;
+    }
+  }
+  return out;
+}
+
 export async function onRequest(context) {
   if (context.request.method === 'OPTIONS')
     return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' } });
@@ -65,8 +91,8 @@ export async function onRequest(context) {
 
     return new Response(JSON.stringify({
       dates:    headline.dates,
-      headline: headline.values,
-      core:     coreAligned,
+      headline: fillInteriorGaps(headline.values),
+      core:     fillInteriorGaps(coreAligned),
     }), {
       headers: { ...CORS, 'Cache-Control': 'public, max-age=86400' },
     });
