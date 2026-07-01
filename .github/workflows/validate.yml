@@ -34,7 +34,9 @@ jobs:
                 new Function(
                   src
                     .replace(/^import\b[^\n]*/gm, '')
-                    .replace(/^export\s+default\s+/gm, '')
+                    // 'export default {' → 'const __exp = {' keeps '{' as object literal,
+                    // not a block — so async method shorthands inside remain valid
+                    .replace(/^export\s+default\s+/gm, 'const __exp = ')
                     .replace(/^export\s+/gm, '')
                 );
               } catch (e) {
@@ -60,7 +62,7 @@ jobs:
                 new Function(
                   src
                     .replace(/^import\b[^\n]*/gm, '')
-                    .replace(/^export\s+default\s+/gm, '')
+                    .replace(/^export\s+default\s+/gm, 'const __exp = ')
                     .replace(/^export\s+/gm, '')
                 );
               } catch (e) {
