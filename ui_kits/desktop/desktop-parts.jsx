@@ -802,9 +802,10 @@ function SectorRatioCharts() {
 // ── Relative Rotation Graph (Idea 03A) ───────────────────────────────────────
 // 4-quadrant scatter: RS-Ratio (x) vs RS-Momentum (y), 12-week trails per sector.
 function SectorRRG() {
-  const [data,   setData]   = useStateD(null);
-  const [hover,  setHover]  = useStateD(null);
-  const [hidden, setHidden] = useStateD({});
+  const [data,      setData]      = useStateD(null);
+  const [hover,     setHover]     = useStateD(null);
+  const [hidden,    setHidden]    = useStateD({});
+  const [hovLegend, setHovLegend] = useStateD(null);
   const svgRef = useRefD(null);
 
   useEffectD(() => {
@@ -1008,21 +1009,34 @@ function SectorRRG() {
         })()}
       </div>
 
-      {/* Legend — click to toggle sector visibility */}
+      {/* Legend — click to toggle, hover to see full sector name */}
       {data?.sectors && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 14 }}>
           {data.sectors.map(sec => {
-            const last = sec.trail.at(-1);
-            const q    = last?.rsRatio != null && last?.rsMom != null ? quadrant(last.rsRatio, last.rsMom) : null;
+            const last     = sec.trail.at(-1);
+            const q        = last?.rsRatio != null && last?.rsMom != null ? quadrant(last.rsRatio, last.rsMom) : null;
             const isHidden = !!hidden[sec.sym];
+            const isHovL   = hovLegend === sec.sym;
             return (
-              <button key={sec.sym} onClick={() => setHidden(h => ({ ...h, [sec.sym]: !h[sec.sym] }))}
-                style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                  opacity: isHidden ? 0.3 : 1, transition: 'opacity .15s' }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: isHidden ? '#334155' : sec.color, flexShrink: 0, transition: 'background .15s' }} />
-                <span style={{ fontFamily: DSANS, fontSize: 11, color: isHidden ? '#475569' : '#94a3b8', textDecoration: isHidden ? 'line-through' : 'none' }}>{sec.sym}</span>
-                {q && !isHidden && <span style={{ fontFamily: DSANS, fontSize: 10, color: q.color, fontWeight: 600 }}>{q.label}</span>}
-              </button>
+              <div key={sec.sym} style={{ position: 'relative' }}>
+                <button onClick={() => setHidden(h => ({ ...h, [sec.sym]: !h[sec.sym] }))}
+                  onMouseEnter={() => setHovLegend(sec.sym)}
+                  onMouseLeave={() => setHovLegend(null)}
+                  style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                    opacity: isHidden ? 0.3 : 1, transition: 'opacity .15s' }}>
+                  <span style={{ width: 7, height: 7, borderRadius: '50%', background: isHidden ? '#334155' : sec.color, flexShrink: 0, transition: 'background .15s' }} />
+                  <span style={{ fontFamily: DSANS, fontSize: 11, color: isHidden ? '#475569' : '#94a3b8', textDecoration: isHidden ? 'line-through' : 'none' }}>{sec.sym}</span>
+                  {q && !isHidden && <span style={{ fontFamily: DSANS, fontSize: 10, color: q.color, fontWeight: 600 }}>{q.label}</span>}
+                </button>
+                {isHovL && (
+                  <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, zIndex: 20, pointerEvents: 'none',
+                    background: '#0d1520', border: `1px solid ${sec.color}55`, borderRadius: 7,
+                    padding: '4px 10px', whiteSpace: 'nowrap',
+                    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600, color: '#e8edf5' }}>
+                    {sec.label}
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>

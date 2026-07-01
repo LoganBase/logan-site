@@ -23,7 +23,7 @@ const SECTORS = [
   { sym: 'XLE',  label: 'Energy',          color: '#f97316', type: 'cyclical'  },
   { sym: 'XLB',  label: 'Materials',       color: '#84cc16', type: 'cyclical'  },
   { sym: 'XLV',  label: 'Health Care',     color: '#ef4444', type: 'defensive' },
-  { sym: 'XLP',  label: 'Staples',         color: '#94a3b8', type: 'defensive' },
+  { sym: 'XLP',  label: 'Consumer Staples', color: '#94a3b8', type: 'defensive' },
   { sym: 'XLU',  label: 'Utilities',       color: '#fbbf24', type: 'defensive' },
   { sym: 'XLRE', label: 'Real Estate',     color: '#34d399', type: 'defensive' },
 ];
