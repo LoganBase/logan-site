@@ -1048,7 +1048,74 @@ function DeepDive({ card, cardId, onBack }) {
 }
 
 // ── Daily Brief deep-dive ─────────────────────────────────────────────────────
+function useBriefHistory(enabled) {
+  const [history, setHistory] = useState([]);
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    fetch('/api/daily-brief?range=30', { credentials: 'same-origin' })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive && Array.isArray(d?.results)) setHistory(d.results); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [enabled]);
+  return history;
+}
+
+function BriefHistoryStrip({ history, currentDate }) {
+  const [expanded, setExpanded] = useState(null);
+  if (!history.length) return null;
+  const days = [...history].reverse();
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 13, padding: '14px 14px' }}>
+      <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#64748b', marginBottom: 10 }}>30-Day Sentiment</div>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {days.map(b => {
+          const bc = sentimentColor(b.sentiment);
+          const isCurrent = b.date === currentDate;
+          const isExp = expanded === b.date;
+          const dayNum = new Date(b.date + 'T12:00:00Z').getUTCDate();
+          return (
+            <div key={b.date} onClick={() => setExpanded(isExp ? null : b.date)}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, padding: '6px 5px',
+                borderRadius: 7, background: isExp ? '#16202e' : isCurrent ? '#13202e' : '#111827',
+                border: `1px solid ${isExp ? bc : isCurrent ? bc + '88' : '#1e2d3d'}`,
+                minWidth: 32, cursor: 'pointer' }}>
+              <span style={{ fontFamily: MONO, fontSize: 10, fontWeight: 700, color: bc }}>{b.sentiment > 0 ? '+' : ''}{b.sentiment}</span>
+              <span style={{ fontFamily: SANS, fontSize: 9, color: '#475569' }}>{dayNum}</span>
+            </div>
+          );
+        })}
+      </div>
+      {expanded && (() => {
+        const b = days.find(x => x.date === expanded);
+        if (!b) return null;
+        const bc = sentimentColor(b.sentiment);
+        const dl = new Date(b.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        return (
+          <div style={{ marginTop: 12, borderTop: '1px solid #1e2d3d', paddingTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: '#cbd5e1' }}>{dl}</span>
+              <span style={{ fontFamily: MONO, fontSize: 11, fontWeight: 700, color: bc }}>{b.sentiment > 0 ? '+' : ''}{b.sentiment}</span>
+              <span style={{ fontFamily: SANS, fontSize: 9.5, color: '#64748b', padding: '1px 6px', borderRadius: 4, background: '#16202e' }}>{b.sector}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {b.bullets.map((bullet, i) => (
+                <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <span style={{ width: 4, height: 4, borderRadius: '50%', background: bc, flexShrink: 0, marginTop: 5 }} />
+                  <span style={{ fontFamily: SANS, fontSize: 12, color: '#94a3b8', lineHeight: 1.55 }}>{bullet}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
 function DailyBriefDive({ brief, onBack }) {
+  const history = useBriefHistory(!brief?.isWeekly);
   const BackBtn = () => (
     <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
       <svg width="9" height="15" viewBox="0 0 9 15"><path d="M7.5 1L1.5 7.5l6 6.5" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -1110,6 +1177,10 @@ function DailyBriefDive({ brief, onBack }) {
           );
         }) : (
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sc}`, borderRadius: 13, padding: '14px 14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <span style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: sc }}>{brief.sentiment > 0 ? '+' : ''}{brief.sentiment}</span>
+              <span style={{ fontFamily: SANS, fontSize: 10, color: '#64748b', padding: '2px 7px', borderRadius: 4, background: '#16202e' }}>{brief.sector}</span>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {brief.bullets.map((b, i) => (
                 <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
@@ -1120,6 +1191,7 @@ function DailyBriefDive({ brief, onBack }) {
             </div>
           </div>
         )}
+        {!brief.isWeekly && <BriefHistoryStrip history={history} currentDate={brief.date} />}
         <div style={{ fontFamily: SANS, fontSize: 10.5, color: '#475569', textAlign: 'center', paddingBottom: 4 }}>
           Source: Briefing.com Close Update
         </div>
