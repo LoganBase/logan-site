@@ -879,7 +879,7 @@ function SectorRRG() {
       <div style={{ marginBottom: 14 }}>
         <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Relative Rotation Graph</div>
         <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>
-          All 11 sectors vs SPY · weekly · 12-week trail shows rotation direction · clockwise = typical cycle sequence
+          All 11 sectors vs SPY · weekly · <span style={{ color: '#475569' }}>○ hollow = 12 weeks ago</span> · <span style={{ color: '#475569' }}>● filled + arrow = now</span> · clockwise = typical cycle
         </div>
       </div>
       <div style={{ position: 'relative' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
@@ -924,21 +924,43 @@ function SectorRRG() {
             const isHov = hover?.sec?.sym === sec.sym;
             const opacity = hover ? (isHov ? 1 : 0.25) : 0.75;
 
-            // Trail path (fade from old to new)
             const trailPath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(p.rsRatio).toFixed(1)},${toY(p.rsMom).toFixed(1)}`).join('');
-            const last = pts[pts.length - 1];
+            const first = pts[0];
+            const last  = pts[pts.length - 1];
+
+            // Arrowhead pointing from second-to-last → last point
+            const prev  = pts[pts.length - 2];
+            const ax = toX(last.rsRatio), ay = toY(last.rsMom);
+            const bx = toX(prev.rsRatio), by = toY(prev.rsMom);
+            const angle  = Math.atan2(ay - by, ax - bx) * (180 / Math.PI);
+            const arrLen = 9, arrW = 5;
+            // Arrow polygon in local coords (tip at origin, pointing right), rotated
+            const arrowPts = (cx, cy, angleDeg) => {
+              const r = angleDeg * Math.PI / 180;
+              const cos = Math.cos(r), sin = Math.sin(r);
+              const rotate = (x, y) => [cx + x * cos - y * sin, cy + x * sin + y * cos];
+              const tip = rotate(0, 0);
+              const bl  = rotate(-arrLen, -arrW);
+              const br  = rotate(-arrLen,  arrW);
+              return `${tip[0].toFixed(1)},${tip[1].toFixed(1)} ${bl[0].toFixed(1)},${bl[1].toFixed(1)} ${br[0].toFixed(1)},${br[1].toFixed(1)}`;
+            };
 
             return (
               <g key={sec.sym} opacity={opacity}>
                 {/* Trail line */}
                 <path d={trailPath} fill="none" stroke={sec.color} strokeWidth={isHov ? 2 : 1.5} strokeLinejoin="round" strokeLinecap="round" />
-                {/* Trail dots (fade with age) */}
-                {pts.slice(0, -1).map((p, i) => (
-                  <circle key={i} cx={toX(p.rsRatio).toFixed(1)} cy={toY(p.rsMom).toFixed(1)} r={1.8}
-                    fill={sec.color} opacity={0.2 + (i / pts.length) * 0.5} />
+                {/* Trail intermediate dots (fade with age — oldest dim, newest bright) */}
+                {pts.slice(1, -1).map((p, i) => (
+                  <circle key={i} cx={toX(p.rsRatio).toFixed(1)} cy={toY(p.rsMom).toFixed(1)} r={1.5}
+                    fill={sec.color} opacity={0.15 + ((i + 1) / pts.length) * 0.55} />
                 ))}
+                {/* Start marker — hollow circle at oldest point (12 weeks ago) */}
+                <circle cx={toX(first.rsRatio).toFixed(1)} cy={toY(first.rsMom).toFixed(1)} r="3.5"
+                  fill="#080c14" stroke={sec.color} strokeWidth="1.5" opacity="0.7" />
+                {/* Arrowhead near current end showing direction of travel */}
+                <polygon points={arrowPts(ax, ay, angle)} fill={sec.color} opacity="0.9" />
                 {/* Current position dot */}
-                <circle cx={toX(last.rsRatio).toFixed(1)} cy={toY(last.rsMom).toFixed(1)} r={isHov ? 7 : 5}
+                <circle cx={ax.toFixed(1)} cy={ay.toFixed(1)} r={isHov ? 7 : 5}
                   fill={sec.color} stroke="#080c14" strokeWidth="1.5" />
                 {/* Ticker label */}
                 <text x={(toX(last.rsRatio) + 8).toFixed(1)} y={(toY(last.rsMom) + 4).toFixed(1)}
