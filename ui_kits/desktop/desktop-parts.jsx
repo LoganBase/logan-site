@@ -802,8 +802,9 @@ function SectorRatioCharts() {
 // ── Relative Rotation Graph (Idea 03A) ───────────────────────────────────────
 // 4-quadrant scatter: RS-Ratio (x) vs RS-Momentum (y), 12-week trails per sector.
 function SectorRRG() {
-  const [data,  setData]  = useStateD(null);
-  const [hover, setHover] = useStateD(null);
+  const [data,   setData]   = useStateD(null);
+  const [hover,  setHover]  = useStateD(null);
+  const [hidden, setHidden] = useStateD({});
   const svgRef = useRefD(null);
 
   useEffectD(() => {
@@ -917,6 +918,7 @@ function SectorRRG() {
 
           {/* Sector trails */}
           {data?.sectors && data.sectors.map(sec => {
+            if (hidden[sec.sym]) return null;
             const pts = sec.trail.filter(p => p.rsRatio != null && p.rsMom != null);
             if (pts.length < 2) return null;
             const isHov = hover?.sec?.sym === sec.sym;
@@ -984,18 +986,21 @@ function SectorRRG() {
         })()}
       </div>
 
-      {/* Legend */}
+      {/* Legend — click to toggle sector visibility */}
       {data?.sectors && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 14 }}>
           {data.sectors.map(sec => {
             const last = sec.trail.at(-1);
-            const q = last?.rsRatio != null && last?.rsMom != null ? quadrant(last.rsRatio, last.rsMom) : null;
+            const q    = last?.rsRatio != null && last?.rsMom != null ? quadrant(last.rsRatio, last.rsMom) : null;
+            const isHidden = !!hidden[sec.sym];
             return (
-              <div key={sec.sym} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 7, height: 7, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
-                <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>{sec.sym}</span>
-                {q && <span style={{ fontFamily: DSANS, fontSize: 10, color: q.color, fontWeight: 600 }}>{q.label}</span>}
-              </div>
+              <button key={sec.sym} onClick={() => setHidden(h => ({ ...h, [sec.sym]: !h[sec.sym] }))}
+                style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                  opacity: isHidden ? 0.3 : 1, transition: 'opacity .15s' }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: isHidden ? '#334155' : sec.color, flexShrink: 0, transition: 'background .15s' }} />
+                <span style={{ fontFamily: DSANS, fontSize: 11, color: isHidden ? '#475569' : '#94a3b8', textDecoration: isHidden ? 'line-through' : 'none' }}>{sec.sym}</span>
+                {q && !isHidden && <span style={{ fontFamily: DSANS, fontSize: 10, color: q.color, fontWeight: 600 }}>{q.label}</span>}
+              </button>
             );
           })}
         </div>
