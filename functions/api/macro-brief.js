@@ -146,6 +146,14 @@ Rules: No hedging phrases. No "it's worth noting." No bullet points. No headers.
 }
 
 export async function onRequest(context) {
+  try {
+    return await _onRequest(context);
+  } catch (topErr) {
+    return new Response(JSON.stringify({ error: 'Unhandled: ' + (topErr?.message ?? String(topErr)) }), { status: 500, headers: CORS });
+  }
+}
+
+async function _onRequest(context) {
   if (context.request.method === 'OPTIONS') {
     return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET' } });
   }
