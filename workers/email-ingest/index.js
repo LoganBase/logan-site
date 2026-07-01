@@ -102,7 +102,7 @@ export default {
       // 2. Read raw stream into buffer FIRST — message.raw is a ReadableStream
       //    that can only be consumed once; forward() must come after to avoid locking it.
       const raw    = await new Response(message.raw).arrayBuffer();
-      const parsed = await PostalMime.parse(raw);
+      const parsed = await new PostalMime().parse(raw);
 
       // Forward to inbox — after reading raw so the stream is already captured
       try {
