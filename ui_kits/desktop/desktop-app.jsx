@@ -382,24 +382,61 @@ function abbrevSector(s) {
   return MAP[s] || s.slice(0, 4);
 }
 
+// ── Brief day popover — shown on tile hover ──
+function BriefDayPopover({ brief, rect }) {
+  const sc       = brief.sentiment >= 2 ? '#22c55e' : brief.sentiment <= -2 ? '#ef4444' : '#f59e0b';
+  const dateLabel = new Date(brief.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const W        = 290;
+  const left     = Math.min(Math.max(rect.left + rect.width / 2 - W / 2, 8), (window.innerWidth || 1200) - W - 8);
+  const top      = rect.top - 10;
+  return (
+    <div style={{ position: 'fixed', left, top, transform: 'translateY(-100%)', zIndex: 9999, width: W,
+      background: '#0d1520', border: '1px solid #28384a', borderLeft: `3px solid ${sc}`,
+      borderRadius: 10, padding: '12px 14px', boxShadow: '0 8px 32px rgba(0,0,0,.65)', pointerEvents: 'none' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 9 }}>
+        <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: sc }}>{brief.sentiment > 0 ? '+' : ''}{brief.sentiment}</span>
+        <span style={{ fontFamily: DSANS, fontSize: 12.5, fontWeight: 600, color: '#e8edf5' }}>{dateLabel}</span>
+        <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 10, color: '#64748b',
+          padding: '2px 7px', borderRadius: 4, background: '#16202e', border: '1px solid #1e2d3d', whiteSpace: 'nowrap' }}>{brief.sector}</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        {(brief.bullets || []).map((bullet, i) => (
+          <div key={i} style={{ display: 'flex', gap: 7, alignItems: 'flex-start' }}>
+            <span style={{ color: sc, fontSize: 7, marginTop: 5, lineHeight: 1, flexShrink: 0 }}>●</span>
+            <span style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', lineHeight: 1.52 }}>{bullet}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Sector rotation strip (30-day day cells) ──
 function SectorStrip({ history }) {
+  const [hovered, setHovered] = useStateA(null);
   const days = [...history].reverse();
   return (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {days.map(b => {
-        const sc = b.sentiment >= 2 ? '#22c55e' : b.sentiment <= -2 ? '#ef4444' : '#f59e0b';
+        const sc    = b.sentiment >= 2 ? '#22c55e' : b.sentiment <= -2 ? '#ef4444' : '#f59e0b';
         const dayNum = new Date(b.date + 'T12:00:00Z').getUTCDate();
+        const isHov = hovered?.brief.date === b.date;
         return (
-          <div key={b.date} title={`${b.date} · ${b.sector} · ${b.sentiment > 0 ? '+' : ''}${b.sentiment}`}
+          <div key={b.date}
+            onMouseEnter={e => setHovered({ brief: b, rect: e.currentTarget.getBoundingClientRect() })}
+            onMouseLeave={() => setHovered(null)}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-              background: sc + '12', border: `1px solid ${sc}28`, borderRadius: 7, padding: '6px 7px', minWidth: 38 }}>
+              background: isHov ? sc + '25' : sc + '12',
+              border: `1px solid ${isHov ? sc + '60' : sc + '28'}`,
+              borderRadius: 7, padding: '6px 7px', minWidth: 38, cursor: 'default',
+              transition: 'background 0.12s, border-color 0.12s' }}>
             <span style={{ fontFamily: DMONO, fontSize: 9.5, color: sc, fontWeight: 700 }}>{b.sentiment > 0 ? '+' : ''}{b.sentiment}</span>
             <span style={{ fontFamily: DSANS, fontSize: 9, color: '#94a3b8' }}>{abbrevSector(b.sector)}</span>
             <span style={{ fontFamily: DSANS, fontSize: 8.5, color: '#475569' }}>{dayNum}</span>
           </div>
         );
       })}
+      {hovered && <BriefDayPopover brief={hovered.brief} rect={hovered.rect} />}
     </div>
   );
 }
