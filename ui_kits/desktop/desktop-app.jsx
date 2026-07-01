@@ -248,13 +248,15 @@ function MacroBriefCard({ brief: dailyBrief }) {
 }
 
 // ── Macro Brief glance row — compact list tile (Glance view) ──
-function MacroBriefGlanceRow() {
+function MacroBriefGlanceRow({ onOpen }) {
   const { status, narrative, date } = useMacroBrief();
   const dateLabel = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—';
   const preview   = narrative ? narrative.slice(0, 160) + (narrative.length > 160 ? '…' : '') : null;
+  const clickable = status === 'ready' && !!onOpen;
   return (
-    <div style={{ boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 18px', width: '100%',
-      background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${status === 'ready' ? '#60a5fa' : '#1e2d3d'}`, borderRadius: 13 }}>
+    <div onClick={clickable ? onOpen : undefined} style={{ boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 18px', width: '100%',
+      background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${status === 'ready' ? '#60a5fa' : '#1e2d3d'}`, borderRadius: 13,
+      cursor: clickable ? 'pointer' : 'default' }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 150, flexShrink: 0 }}>
         <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5' }}>Macro Brief</span>
         <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>{dateLabel}</span>
@@ -265,6 +267,35 @@ function MacroBriefGlanceRow() {
         {status === 'ready' && preview && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.55 }}>{preview}</span>}
       </div>
       <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '2px 7px', borderRadius: 4, background: '#0d1e35', border: '1px solid #1a3a5c', flexShrink: 0, alignSelf: 'flex-start' }}>✦</span>
+      {clickable && <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+    </div>
+  );
+}
+
+// ── Macro Brief deep dive — full narrative page ──
+function MacroBriefDeepDive({ onBack }) {
+  const { status, narrative, date, isWeekly, weekLabel } = useMacroBrief();
+  const dateLabel = date ? new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : null;
+  const titleText = isWeekly ? 'Weekly Macro Brief' : 'Macro Brief';
+  const footerDate = isWeekly ? weekLabel : dateLabel;
+  return (
+    <div style={{ maxWidth: 920, margin: '0 auto', padding: '24px 32px 60px' }}>
+      <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 9, padding: '9px 15px', borderRadius: 10, background: '#0d1520', border: '1px solid #1e2d3d', marginBottom: 22 }}>
+        <svg width="8" height="13" viewBox="0 0 8 13"><path d="M6.5 1L1.5 6.5l5 5.5" stroke="#94a3b8" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', fontWeight: 500 }}>All signals</span>
+      </button>
+      <div style={{ background: '#111827', border: '1px solid #1e2d3d', borderLeft: '3px solid #60a5fa', borderRadius: 13, padding: '24px 28px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+          <span style={{ fontFamily: DSANS, fontSize: 18, fontWeight: 700, color: '#e8edf5' }}>{titleText}</span>
+          {footerDate && <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b' }}>{footerDate}</span>}
+          <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '2px 8px', borderRadius: 5, background: '#0d1e35', border: '1px solid #1a3a5c', letterSpacing: '.04em' }}>✦ CLAUDE</span>
+        </div>
+        {status === 'loading' && <span style={{ fontFamily: DSANS, fontSize: 14, color: '#64748b' }}>Synthesizing structural signals with today's market action…</span>}
+        {status === 'unavailable' && <span style={{ fontFamily: DSANS, fontSize: 14, color: '#475569' }}>Synthesis unavailable — scorecard or brief data not yet loaded.</span>}
+        {status === 'ready' && narrative && (
+          <p style={{ fontFamily: DSANS, fontSize: 15, color: '#94a3b8', lineHeight: 1.78, margin: 0 }}>{narrative}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -1581,6 +1612,9 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
     if (open === 'daily-brief') {
       return <DailyBriefDeepDive brief={brief} D={D} onBack={() => setOpen(null)} />;
     }
+    if (open === 'macro-brief') {
+      return <MacroBriefDeepDive onBack={() => setOpen(null)} />;
+    }
     const card = D.cards[open];
     return (
       <div style={{ maxWidth: 920, margin: '0 auto', padding: '24px 32px 60px' }}>
@@ -1664,7 +1698,7 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', paddingLeft: 2 }}>Daily Context</span>
         <DailyBriefGlanceRow brief={brief} onOpen={() => setOpen('daily-brief')} />
-        <MacroBriefGlanceRow />
+        <MacroBriefGlanceRow onOpen={() => setOpen('macro-brief')} />
       </div>
     </div>
   );

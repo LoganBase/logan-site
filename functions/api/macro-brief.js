@@ -181,7 +181,7 @@ async function _onRequest(context) {
       const cached = await kv.get(cacheKey, 'json');
       if (cached) {
         return new Response(JSON.stringify({ ...cached, cached: true }), {
-          headers: { ...CORS, 'Cache-Control': 'public, max-age=1800' },
+          headers: { ...CORS, 'Cache-Control': 'private, no-store' },
         });
       }
     } catch { /* non-fatal */ }
@@ -311,6 +311,6 @@ async function _onRequest(context) {
   }
 
   return new Response(JSON.stringify(result), {
-    headers: { ...CORS, 'Cache-Control': 'public, max-age=1800' },
+    headers: { ...CORS, 'Cache-Control': 'private, no-store' },
   });
 }
