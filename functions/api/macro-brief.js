@@ -66,7 +66,7 @@ function buildAggFromStatuses(statuses) {
     const bear = catStatuses.filter(s => s === 'bearish').length;
     const pct  = (bull + neu * 0.5) / catStatuses.length;
     weightedPct += pct * cat.weight;
-    const glow = pct >= 0.75 ? 'green' : pct >= 0.55 ? 'yellow' : 'red';
+    const glow = pct >= 0.70 ? 'green' : pct >= 0.40 ? 'yellow' : 'red';
     const summary = `${bull > 0 ? bull + ' bullish' : ''}${neu > 0 ? (bull > 0 ? ', ' : '') + neu + ' neutral' : ''}${bear > 0 ? (bull + neu > 0 ? ', ' : '') + bear + ' bearish' : ''}`.trim();
     return {
       key: cat.key, label: cat.label, weight: cat.weight,
@@ -76,8 +76,8 @@ function buildAggFromStatuses(statuses) {
   }).filter(Boolean);
 
   const score = (weightedPct * 10).toFixed(1);
-  const label = weightedPct >= 0.75 ? 'Risk-On — Broad Participation'
-              : weightedPct >= 0.55 ? 'Mixed Signals — Selective'
+  const label = weightedPct >= 0.70 ? 'Risk-On — Broad Participation'
+              : weightedPct >= 0.40 ? 'Mixed Signals — Selective'
               : 'Risk-Off — Reduce Exposure';
   const regimeBearish = statuses['regime'] === 'bearish';
 

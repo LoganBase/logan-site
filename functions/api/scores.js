@@ -1776,7 +1776,7 @@ function buildAggregate(cards) {
     const catRaw     = cc.bullish + cc.neutral * 0.5;
     const catTotal   = catCards.length;
     const catPct     = catTotal > 0 ? catRaw / catTotal : 0;          // 0–1
-    const catGlow    = catPct >= 0.75 ? 'green' : catPct >= 0.55 ? 'yellow' : 'red';
+    const catGlow    = catPct >= 0.70 ? 'green' : catPct >= 0.40 ? 'yellow' : 'red';
     const catDisplay = Number.isInteger(catRaw) ? `${catRaw}/${catTotal}` : `${catRaw.toFixed(1)}/${catTotal}`;
     return {
       key: cat.key, label: cat.label, ...cc, weight: cat.weight,
@@ -1792,9 +1792,9 @@ function buildAggregate(cards) {
                     + (byKey.participation?.pct  ?? 0) * 0.3
                     + (byKey.macro?.pct          ?? 0) * 0.3;
 
-  const glow    = weightedPct >= 0.75 ? 'green' : weightedPct >= 0.55 ? 'yellow' : 'red';
-  const label   = weightedPct >= 0.75 ? 'Risk-On \u2014 Broad Participation' : weightedPct >= 0.55 ? 'Mixed Signals \u2014 Selective' : 'Risk-Off \u2014 Reduce Exposure';
-  const posture = weightedPct >= 0.75 ? 'Risk-On, Not Complacent' : weightedPct >= 0.55 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
+  const glow    = weightedPct >= 0.70 ? 'green' : weightedPct >= 0.40 ? 'yellow' : 'red';
+  const label   = weightedPct >= 0.70 ? 'Risk-On \u2014 Broad Participation' : weightedPct >= 0.40 ? 'Mixed Signals \u2014 Selective' : 'Risk-Off \u2014 Reduce Exposure';
+  const posture = weightedPct >= 0.70 ? 'Risk-On, Not Complacent' : weightedPct >= 0.40 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
 
   const regimeBearish = byId['regime']?.status === 'bearish';
 
