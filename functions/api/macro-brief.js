@@ -274,7 +274,8 @@ async function _onRequest(context) {
       },
       body: JSON.stringify({
         model:      MODEL,
-        max_tokens: 400,
+        max_tokens: 700,
+        system:     'You are a senior portfolio manager. Write only a single paragraph of flowing institutional prose. No markdown. No headers. No titles. No dates. No bullet points. Begin directly with the market action.',
         messages:   [{ role: 'user', content: prompt }],
       }),
     });
