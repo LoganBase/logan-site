@@ -8,3 +8,9 @@ seed/*.pyc
 .env.local
 .env.production
 node_modules/
+
+# AI session scaffolding — not source code
+.agents/
+
+# Data files — fetch at seed time, not committed
+seed/*.csv

@@ -18,7 +18,9 @@ const HEADERS = { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (comp
 const CURRENT_FFTR = 3.75;
 
 // Fallback constants — used when FRED_API_KEY is absent or FRED is unreachable
-const LAST_CPI_MOM   = 0.2;   // Last actual CPI MoM % — update if FRED key is missing
+// MAINTENANCE: update LAST_CPI_MOM and LAST_CPI_MONTH after each CPI release
+// if the FRED key is not configured (same cadence as CURRENT_FFTR above).
+const LAST_CPI_MOM   = 0.2;   // Last actual CPI MoM %
 const LAST_CPI_MONTH = 'May'; // Month of that reading
 
 const FRED_BASE   = 'https://api.stlouisfed.org/fred/series/observations';

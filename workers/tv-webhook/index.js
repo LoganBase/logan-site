@@ -69,7 +69,7 @@ export default {
     let bodySecret = '';
     try { bodySecret = JSON.parse(rawBody)?.secret ?? ''; } catch {}
     const providedSecret = headerSecret || bodySecret;
-    if (env.TV_SECRET && providedSecret !== env.TV_SECRET) {
+    if (!env.TV_SECRET || providedSecret !== env.TV_SECRET) {
       console.warn('[tv-webhook] Rejected request — bad secret');
       return new Response('Unauthorized', { status: 401 });
     }

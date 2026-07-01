@@ -133,7 +133,7 @@ export default {
     }
     const secret = env.CRON_SECRET;
     const auth   = request.headers.get('Authorization') ?? '';
-    if (secret && auth !== `Bearer ${secret}`) {
+    if (!secret || auth !== `Bearer ${secret}`) {
       return new Response('Unauthorized', { status: 401 });
     }
     let results;

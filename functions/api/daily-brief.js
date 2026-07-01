@@ -17,9 +17,11 @@ const CORS = {
 };
 
 function formatRow(row) {
+  let bullets;
+  try { bullets = JSON.parse(row.bullets); } catch { bullets = []; }
   return {
     date:       row.date,
-    bullets:    JSON.parse(row.bullets),
+    bullets,
     sentiment:  row.sentiment,
     sector:     row.sector,
     model:      row.model,
@@ -60,13 +62,18 @@ export async function onRequest(context) {
   try {
     // ── Full-text search ──────────────────────────────────────────────────────
     if (search) {
+      // Sanitize: FTS5 MATCH syntax errors leak schema details; strip special chars
+      const safeSearch = search.replace(/["'*():^]/g, ' ').trim();
+      if (!safeSearch) {
+        return new Response(JSON.stringify({ results: [] }), { headers: { ...CORS, 'Cache-Control': 'public, max-age=300' } });
+      }
       const { results } = await db.prepare(`
         SELECT b.* FROM daily_briefs b
         JOIN daily_briefs_fts f ON b.id = f.rowid
         WHERE daily_briefs_fts MATCH ?
         ORDER BY b.date DESC
         LIMIT 20
-      `).bind(search).all();
+      `).bind(safeSearch).all();
 
       return new Response(JSON.stringify({ results: (results ?? []).map(formatRow) }), {
         headers: { ...CORS, 'Cache-Control': 'public, max-age=300' },
@@ -108,12 +115,11 @@ export async function onRequest(context) {
         });
       }
 
-      const briefs = results.map(r => ({
-        date:      r.date,
-        bullets:   JSON.parse(r.bullets),
-        sentiment: r.sentiment,
-        sector:    r.sector,
-      }));
+      const briefs = results.map(r => {
+        let bullets;
+        try { bullets = JSON.parse(r.bullets); } catch { bullets = []; }
+        return { date: r.date, bullets, sentiment: r.sentiment, sector: r.sector };
+      });
 
       const sentiments    = briefs.map(b => b.sentiment);
       const avgSentiment  = Math.round((sentiments.reduce((a, b) => a + b, 0) / sentiments.length) * 10) / 10;

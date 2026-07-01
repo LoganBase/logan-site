@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Market Hub — Architecture Diagram</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #080c14;
+    color: #e8edf5;
+    font-family: system-ui, -apple-system, sans-serif;
+    padding: 32px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: 4px;
+  }
+  p.sub {
+    font-size: 13px;
+    color: #475569;
+    margin-bottom: 28px;
+  }
+  .mermaid {
+    background: #0d1117;
+    border: 1px solid #1e2a3a;
+    border-radius: 12px;
+    padding: 32px;
+    overflow-x: auto;
+  }
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 24px;
+    font-size: 12px;
+    color: #64748b;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<h1>Market Hub — System Architecture</h1>
+<p class="sub">LoganBase/logan-site · Cloudflare Pages + Workers · loganbase.com/market-hub</p>
+
+<div class="mermaid">
+%%{init: {
+  "theme": "dark",
+  "themeVariables": {
+    "background": "#0d1117",
+    "primaryColor": "#1e3a5f",
+    "primaryTextColor": "#e2e8f0",
+    "primaryBorderColor": "#2d4a6e",
+    "lineColor": "#3b82f6",
+    "secondaryColor": "#1a2940",
+    "tertiaryColor": "#0f1923",
+    "clusterBkg": "#0f1923",
+    "clusterBorder": "#1e2a3a",
+    "edgeLabelBackground": "#0d1117",
+    "fontFamily": "system-ui, sans-serif",
+    "fontSize": "13px"
+  }
+}}%%
+
+flowchart TB
+
+  %% ── CI / DEPLOY ─────────────────────────────────────────────────────────────
+  subgraph CICD["  GitHub · CI / CD  "]
+    direction LR
+    GH["LoganBase/logan-site\n(main branch)"]
+    WF_VAL["validate.yml\nJS syntax check\n+ /api/health ping\non every push"]
+    WF_SEED["seed-daily.yml\n21:30 UTC Mon–Fri\nPython → D1\nhistorical backfill"]
+  end
+
+  %% ── EXTERNAL DATA SOURCES ───────────────────────────────────────────────────
+  subgraph EXT["  External Data Sources  "]
+    direction LR
+    YF["Yahoo Finance\nv8 Chart API\n(unauthenticated)"]
+    KAPI["Kalshi API\nKXFED · KXCPI\nprediction markets"]
+    PMAPI["Polymarket\nGamma API\nmacro markets"]
+    BCOM["Briefing.com\nClose Update\nemail"]
+    TV["TradingView\nPine Script\nalerts"]
+    FRED["FRED API\nFed rate (DFEDTARU)\nCPI (CPIAUCSL)"]
+    RESEND["Resend\nemail alerts"]
+    CLAUDE_EXT["Anthropic API\nclaude-haiku-4-5\n-20251001"]
+  end
+
+  %% ── WORKERS ─────────────────────────────────────────────────────────────────
+  subgraph WORKERS["  Cloudflare Workers  "]
+    direction TB
+    DR["data-refresh\n⏰ Mon–Fri 22:00 UTC\nBatch /api/refresh ×3\n→ /api/signals\n→ /api/health\n→ Resend alert"]
+    EI["email-ingest\n📧 Email Routing\nValidate @briefing.com\nClaude extract\nUpsert D1"]
+    PEU["pe-updater\n⏰ Daily 02:00 UTC\nYahoo crumb/cookie\nSPY trailing P/E\nEWJ Japan P/E → D1"]
+    TVW["tv-webhook\nPOST /webhook\nTradingView alerts\nMMTH · MMFI → market_breadth\nCAPE → shiller_data\nBUFFETT → buffett_data"]
+  end
+
+  %% ── STORAGE ─────────────────────────────────────────────────────────────────
+  subgraph STORAGE["  Cloudflare Storage  "]
+    direction LR
+    subgraph D1["D1 SQLite  ·  market-hub-db"]
+      direction TB
+      D1A["daily_prices\n(symbol, date, OHLCV)"]
+      D1B["indicators\n(sma50/200, rsi14, roc10\nvs200_pct, percentile)"]
+      D1C["card_signals\n(id, date, status\nspy_close, correct)"]
+      D1D["daily_briefs + FTS5\n(bullets, sentiment, sector)"]
+      D1E["shiller_data · buffett_data\nforward_pe_data · japan_pe_data\nmarket_breadth"]
+    end
+    subgraph KV["KV Namespace  ·  SUMMARIES"]
+      direction TB
+      KV1["summary:{id}:{range}:{date}\nAI card summaries (365d TTL)"]
+      KV2["card-statuses:current\ncard-statuses:previous\n(delta / change arrows)"]
+      KV3["macro-brief:{date}\ncrowd-signals-summary:{date}\n(24h TTL)"]
+    end
+  end
+
+  %% ── PAGES FUNCTIONS ─────────────────────────────────────────────────────────
+  subgraph PAGES_FN["  Cloudflare Pages Functions  ·  /api/*  "]
+    direction TB
+
+    subgraph SCORE_FN["Scoring Engine"]
+      SCORES["/api/scores\n10-card engine\nD1 + YF blend → KV\nBull·Neu·Bear aggregate\nweighted 40/30/30"]
+    end
+
+    subgraph HIST_FN["History / Charts"]
+      direction LR
+      HIST["/api/history\nany symbol\nD1 → YF fallback\nSMA·RSI·vs200\nregime duration"]
+      EH["/api/equities-history\n9 macro names\nrebased to 100"]
+      COMH["/api/commodities-history\n8 commodity ETFs\nrebased to 100"]
+      SECT["/api/sectors\nCyclicals vs Defensives\nstreak + returns"]
+      SECH["/api/sectors-history"]
+      BROAD["/api/breadth-history\n/api/sector-breadth-history"]
+      LEAD["/api/leadership\nSPY vs RSP\nQQQ vs QQEW"]
+      GFH["/api/global-flows-history"]
+      VALH["/api/valuations-history\nCAPE · P/E · Buffett"]
+      BUFFH["/api/buffett-history"]
+    end
+
+    subgraph CROWD_FN["Market Intelligence"]
+      direction LR
+      KFUN["/api/kalshi\nFOMC implied rate\nCPI MoM median\nFRED fallback"]
+      PFUN["/api/polymarket\nTop 5 macro markets\nby volume"]
+      DBFUN["/api/daily-brief\nBriefing.com briefs\nFTS5 search\nweekend rollup"]
+    end
+
+    subgraph AI_FN["AI Synthesis  (Claude Haiku)"]
+      direction LR
+      SUMFN["/api/summary\nCard + exec summaries\nKV cache (365d)"]
+      MBFN["/api/macro-brief\nDaily narrative\nScorecard + brief\nKV cache (24h)"]
+      CSSFN["/api/crowd-signals-summary\nKalshi + Polymarket\nKV cache (24h)"]
+    end
+
+    subgraph OPS_FN["Operations"]
+      direction LR
+      REFFN["/api/refresh\nDelta D1 update\nYF → indicators\nbatched by ?start=N"]
+      SIGFN["/api/signals\nRecord card status\nscore 20d outcomes"]
+      HFUN["/api/health\nD1 freshness check\nstale · gaps · lag"]
+    end
+  end
+
+  %% ── FRONTEND ─────────────────────────────────────────────────────────────────
+  subgraph FRONTEND["  Browser  ·  Frontend  "]
+    direction LR
+    MH["market-hub/index.html\nVanilla JS · 4 k lines\nChart.js (lazy)\nAll 10 cards + modals"]
+    V2["v2/index.html\nReact Desktop\nBabel runtime\ndesk-parts.jsx 327 KB\ndesk-app.jsx 116 KB"]
+    MOB["mobile/index.html\nReact Mobile\nBabel runtime\nGlance.jsx 69 KB"]
+  end
+
+  %% ── CONNECTIONS ──────────────────────────────────────────────────────────────
+
+  %% Deploy
+  GH -->|"auto-deploy\non push"| PAGES_FN
+  GH -->|"auto-deploy\non push"| FRONTEND
+  WF_SEED -->|"python seed/*.py\nREST API"| D1A
+  WF_SEED -->|"fetch"| YF
+
+  %% Workers ← External
+  BCOM -->|"Email Routing"| EI
+  TV -->|"POST /webhook"| TVW
+  DR -->|"GET /run batches"| REFFN
+  DR -->|"POST"| SIGFN
+  DR -->|"GET"| HFUN
+  DR -->|"alert"| RESEND
+
+  %% Workers → External
+  EI -->|"extract"| CLAUDE_EXT
+  PEU -->|"quoteSummary\nv10"| YF
+
+  %% Workers → Storage
+  EI --> D1D
+  PEU --> D1E
+  TVW --> D1E
+
+  %% Pages Fn ↔ Storage
+  SCORES -->|"read"| D1A
+  SCORES -->|"read"| D1B
+  SCORES -->|"read"| D1E
+  SCORES -->|"write card-statuses"| KV2
+  REFFN -->|"upsert"| D1A
+  REFFN -->|"upsert"| D1B
+  SIGFN -->|"write"| D1C
+  SIGFN -->|"read"| KV2
+  HIST_FN -->|"read"| D1A
+  HIST_FN -->|"read"| D1B
+  VALH -->|"read"| D1E
+  BUFFH -->|"read"| D1E
+  DBFUN -->|"read"| D1D
+  HFUN -->|"read"| D1A
+  HFUN -->|"read"| D1B
+  SUMFN -->|"cache"| KV1
+  MBFN -->|"cache"| KV3
+  MBFN -->|"read statuses"| KV2
+  MBFN -->|"read"| D1D
+  CSSFN -->|"cache"| KV3
+
+  %% Pages Fn ← External
+  SCORES -->|"live price\nfallback"| YF
+  HIST -->|"fallback"| YF
+  SECT -->|"fallback"| YF
+  KFUN -->|"markets"| KAPI
+  KFUN -->|"FFTR · CPI"| FRED
+  PFUN -->|"macro markets"| PMAPI
+  SUMFN -->|"generate"| CLAUDE_EXT
+  MBFN -->|"generate"| CLAUDE_EXT
+  CSSFN -->|"generate"| CLAUDE_EXT
+
+  %% Frontend → Pages Fn
+  MH -->|"fetch"| SCORES
+  MH -->|"fetch"| HIST_FN
+  MH -->|"fetch"| CROWD_FN
+  MH -->|"fetch"| AI_FN
+  V2 -->|"fetch"| SCORES
+  V2 -->|"fetch"| HIST_FN
+  V2 -->|"fetch"| CROWD_FN
+  V2 -->|"fetch"| AI_FN
+  MOB -->|"fetch"| SCORES
+  MOB -->|"fetch"| CROWD_FN
+  MOB -->|"fetch"| AI_FN
+
+  %% Styling
+  classDef worker fill:#1a3a2a,stroke:#22c55e,color:#86efac
+  classDef pagesfn fill:#1a2a4a,stroke:#3b82f6,color:#93c5fd
+  classDef storage fill:#2a1a3a,stroke:#a855f7,color:#d8b4fe
+  classDef external fill:#2a1a1a,stroke:#f59e0b,color:#fcd34d
+  classDef frontend fill:#1a2a1a,stroke:#10b981,color:#6ee7b7
+  classDef cicd fill:#1a1a2a,stroke:#6366f1,color:#a5b4fc
+
+  class DR,EI,PEU,TVW worker
+  class SCORES,HIST,EH,COMH,SECT,SECH,BROAD,LEAD,GFH,VALH,BUFFH,KFUN,PFUN,DBFUN,SUMFN,MBFN,CSSFN,REFFN,SIGFN,HFUN pagesfn
+  class D1A,D1B,D1C,D1D,D1E,KV1,KV2,KV3 storage
+  class YF,KAPI,PMAPI,BCOM,TV,FRED,RESEND,CLAUDE_EXT external
+  class MH,V2,MOB frontend
+  class GH,WF_VAL,WF_SEED cicd
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Cloudflare Worker (background / cron)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3b82f6"></div> Pages Function (/api/* endpoint)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div> Cloudflare Storage (D1 · KV)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f59e0b"></div> External Service / API</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#10b981"></div> Browser Frontend</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#6366f1"></div> GitHub / CI–CD</div>
+</div>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    flowchart: { htmlLabels: true, curve: 'basis', padding: 20 },
+    securityLevel: 'loose',
+  });
+</script>
+</body>
+</html>

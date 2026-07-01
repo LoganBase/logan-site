@@ -31,3 +31,9 @@
 
 /ui_kits/desktop/*.jsx
   Cache-Control: public, max-age=86400
+
+/ui_kits/mobile/*.js
+  Cache-Control: public, max-age=86400
+
+/ui_kits/mobile/*.jsx
+  Cache-Control: public, max-age=86400

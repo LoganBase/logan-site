@@ -994,8 +994,6 @@ function buildGlobalFlows(q) {
     { sym: 'ECH',     label: 'Chile',        group: 'Latin America' },
   ];
 
-  // legacy alias so the rest of the function compiles unchanged during transition
-  const globalSyms = [];
   // ── Build card rows ────────────────────────────────────────────────────────
   let bull = 0;
   const cardDetails = cardSyms.map(({ sym, label, region }) => {
@@ -1441,7 +1439,7 @@ function buildEquities(q) {
     const abvBoth = !!(d?.price && d?.sma50 && d?.sma200 && d.price > d.sma50 && d.price > d.sma200);
     if (abvBoth) themeCount[theme] = (themeCount[theme] || 0) + 1;
   });
-  const themeSizes = { market: 1, risk: 1, tech: 1, financials: 1, capex: 1, energy: 1, copper: 1, gold: 1, uranium: 1, global: 1 };
+  const themeSizes = { market: 1, risk: 1, tech: 1, financials: 1, capex: 1, energy: 1, copper: 1, gold: 1, global: 1 };
   const firingThemes  = Object.entries(themeCount).filter(([t, n]) => n === themeSizes[t]).map(([t]) => t);
   const stalledThemes = Object.keys(themeSizes).filter(t => !themeCount[t]);
 
@@ -1913,7 +1911,6 @@ export async function onRequest(context) {
   let scoreDirection = 'same';
   if (kv) {
     try {
-      const today = new Date().toISOString().slice(0, 10);
       const [current, previous] = await Promise.all([
         kv.get('card-statuses:current', 'json'),
         kv.get('card-statuses:previous', 'json'),

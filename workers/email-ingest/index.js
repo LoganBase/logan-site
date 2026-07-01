@@ -25,7 +25,6 @@ import PostalMime from 'postal-mime';
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 
 const ALLOWED_DOMAIN   = 'briefing.com';
-const FORWARD_TO       = 'shane.logan@gmail.com';
 const ANTHROPIC_URL    = 'https://api.anthropic.com/v1/messages';
 const MODEL            = 'claude-haiku-4-5-20251001';
 const MAX_BODY_CHARS   = 8_000;   // chars sent to Claude (cost control)
@@ -107,7 +106,8 @@ export default {
 
       // Forward to inbox — after reading raw so the stream is already captured
       try {
-        await message.forward(FORWARD_TO);
+        if (!env.FORWARD_TO) throw new Error('FORWARD_TO env var not configured');
+        await message.forward(env.FORWARD_TO);
       } catch (fwdErr) {
         console.error('Forward failed:', fwdErr);
       }

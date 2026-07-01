@@ -10,25 +10,17 @@
  * day returns instantly; each day's entry is kept indefinitely for
  * future monthly history views.
  *
- * Requires env vars: ANTHROPIC_API_KEY, HUB_TOKEN
+ * Requires env vars: ANTHROPIC_API_KEY
  * Requires KV binding: SUMMARIES
  */
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const MODEL         = 'claude-haiku-4-5';
+const MODEL         = 'claude-haiku-4-5-20251001';
 
 export async function onRequest(context) {
   if (context.request.method === 'OPTIONS') {
     return new Response(null, {
       headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST' },
-    });
-  }
-
-  const token = context.request.headers.get('X-Hub-Token');
-  if (!token || token !== context.env.HUB_TOKEN) {
-    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
     });
   }
 

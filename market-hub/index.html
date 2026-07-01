@@ -478,7 +478,6 @@ body {
   </div>
   <div class="header-meta">
     <button class="refresh-btn" onclick="openHelp()">? Help</button>
-    <button class="refresh-btn" id="refreshBtn" onclick="refreshAndLoad()">&#8635; Refresh</button>
   </div>
 </header>
 
@@ -1397,10 +1396,12 @@ function closeModal(e) {
 // ── REGIME CHART ──────────────────────────────────────────────────────────────
 function loadChartJS() {
   if (chartJsReady) return Promise.resolve();
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     const s = document.createElement('script');
     s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
-    s.onload = () => { chartJsReady = true; resolve(); };
+    s.crossOrigin = 'anonymous';
+    s.onload  = () => { chartJsReady = true; resolve(); };
+    s.onerror = () => reject(new Error('Failed to load Chart.js'));
     document.head.appendChild(s);
   });
 }
@@ -3643,7 +3644,7 @@ async function generateAllSummary() {
   try {
     const res = await fetch('/api/summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Hub-Token': 'mh-2f9k7x4p' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         card: { id: 'aggregate', title: 'Market Summary', subtitle: 'All 10 Cards', status: lastData.aggregate.glow, rows: [] },
         allCards: lastData.cards,
@@ -3652,9 +3653,13 @@ async function generateAllSummary() {
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    box.innerHTML = data.summary + (data.cached
-      ? `<span style="display:block;margin-top:8px;font-size:10px;color:var(--muted);letter-spacing:.05em">CACHED — ${new Date().toISOString().slice(0,10)}</span>`
-      : '');
+    box.textContent = data.summary;
+    if (data.cached) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'display:block;margin-top:8px;font-size:10px;color:var(--muted);letter-spacing:.05em';
+      badge.textContent = `CACHED — ${new Date().toISOString().slice(0,10)}`;
+      box.appendChild(badge);
+    }
     box.style.display = 'block';
     btn.style.display = 'none';
   } catch (err) {
@@ -3680,14 +3685,18 @@ async function generateSummary(cardId) {
   try {
     const res = await fetch('/api/summary', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Hub-Token': 'mh-2f9k7x4p' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ card, deepDive: currentDeepDive }),
     });
     const data = await res.json();
     if (data.error) throw new Error(data.error);
-    box.innerHTML  = data.summary + (data.cached
-      ? `<span style="display:block;margin-top:8px;font-size:10px;color:var(--muted);letter-spacing:.05em">CACHED — ${new Date().toISOString().slice(0,10)}</span>`
-      : '');
+    box.textContent = data.summary;
+    if (data.cached) {
+      const badge = document.createElement('span');
+      badge.style.cssText = 'display:block;margin-top:8px;font-size:10px;color:var(--muted);letter-spacing:.05em';
+      badge.textContent = `CACHED — ${new Date().toISOString().slice(0,10)}`;
+      box.appendChild(badge);
+    }
     box.style.display = 'block';
     btn.style.display = 'none';
   } catch (err) {
@@ -4120,26 +4129,6 @@ async function loadData() {
     btn.textContent = '⟳ Refresh';
     btn.disabled = false;
   }
-}
-
-async function refreshAndLoad() {
-  const btn = document.getElementById('refreshBtn');
-  btn.disabled = true;
-  try {
-    btn.textContent = '⟳ Updating D1…';
-    const rr = await fetch('/api/refresh', { headers: { 'X-Hub-Token': 'mh-2f9k7x4p' } });
-    if (!rr.ok) throw new Error(`Refresh failed: HTTP ${rr.status}`);
-    const rd = await rr.json();
-    const added = rd.totalAdded ?? 0;
-    btn.textContent = added > 0 ? `✓ +${added} rows` : '✓ Up to date';
-    await new Promise(r => setTimeout(r, 800));
-  } catch (err) {
-    btn.textContent = '⚠ Refresh error';
-    await new Promise(r => setTimeout(r, 1200));
-  } finally {
-    btn.textContent = '…';
-  }
-  await loadData();
 }
 
 loadData();

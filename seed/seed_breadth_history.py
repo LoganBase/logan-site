@@ -7,10 +7,11 @@ Files expected (TradingView 1D export format):
   <unix_timestamp_seconds>,<o>,<h>,<l>,<close_value>
 
 Usage:
-  python seed/seed_breadth_history.py
+  python seed/seed_breadth_history.py --mmth /path/to/INDEX_MMTH.csv --mmfi /path/to/INDEX_MMFI.csv
+  python seed/seed_breadth_history.py  # uses MMTH_CSV / MMFI_CSV env vars
 """
 
-import os, time
+import os, sys, time, argparse
 import pandas as pd
 import requests
 from datetime import datetime, timezone
@@ -22,8 +23,15 @@ CF_ACCOUNT_ID = os.environ.get('CF_ACCOUNT_ID', '').strip()
 CF_API_TOKEN  = os.environ.get('CF_API_TOKEN',  '').strip()
 CF_D1_DB_ID   = os.environ.get('CF_D1_DB_ID',   '').strip()
 
-MMTH_CSV = r'C:\Users\shane\Downloads\INDEX_MMTH, 1D.csv'
-MMFI_CSV = r'C:\Users\shane\Downloads\INDEX_MMFI, 1D.csv'
+def _resolve_csv_paths():
+    parser = argparse.ArgumentParser(description='Seed market breadth history from TradingView CSV exports')
+    parser.add_argument('--mmth', default=os.environ.get('MMTH_CSV', ''), help='Path to INDEX_MMTH 1D CSV')
+    parser.add_argument('--mmfi', default=os.environ.get('MMFI_CSV', ''), help='Path to INDEX_MMFI 1D CSV')
+    args = parser.parse_args()
+    if not args.mmth or not args.mmfi:
+        print('ERROR: Provide --mmth and --mmfi paths, or set MMTH_CSV / MMFI_CSV env vars.')
+        sys.exit(1)
+    return args.mmth, args.mmfi
 
 D1_QUERY_URL = f'https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/d1/database/{CF_D1_DB_ID}/query'
 D1_BATCH_URL = f'https://api.cloudflare.com/client/v4/accounts/{CF_ACCOUNT_ID}/d1/database/{CF_D1_DB_ID}/batch'
@@ -93,10 +101,12 @@ def main():
         if not os.environ.get(key):
             raise SystemExit(f'ERROR: {key} not set in seed/.env')
 
+    mmth_path, mmfi_path = _resolve_csv_paths()
+
     print('── Breadth History Seeder ────────────────────────────')
     print('\n[1] Loading CSV files...')
-    df_mmth = load_csv(MMTH_CSV, 'MMTH (200d)')
-    df_mmfi = load_csv(MMFI_CSV, 'MMFI (50d)')
+    df_mmth = load_csv(mmth_path, 'MMTH (200d)')
+    df_mmfi = load_csv(mmfi_path, 'MMFI (50d)')
 
     print('\n[2] Uploading to D1...')
     total = upload(df_mmth, df_mmfi)

@@ -24,11 +24,11 @@ const ALL_SYMBOLS = [
   // Yield + Currency
   '^TYX', '^TNX', '^IRX', 'SHY', 'UUP', 'FXE', 'FXY',
   // Credit
-  'HYG', 'LQD', 'JNK', 'EMB',
+  'HYG', 'LQD', 'EMB',
   // Global Flows — regional
   'ACWI', 'FEZ', 'AIA', 'ILF', 'EEM',
   // Global Flows — countries
-  '^GSPTSE', 'SPDW', 'VEU', 'EZU', '^N225',
+  '^GSPTSE',
   'EWU', 'EWG', 'EWQ', 'EWL', 'EWN', 'EWI', 'EWP',
   'EWJ', 'MCHI', 'EWT', 'EWY', 'INDA', 'EWA', 'EWH',
   'EWW', 'EWZ', 'ECH',
@@ -37,7 +37,7 @@ const ALL_SYMBOLS = [
   'XLV', 'XLC', 'XLY', 'XLB',
   'XME', 'GDX', 'COPX', 'KBE',
   // Commodities
-  'USCI', 'CPER', 'GLD', 'SLV', 'IXC', 'XES', 'DBA', 'SLX', 'URA',
+  'USCI', 'CPER', 'GLD', 'SLV', 'IXC', 'DBA', 'SLX', 'URA',
   // Equities
   'IWM', 'NVDA', 'JPM', 'CAT', 'XOM', 'FCX', 'CCJ',
   // Extended — deep-dive / supplemental
@@ -45,7 +45,6 @@ const ALL_SYMBOLS = [
   'AEM',
   'GRID', 'GEV',
   'RIO', 'SU',
-  'CCO.TO', 'TVE.TO', 'ZEB.TO',
 ];
 
 // ── MATH ──────────────────────────────────────────────────────────────────────

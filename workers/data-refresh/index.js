@@ -15,7 +15,7 @@
  */
 
 // Send an alert email via Resend when health check fails.
-// Requires RESEND_API_KEY secret and ALERT_EMAIL var (defaults to shane.logan@gmail.com).
+// Requires RESEND_API_KEY secret and ALERT_EMAIL var (set in Cloudflare Worker env).
 async function sendAlert(env, health) {
   const apiKey = env.RESEND_API_KEY;
   if (!apiKey) {
@@ -23,7 +23,11 @@ async function sendAlert(env, health) {
     return;
   }
 
-  const to      = env.ALERT_EMAIL || 'shane.logan@gmail.com';
+  const to      = env.ALERT_EMAIL;
+  if (!to) {
+    console.warn('[data-refresh] ALERT_EMAIL not configured — skipping email alert');
+    return;
+  }
   const subject = `⚠️ Market Hub Data Alert — ${health.status?.toUpperCase()} — ${health.data_date}`;
 
   const staleRows = (health.stale_symbols || [])
@@ -176,7 +180,7 @@ export default {
 
     const secret = env.CRON_SECRET;
     const auth   = request.headers.get('Authorization') ?? '';
-    if (secret && auth !== `Bearer ${secret}`) {
+    if (!secret || auth !== `Bearer ${secret}`) {
       return new Response('Unauthorized', { status: 401 });
     }
 

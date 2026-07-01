@@ -29,7 +29,8 @@ from dotenv import load_dotenv
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
-SHILLER_URL   = 'http://www.econ.yale.edu/~shiller/data/ie_data.xls'
+# Yale may not support HTTPS on this path — prefer passing a local file or using shillerdata.com
+SHILLER_URL   = 'https://www.econ.yale.edu/~shiller/data/ie_data.xls'
 CF_ACCOUNT_ID = os.environ.get('CF_ACCOUNT_ID', '').strip()
 CF_API_TOKEN  = os.environ.get('CF_API_TOKEN',  '').strip()
 CF_D1_DB_ID   = os.environ.get('CF_D1_DB_ID',   '').strip()
