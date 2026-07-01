@@ -1116,6 +1116,20 @@ function BriefHistoryStrip({ history, currentDate }) {
 
 function DailyBriefDive({ brief, onBack }) {
   const history = useBriefHistory(!brief?.isWeekly);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+
+  const doSearch = () => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    setSearching(true);
+    fetch('/api/daily-brief?search=' + encodeURIComponent(q), { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(d => { setSearchResults(d.results || []); setSearching(false); })
+      .catch(() => setSearching(false));
+  };
+
   const BackBtn = () => (
     <button onClick={onBack} style={{ all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, background: '#0d1520', border: '1px solid #1e2d3d' }}>
       <svg width="9" height="15" viewBox="0 0 9 15"><path d="M7.5 1L1.5 7.5l6 6.5" stroke="#94a3b8" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
@@ -1192,6 +1206,56 @@ function DailyBriefDive({ brief, onBack }) {
           </div>
         )}
         {!brief.isWeekly && <BriefHistoryStrip history={history} currentDate={brief.date} />}
+
+        {/* ── Search ── */}
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 13, padding: '14px 14px' }}>
+          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#64748b', marginBottom: 10 }}>Search Close Updates</div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="text" value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && doSearch()}
+              placeholder="e.g. Fed, inflation, yield…"
+              style={{ flex: 1, minWidth: 0, background: '#111827', border: '1px solid #1e2d3d', borderRadius: 8, padding: '9px 12px',
+                fontFamily: SANS, fontSize: 13, color: '#e8edf5', outline: 'none' }} />
+            <button onClick={doSearch}
+              style={{ all: 'unset', cursor: 'pointer', padding: '9px 14px', borderRadius: 8,
+                background: searching ? '#111827' : '#1b2736', border: '1px solid #243446',
+                fontFamily: SANS, fontSize: 13, color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {searching ? '…' : 'Search'}
+            </button>
+          </div>
+          {searchResults !== null && (
+            <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 7 }}>
+              {(() => {
+                const q = searchQuery.trim().toLowerCase();
+                const matches = [];
+                searchResults.forEach(r => {
+                  const dl = new Date(r.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                  const rc = sentimentColor(r.sentiment);
+                  r.bullets.forEach(b => {
+                    if (b.toLowerCase().includes(q)) matches.push({ dl, rc, b });
+                  });
+                });
+                if (!matches.length) return <span style={{ fontFamily: SANS, fontSize: 12, color: '#64748b' }}>No matching bullets found.</span>;
+                return matches.map((m, i) => {
+                  const idx    = m.b.toLowerCase().indexOf(q);
+                  const before = m.b.slice(0, idx);
+                  const hit    = m.b.slice(idx, idx + q.length);
+                  const after  = m.b.slice(idx + q.length);
+                  return (
+                    <div key={i} style={{ background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${m.rc}`, borderRadius: 8, padding: '9px 11px' }}>
+                      <div style={{ fontFamily: MONO, fontSize: 9.5, fontWeight: 700, color: '#475569', marginBottom: 5 }}>{m.dl}</div>
+                      <span style={{ fontFamily: SANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.55 }}>
+                        {before}<mark style={{ background: '#78350f55', color: '#fbbf24', borderRadius: 3, padding: '0 2px' }}>{hit}</mark>{after}
+                      </span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
+        </div>
+
         <div style={{ fontFamily: SANS, fontSize: 10.5, color: '#475569', textAlign: 'center', paddingBottom: 4 }}>
           Source: Briefing.com Close Update
         </div>
