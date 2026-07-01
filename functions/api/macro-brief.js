@@ -149,7 +149,7 @@ export async function onRequest(context) {
   try {
     return await _onRequest(context);
   } catch (topErr) {
-    return new Response(JSON.stringify({ error: 'Unhandled: ' + (topErr?.message ?? String(topErr)) }), { status: 500, headers: CORS });
+    return new Response(JSON.stringify({ error: 'Unhandled: ' + (topErr?.message ?? String(topErr)) }), { status: 200, headers: CORS });
   }
 }
 
@@ -163,7 +163,7 @@ async function _onRequest(context) {
   const key = context.env.ANTHROPIC_API_KEY;
 
   if (!key) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), { status: 500, headers: CORS });
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), { status: 200, headers: CORS });
   }
 
   const nowUtc   = new Date();
@@ -254,7 +254,7 @@ async function _onRequest(context) {
       error: isWeekend
         ? 'No briefs found for this week. Synthesis requires at least one Close Update.'
         : 'No Briefing.com Close Update available yet. Brief arrives after market close.',
-    }), { status: 404, headers: CORS });
+    }), { status: 200, headers: CORS });
   }
 
   // Build prompt and call Claude
@@ -288,7 +288,7 @@ async function _onRequest(context) {
     narrative  = data.content?.[0]?.text?.trim() ?? '';
     if (!narrative) throw new Error('Empty response from Claude');
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), { status: 502, headers: CORS });
+    return new Response(JSON.stringify({ error: err.message }), { status: 200, headers: CORS });
   }
 
   const result = {
