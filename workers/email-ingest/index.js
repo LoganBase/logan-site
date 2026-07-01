@@ -80,11 +80,12 @@ function stripHtml(html) {
 }
 
 function extractDate(parsed) {
+  const etFmt = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' });
   if (parsed.date) {
     const d = new Date(parsed.date);
-    if (!isNaN(d)) return d.toISOString().slice(0, 10);
+    if (!isNaN(d)) return etFmt.format(d);
   }
-  return new Date().toISOString().slice(0, 10);
+  return etFmt.format(new Date());
 }
 
 // ── MAIN ──────────────────────────────────────────────────────────────────────

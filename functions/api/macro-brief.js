@@ -166,11 +166,22 @@ async function _onRequest(context) {
     return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), { status: 500, headers: CORS });
   }
 
-  const nowUtc   = new Date();
-  const todayStr = nowUtc.toISOString().slice(0, 10);
-  const dow      = nowUtc.getUTCDay(); // 0=Sun, 6=Sat
+  // Use America/New_York for all date logic — US market convention.
+  // sv-SE locale produces YYYY-MM-DD natively; avoids UTC date bleeding into next day after 8pm ET.
+  const etFmt    = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/New_York' });
+  const todayStr = etFmt.format(new Date());
+  const etDay    = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(new Date());
+  const DOW_IDX  = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  const dow      = DOW_IDX[etDay] ?? 1;
   const isWeekend = dow === 0 || dow === 6;
 
+  // Query up to the next calendar day (ET+1) to catch emails stored in UTC that
+  // crossed midnight UTC while still being the same ET business day.
+  const nextDay    = new Date(todayStr + 'T12:00:00Z');
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  const nextDayStr = nextDay.toISOString().slice(0, 10);
+
+  const nowUtc   = new Date();
   const monStr   = isWeekend ? getMondayStr(nowUtc) : null;
   const wLabel   = isWeekend ? getWeekLabel(monStr) : null;
   const cacheKey = isWeekend ? `macro-brief-weekly:${monStr}` : `macro-brief:${todayStr}`;
@@ -240,10 +251,10 @@ async function _onRequest(context) {
           }));
         }
       } else {
-        // Try today first; if not yet available (email arrives after close), fall back to most recent
+        // Query up to nextDayStr to catch emails whose UTC date crossed midnight while still being today ET
         const row = await db.prepare(
           'SELECT date, bullets, sentiment, sector FROM daily_briefs WHERE date <= ? ORDER BY date DESC LIMIT 1'
-        ).bind(todayStr).first();
+        ).bind(nextDayStr).first();
         if (row) brief = { date: row.date, bullets: JSON.parse(row.bullets), sentiment: row.sentiment, sector: row.sector };
       }
     } catch { /* non-fatal */ }
