@@ -1,4 +1,4 @@
-# QA Test: Card 10 — Equities ("The Execution Layer")
+# QA Test: Card 11 — Equities ("The Execution Layer")
 # Market Hub — loganbase.com/market-hub
 
 ## Your Role
@@ -13,7 +13,7 @@ At the end, produce a summary table of results.
 Fetch: GET https://www.loganbase.com/api/scores
 
 From the JSON response:
-- Locate the card where `id = "equities"` (Card 10)
+- Locate the card where `id = "equities"` (Card 11)
 - Extract the full card object including: `status`, `rows[]`, `delta`, `note`
 - Also extract: `timestamp` and `source` from the top-level response
 
@@ -88,7 +88,7 @@ Build a table:
 
 ## STEP 5 — Row-Level Status Logic
 
-Card 10 uses a THREE-STATE logic based on BOTH the 50d and 200d SMA positions.
+Card 11 uses a THREE-STATE logic based on BOTH the 50d and 200d SMA positions.
 
 *** CRITICAL: Unlike most cards, bullish requires BOTH 50d AND 200d above, not just 200d ***
 
@@ -142,7 +142,7 @@ CHECK N3: Do the "Themes stalled" match the non-bullish rows?
 
 ## STEP 7 — Card Status Logic
 
-Card 10 uses a bull-count rule based on rows above BOTH moving averages:
+Card 11 uses a bull-count rule based on rows above BOTH moving averages:
 
   bull = count of rows where status = "bullish" (above both 50d & 200d)
 
@@ -198,7 +198,7 @@ CHECK D1: Is the `delta` field present on the card?
 
 ## REPORT FORMAT
 
-### Card 10 Equities — QA Results [DATE]
+### Card 11 Equities — QA Results [DATE]
 
 | Check | Description | Result | Notes |
 |-------|-------------|--------|-------|

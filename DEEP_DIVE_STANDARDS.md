@@ -24,8 +24,8 @@ Breadth and Equities have fully custom paths (`cardId === 'breadth'` / `'equitie
 
 Shared SVG line/area chart. Key props: `card, cardId, color, height, range, setRange, live, ranges`.
 
-- `ranges` defaults to `['1W','1M','3M','6M','1Y','5Y','10Y']`. Override per-card via the `cardId`-scoped ternary at the call site (see "Scoping a feature to one card" below) — Regime currently adds `'20Y'`.
-- `conf` is the fallback `{ range: [n, vol] }` map used to generate a synthetic series when `live` data is absent — add an entry here for any new range token before wiring it into the UI.
+- `ranges` defaults to `['1W','1M','3M','6M','1Y','5Y','10Y']` (cards 1–4 fallback). **Cards 5–10 standard: `['20D','1W','1M','3M','6M','1Y','5Y','10Y']`** — set via `(cardId === 'commodities' || cardId === 'equities') ? [...] : undefined` for the shared `DeepChartLg` call, and baked directly into each card's custom chart component (YieldChart, CreditChart, CreditSpreadChart, GlobalFlowsChart, CycVsDefChart, SectorsWatchlistChart, CountryWatchlistChart, CommoditiesWatchlistChart, EquitiesChart). Exception: `EquitiesFocusChart` retains `['20D','50D','100D']`. Regime retains `['20D','1W','1M','3M','6M','1Y','5Y','10Y','20Y']` (includes 20Y).
+- `conf` is the fallback `{ range: [n, vol] }` map used to generate a synthetic series when `live` data is absent — add an entry here for any new range token before wiring it into the UI. Current entries: `'20D': [20, 0.18]`, `'1W': [7, 0.09]`, `'1M': [24, 0.16]`, `'3M': [44, 0.135]`, `'6M': [56, 0.115]`, `'1Y': [64, 0.10]`, `'5Y': [70, 0.082]`, `'10Y': [80, 0.07]`, `'20Y': [90, 0.06]`.
 - `live` object shape (built by `market-hub-adapter.js`'s `HISTORY[cardId].extract()`):
   ```js
   {
@@ -54,6 +54,56 @@ Shared SVG line/area chart. Key props: `card, cardId, color, height, range, setR
 
 ---
 
+## Tab buttons (selector buttons)
+
+Charts with multiple views use tab/selector buttons (e.g., "Risk / Quality / Global" in GlobalFlowsChart, "10Y−2Y / 10Y−3M" in YieldSpreadChart). The button style is:
+
+| State    | Background      | Border                   |
+|---|---|---|
+| Active   | `#1b2736`       | `1px solid #243446`      |
+| Inactive | `transparent`   | `1px solid transparent`  |
+
+**The border color is always the static grey `#243446` — it never changes to the active tab's accent color.** Only the background changes. Reference implementation is `CreditChart`; the pattern is also in `YieldChart`, `YieldSpreadChart`, and `GlobalFlowsChart`.
+
+```js
+const tabBtn = (active) => ({
+  background: active ? '#1b2736' : 'transparent',
+  border: `1px solid ${active ? '#243446' : 'transparent'}`,
+  // ... padding, borderRadius, color, cursor, fontSize
+});
+```
+
+---
+
+## Live / Stale / Sample indicator
+
+Every chart renders a status dot + label below the range buttons to show data freshness.
+
+| State   | Dot color | Glow                          | Label                  |
+|---|---|---|---|
+| No data | `#64748b` | none                          | `Sample` or `Loading…` |
+| Stale   | `#f59e0b` | `0 0 6px rgba(245,158,11,.6)` | `Stale · YYYY-MM-DD`   |
+| Live    | `#22c55e` | `0 0 6px #22c55e`             | `Live`                 |
+
+**Stale logic** — compare the last date in the data against the previous business day (not today):
+
+```js
+const lastDate = live?.dates?.[live.dates.length - 1];
+const todayStr = (() => {
+  const d = new Date(), dw = d.getDay();
+  d.setDate(d.getDate() - (dw === 1 ? 3 : dw >= 2 ? 1 : 0));
+  return d.toISOString().slice(0, 10);
+})();
+const dow     = new Date().getDay();
+const isStale = live && lastDate && lastDate < todayStr && dow !== 0 && dow !== 6;
+```
+
+Key detail: on Monday `dw === 1`, subtract 3 days → Friday, so Friday data correctly reads as "Live" rather than "Stale". On Tue–Fri subtract 1 day (yesterday). Weekends are guarded by `dow !== 0 && dow !== 6` and never show Stale.
+
+This block is duplicated in `DeepChartLg` and in every custom chart component (`EquitiesChart`, `SectorsWatchlistChart`, `CommoditiesWatchlistChart`, `CountryWatchlistChart`) — update all occurrences together if the logic ever changes.
+
+---
+
 ## Established Regime (Card 1) banding reference
 
 Copy the *shape* of these — not necessarily the exact numbers — when a new card needs a 3- or 5-band classifier on its chart or tooltip:
@@ -71,7 +121,12 @@ Copy the *shape* of these — not necessarily the exact numbers — when a new c
 When adding a feature (extra range button, extra tooltip row, upgraded sparkline) that should apply to only one card, scope it with a ternary on `cardId` (or `id`) at the call site — don't change the shared component's default behavior for every card.
 
 ```jsx
-ranges={cardId === 'regime' ? ['1W','1M','3M','6M','1Y','5Y','10Y','20Y'] : undefined}
+ranges={
+  cardId === 'leadership' ? ['20D','50D','200D']
+  : cardId === 'regime' ? ['20D','1W','1M','3M','6M','1Y','5Y','10Y','20Y']
+  : (cardId === 'commodities' || cardId === 'equities') ? ['20D','1W','1M','3M','6M','1Y','5Y','10Y']
+  : undefined  // cards 3–4 fall through to default ['1W','1M','3M','6M','1Y','5Y','10Y']
+}
 ```
 ```jsx
 {id === 'regime' ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} .../> : <SparkD seed={c.seed} trend={c.trend} color={sg.c} .../>}
@@ -109,6 +164,16 @@ Key implementation notes for deep-dive rendering:
 - Add any new range token to `RANGE_MAP` (UI label → API token) before wiring a new range button.
 - Add an entry to `HISTORY[cardId]` — either `{ url, field }` for a flat numeric series, or `{ url, extract(data) }` when building overlays/colorBy/percentage fields. `HISTORY.regime` is the fullest example to copy from.
 - Verify the underlying API/D1 source actually has the history before exposing a new range in the UI — for Regime's 20Y option this was confirmed via a direct D1 query showing `daily_prices` has SPY history back to 2006-06-05.
+- **Backend range support per endpoint** (as of 2026-06-23):
+
+  | API endpoint | Supported range tokens |
+  |---|---|
+  | `/api/history` | `20d`, `1wk`, `1mo`, `3mo`, `6mo`, `1y`, `5y`, `10y`, `20y` |
+  | `/api/sectors` | `20d`, `1wk`, `1mo`, `3mo`, `6mo`, `1y`, `5y`, `10y` |
+  | `/api/equities-history` | `20d`, `1wk`, `1mo`, `3mo`, `6mo`, `1y`, `5y`, `10y` |
+  | `/api/global-flows-history` | `20d`, `1wk`, `1mo`, `3mo`, `6mo`, `1y`, `5y`, `10y` |
+
+  Custom chart components that don't route through `market-hub-adapter.js` build their own RMAP (`{ '20D': '20d', '1W': '1wk', ... }`) and pass the mapped token directly to the fetch URL.
 
 ---
 

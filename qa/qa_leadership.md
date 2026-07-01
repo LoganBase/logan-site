@@ -331,7 +331,7 @@ CHECK D3: Are the `deltas` sub-field values plausible given recent performance?
 
 Open the live dashboard at https://www.loganbase.com/market-hub
 Click on Card 02 (Leadership) to open the deep-dive panel.
-Verify cache version: page source should show ?v=20260620y on the script tags.
+Verify cache version: page source should show ?v=20260624ag on the script tags.
 
 CHECK V1: Does the "Leadership Price History" chart appear at the top of the deep dive?
   It should have a pair selector (Market / Tech / Style) and a range selector (20D / 50D / 200D).

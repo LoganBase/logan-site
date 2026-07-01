@@ -251,9 +251,11 @@ CHECK K3: Is the FOMC event action derived (not hardcoded)?
   Check action field value: must be "Cut", "Hold", or "Hike"
   FAIL if action = "Hold" AND this seems implausible given the consensus rate vs current rate
   To verify: the action should be:
-    "Hike" if consensus % > current rate (4.50% as of 2026-06-10)
+    "Hike" if consensus % > current rate (4.50% as of 2026-06-10 — verify FFTR before each run)
     "Cut"  if consensus % < current rate
     "Hold" if consensus % ≈ current rate (within 0.01%)
+  NOTE: CURRENT_FFTR in /api/kalshi is updated after each FOMC decision. Check /functions/api/kalshi.js
+  for the current hardcoded rate before running this check — it is the authoritative source.
   PASS = action is consistent with consensus value
   NOTE the action and consensus values (e.g. "Cut 3.75%")
 

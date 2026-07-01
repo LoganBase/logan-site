@@ -18,7 +18,7 @@ const EQUITIES = [
   { sym: 'EEM',  label: 'Emerging Markets', group: 'global'     },
 ];
 
-const RANGE_DAYS = { '10y': 3650, '5y': 1825, '3y': 1095, '1y': 365, '6mo': 182, '3mo': 91 };
+const RANGE_DAYS = { '10y': 3650, '5y': 1825, '3y': 1095, '1y': 365, '6mo': 182, '3mo': 91, '1mo': 31, '20d': 20, '1wk': 7 };
 
 function startDateFor(days) {
   const d = new Date();

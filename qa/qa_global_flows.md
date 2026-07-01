@@ -1,4 +1,4 @@
-# QA Test: Card 07 — Global Flows ("The Tide")
+# QA Test: Card 08 — Global Flows ("The Tide")
 # Market Hub — loganbase.com/market-hub
 
 ## Your Role
@@ -13,7 +13,7 @@ At the end, produce a summary table of results.
 Fetch: GET https://www.loganbase.com/api/scores
 
 From the JSON response:
-- Locate the card where `id = "globalflows"` (Card 07)
+- Locate the card where `id = "globalflows"` (Card 08)
 - Extract the full card object including: `status`, `rows[]`, `details[]`, `delta`, `note`
 - Also extract: `timestamp` and `source` from the top-level response
 
@@ -218,7 +218,7 @@ CHECK DL1: Is the `delta` field present on the card?
 
 ## REPORT FORMAT
 
-### Card 07 Global Flows — QA Results [DATE]
+### Card 08 Global Flows — QA Results [DATE]
 
 | Check | Description | Result | Notes |
 |-------|-------------|--------|-------|

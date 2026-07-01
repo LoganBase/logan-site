@@ -27,6 +27,7 @@ const RANGE_MAP = {
   '6mo': { range: '6mo', interval: '1d', days: 183  },
   '3mo': { range: '3mo', interval: '1d', days: 92   },
   '1mo': { range: '1mo', interval: '1d', days: 31   },
+  '20d': { range: '1mo', interval: '1d', days: 20   },
   '1wk': { range: '5d',  interval: '1d', days: 7    },
 };
 

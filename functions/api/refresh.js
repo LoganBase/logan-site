@@ -21,8 +21,8 @@ const ALL_SYMBOLS = [
   'SPY', 'QQQ', 'RSP', 'QQEW', 'IVW', 'IVE',
   // Breadth
   'RSPD',
-  // Yield
-  '^TYX', '^TNX', '^IRX', 'TLT', 'UUP',
+  // Yield + Currency
+  '^TYX', '^TNX', '^IRX', 'SHY', 'UUP', 'FXE', 'FXY',
   // Credit
   'HYG', 'LQD', 'JNK', 'EMB',
   // Global Flows — regional

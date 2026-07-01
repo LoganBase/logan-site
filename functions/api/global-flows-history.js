@@ -39,12 +39,17 @@ const COUNTRIES = [
   { sym: 'ECH',     label: 'Chile',       group: 'Latin America' },
 ];
 
-const RANGE_DAYS = { '10y': 3650, '5y': 1825, '3y': 1095, '1y': 365 };
+const RANGE_DAYS = { '10y': 3650, '5y': 1825, '3y': 1095, '1y': 365, '6mo': 182, '3mo': 91, '1mo': 31, '20d': 20, '1wk': 7 };
 
 function startDateFor(days) {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return d.toISOString().slice(0, 10);
+}
+
+function forwardFill(prices) {
+  let last = null;
+  return prices.map(p => { if (p != null) last = p; return last; });
 }
 
 function normalize(prices) {
@@ -93,7 +98,7 @@ export async function onRequest(context) {
     }
     const dates = [...dateSet].sort();
 
-    const buildSeries = sym => normalize(dates.map(d => bySymbol[sym]?.[d] ?? null));
+    const buildSeries = sym => normalize(forwardFill(dates.map(d => bySymbol[sym]?.[d] ?? null)));
 
     return new Response(JSON.stringify({
       dates,

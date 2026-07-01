@@ -1,4 +1,4 @@
-# QA Test: Card 08 — Sectors ("The Rotation")
+# QA Test: Card 09 — Sectors ("The Rotation")
 # Market Hub — loganbase.com/market-hub
 
 ## Your Role
@@ -13,7 +13,7 @@ At the end, produce a summary table of results.
 Fetch: GET https://www.loganbase.com/api/scores
 
 From the JSON response:
-- Locate the card where `id = "sectors"` (Card 08)
+- Locate the card where `id = "sectors"` (Card 09)
 - Extract the full card object including: `status`, `rows[]`, `delta`, `note`
 - Also extract: `timestamp` and `source` from the top-level response
 
@@ -218,7 +218,7 @@ CHECK D1: Is the `delta` field present on the card?
 
 Produce your findings in this format:
 
-### Card 08 Sectors — QA Results [DATE]
+### Card 09 Sectors — QA Results [DATE]
 
 | Check | Description | Result | Notes |
 |-------|-------------|--------|-------|
