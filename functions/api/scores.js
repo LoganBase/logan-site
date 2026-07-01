@@ -1104,6 +1104,12 @@ function buildSectors(q) {
     XLRE: { name: 'Real Estate',           type: 'defensive' },
   };
 
+  // S&P 500 approximate index weights (SPDR ETF AUM proxy); update via /api/refresh + KV when dynamic fetch is wired
+  const SECTOR_WEIGHTS = {
+    XLK: 0.31, XLF: 0.13, XLV: 0.12, XLC: 0.09, XLY: 0.10,
+    XLI: 0.09, XLP: 0.06, XLE: 0.04, XLB: 0.02, XLRE: 0.02, XLU: 0.02,
+  };
+
   const spy   = q['SPY'];
   const ret20 = s => s?.price20d ? (s.price / s.price20d - 1) * 100 : s?.changePct ?? null;
   const spy20 = ret20(spy);
@@ -1172,6 +1178,8 @@ function buildSectors(q) {
     status: top3Syms.has(r.sym) ? 'bullish' : bot3Syms.has(r.sym) ? 'bearish' : 'neutral',
     price: r.price,
     sma200: r.sma200,
+    weight: SECTOR_WEIGHTS[r.sym] ?? null,
+    relPerf: r.relPerf,
   });
 
   const rows    = curated.map(mapRow);

@@ -256,9 +256,10 @@
   function mapCard(c) {
     const normStatus = (s) => s === 'bullish' ? 'bullish' : s === 'bearish' ? 'bearish' : 'neutral';
     // r[0]=label, r[1]=value (multi-line), r[2]=condition, r[3]=status, r[4]=indicator, r[5]=sma200, r[6]=price
+    // r[7]=weight (sectors only, S&P index weight 0–1), r[8]=relPerf (sectors only, 20d vs SPY %)
     // Use allRows (full set) when present (e.g. Sectors has top-6 in rows, all-11 in allRows)
     const rowSource = c.allRows || c.rows || [];
-    const rows = rowSource.map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '', r.sma200 ?? null, r.price ?? null]);
+    const rows = rowSource.map((r) => [r.label, stripHtmlMulti(r.value), r.condition || '', normStatus(r.status), r.indicator || '', r.sma200 ?? null, r.price ?? null, r.weight ?? null, r.relPerf ?? null]);
     const head = (c.rows && c.rows[0]) || {};
     const out = {
       id: c.id,

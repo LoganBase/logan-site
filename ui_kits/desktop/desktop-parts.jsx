@@ -575,10 +575,11 @@ function StatBoxes({ stats }) {
 }
 
 // ── Indicator table ──
-function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null, hoverDescriptions = null, icons = null }) {
+function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null, hoverDescriptions = null, icons = null, showSectorWeights = false }) {
   if (!rows || !rows.length) return null;
   const [hoveredIdx, setHoveredIdx] = useStateD(null);
-  const has200d = rows.some(r => r[5] != null);
+  // suppress 200d column for sectors — replaced by S&P Wt. + Wtd Impact columns
+  const has200d = !showSectorWeights && rows.some(r => r[5] != null);
   const hdrS = { fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#8295a9' };
   const iconSlot = icons ? 20 : 9;
   return (
@@ -587,8 +588,10 @@ function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null,
         <span style={{ width: iconSlot, flexShrink: 0 }} />
         <span style={{ ...hdrS, width: 175, flexShrink: 0 }}>Signal</span>
         <span style={{ ...hdrS, flex: 1 }}>Condition</span>
-        <span style={{ ...hdrS, width: 80, textAlign: 'right', flexShrink: 0 }}>Value</span>
+        <span style={{ ...hdrS, width: 80, textAlign: 'right', flexShrink: 0 }}>{showSectorWeights ? 'Rel Perf' : 'Value'}</span>
         {has200d && <span style={{ ...hdrS, width: 80, textAlign: 'right', flexShrink: 0 }}>200d</span>}
+        {showSectorWeights && <span style={{ ...hdrS, width: 60, textAlign: 'right', flexShrink: 0 }}>S&P Wt.</span>}
+        {showSectorWeights && <span style={{ ...hdrS, width: 84, textAlign: 'right', flexShrink: 0 }}>Wtd Impact</span>}
       </div>
       {rows.map((r, i) => {
         const rs        = DSIG[r[3]] || DSIG.neutral;
@@ -600,6 +603,26 @@ function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null,
           const smaColor  = proximity < 0.5 ? '#f59e0b' : r[6] > r[5] ? '#22c55e' : '#ef4444';
           return <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: smaColor, width: 80, textAlign: 'right', flexShrink: 0 }}>${r[5].toFixed(2)}</span>;
         })() : <span style={{ width: 80, flexShrink: 0 }} />) : null;
+        const sectorWtEl = showSectorWeights ? (() => {
+          const wt  = r[7];
+          const rp  = r[8];
+          const wtd = wt != null && rp != null ? wt * rp : null;
+          const wtdColor = wtd == null ? '#64748b' : wtd >= 0.1 ? '#22c55e' : wtd <= -0.1 ? '#ef4444' : '#f59e0b';
+          return (
+            <>
+              <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: '#64748b', width: 60, textAlign: 'right', flexShrink: 0 }}>
+                {wt != null ? Math.round(wt * 100) + '%' : '—'}
+              </span>
+              <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: wtdColor, width: 84, textAlign: 'right', flexShrink: 0 }}>
+                {wtd != null ? (wtd >= 0 ? '+' : '') + wtd.toFixed(2) + '%' : '—'}
+              </span>
+            </>
+          );
+        })() : null;
+        // For sectors: show relPerf from r[8] in the value slot (cleaner than ETF price)
+        const valueDisplay = showSectorWeights && r[8] != null
+          ? (r[8] >= 0 ? '+' : '') + r[8].toFixed(1) + '%'
+          : r[1];
         return (
           <div key={i}
             style={{ display: 'flex', alignItems: 'center', gap: 14, borderBottom: i < rows.length - 1 ? '1px solid #16202e' : 'none', cursor: whyText ? 'default' : undefined, transition: 'background .15s', borderRadius: 6, margin: '0 -4px', padding: isHovered ? '13px 4px' : '13px 4px', background: isHovered ? 'rgba(42,63,87,0.25)' : 'transparent' }}
@@ -624,8 +647,9 @@ function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null,
                   <div style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8' }}>{r[2]}</div>
                   {desc && <div style={{ fontFamily: DSANS, fontSize: 11, color: '#4a5f73', marginTop: 3 }}>{desc}</div>}
                 </div>
-                <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: rs.c, width: 80, textAlign: 'right', flexShrink: 0, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{r[1]}</span>
+                <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 600, color: rs.c, width: 80, textAlign: 'right', flexShrink: 0, whiteSpace: 'pre-line', lineHeight: 1.5 }}>{valueDisplay}</span>
                 {sma200El}
+                {sectorWtEl}
               </>
             )}
           </div>
@@ -4938,6 +4962,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
             indicatorWidth={cardId === 'commodities' || cardId === 'sectors' ? 80 : 285}
             signalDescriptions={cardId === 'commodities' ? COMM_DESCRIPTIONS : cardId === 'sectors' ? SECT_DESCRIPTIONS : null}
             hoverDescriptions={cardId === 'commodities' ? COMM_WHY : cardId === 'sectors' ? SECT_WHY : null}
+            showSectorWeights={cardId === 'sectors'}
             icons={gfIcons} />
         </div>
       )}
