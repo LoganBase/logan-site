@@ -659,6 +659,351 @@ function IndicatorTable({ rows, indicatorWidth = 285, signalDescriptions = null,
   );
 }
 
+// ── Sector Cycle Ratio Charts (Idea 03B) ─────────────────────────────────────
+// Four ratio line charts, each mapping to an economic cycle phase signal.
+const RATIO_COLORS = { xly_xlp: '#f59e0b', xle_xlk: '#f97316', xlf_xlu: '#3b82f6', usci_qqq: '#22d3ee' };
+const RATIO_RANGES = ['1Y', '3Y', '5Y', '10Y'];
+const RATIO_RMAP   = { '1Y': '1y', '3Y': '3y', '5Y': '5y', '10Y': '10y' };
+
+function SectorRatioCharts() {
+  const [range, setRange] = useStateD('1Y');
+  const [data,  setData]  = useStateD(null);
+  const [hover, setHover] = useStateD({ id: null, idx: null });
+
+  useEffectD(() => {
+    let alive = true;
+    setData(null);
+    fetch(`/api/sector-ratios?range=${RATIO_RMAP[range]}`)
+      .then(r => r.json())
+      .then(d => { if (alive && d.pairs) setData(d); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+
+  const hdrS = { fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#64748b' };
+
+  // Render a single ratio mini-chart
+  function RatioPanelSVG({ pair, dates }) {
+    if (!pair) return null;
+    const color   = RATIO_COLORS[pair.id] || '#818cf8';
+    const vals    = pair.values || [];
+    const W = 320, H = 130, top = 8, bot = 22, padR = 6;
+    const n  = dates.length;
+    if (n < 2) return <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: DSANS, fontSize: 12, color: '#475569' }}>Loading…</div>;
+
+    const valid = vals.filter(v => v != null);
+    const gMin  = valid.length ? Math.min(...valid) : 95;
+    const gMax  = valid.length ? Math.max(...valid) : 105;
+    const span  = gMax - gMin || 1;
+    const norm  = v => v != null ? 0.06 + ((v - gMin) / span) * 0.88 : null;
+    const dx    = (W - padR) / (n - 1);
+    const yy    = p => p != null ? top + (1 - p) * (H - top - bot) : null;
+    const base100 = norm(100);
+    const base100y = base100 != null ? yy(base100) : null;
+
+    let d = '';
+    vals.forEach((v, i) => {
+      const p = norm(v);
+      if (p != null) d += `${(i === 0 || norm(vals[i - 1]) == null) ? 'M' : 'L'}${(i * dx).toFixed(1)},${yy(p).toFixed(1)}`;
+    });
+
+    const isHov = hover.id === pair.id;
+    const hIdx  = isHov ? hover.idx : null;
+
+    const onMove = e => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const idx  = Math.max(0, Math.min(n - 1, Math.round(((e.clientX - rect.left) / rect.width) * (n - 1))));
+      setHover({ id: pair.id, idx });
+    };
+
+    // Determine current trend color
+    const lineColor = pair.trend === 'up' ? '#22c55e' : pair.trend === 'down' ? '#ef4444' : color;
+
+    return (
+      <div style={{ position: 'relative' }} onMouseMove={onMove} onMouseLeave={() => setHover({ id: null, idx: null })}>
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: 'block', height: H }}>
+          {[0.25, 0.5, 0.75].map(g => <line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="2 4" />)}
+          {base100y != null && <line x1="0" x2={W} y1={base100y.toFixed(1)} y2={base100y.toFixed(1)} stroke="#334155" strokeWidth="1" strokeDasharray="3 3" />}
+          <path d={d} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {hIdx != null && <line x1={(hIdx * dx).toFixed(1)} x2={(hIdx * dx).toFixed(1)} y1={top} y2={H - bot} stroke="#334155" strokeWidth="1" strokeDasharray="2 3" pointerEvents="none" />}
+          {hIdx != null && norm(vals[hIdx]) != null && <circle cx={(hIdx * dx).toFixed(1)} cy={yy(norm(vals[hIdx])).toFixed(1)} r="3.5" fill={lineColor} stroke="#080c14" strokeWidth="1.5" pointerEvents="none" />}
+          {hIdx == null && norm(vals[n - 1]) != null && <circle cx={((n - 1) * dx).toFixed(1)} cy={yy(norm(vals[n - 1])).toFixed(1)} r="3" fill={lineColor} />}
+          <line x1="0" x2={W} y1={H - bot} y2={H - bot} stroke="#1e2d3d" strokeWidth="1" />
+          {/* Date label at hover or at end */}
+          {(() => {
+            const labelIdx = hIdx != null ? hIdx : n - 1;
+            const lx = (labelIdx * dx).toFixed(1);
+            const label = dates[labelIdx] ? dates[labelIdx].slice(5) : '';
+            return <text x={lx} y={H - 6} textAnchor="middle" fontSize="9" fill="#475569" fontFamily="monospace">{label}</text>;
+          })()}
+        </svg>
+        {/* Hover value tooltip */}
+        {hIdx != null && vals[hIdx] != null && (
+          <div style={{ position: 'absolute', top: 4, right: 6, fontFamily: DMONO, fontSize: 12, fontWeight: 700, color: lineColor, background: '#0a0f17', padding: '2px 6px', borderRadius: 5, pointerEvents: 'none' }}>
+            {vals[hIdx].toFixed(1)}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Cycle-Signal Ratios</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Relative price ratios — rising or falling tells you which economic regime is in play. Rebased to 100 at period open.</div>
+        </div>
+        <div style={{ display: 'flex', gap: 3, flexShrink: 0, marginTop: 2 }}>
+          {RATIO_RANGES.map(r => (
+            <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', padding: '4px 9px', borderRadius: 7,
+              fontFamily: DMONO, fontSize: 11, fontWeight: 600, color: r === range ? '#e8edf5' : '#64748b',
+              background: r === range ? '#1b2736' : 'transparent', border: `1px solid ${r === range ? '#243446' : 'transparent'}` }}>{r}</button>
+          ))}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+        {(data?.pairs || Array(4).fill(null)).map((pair, i) => {
+          const color = pair ? (RATIO_COLORS[pair.id] || '#818cf8') : '#64748b';
+          const lineColor = pair?.trend === 'up' ? '#22c55e' : pair?.trend === 'down' ? '#ef4444' : color;
+          const interp = pair ? (pair.trend === 'up' ? pair.rising : pair.trend === 'down' ? pair.falling : 'No clear trend — transition zone') : null;
+          return (
+            <div key={pair?.id || i} style={{ background: '#0a0f17', border: '1px solid #1e2d3d', borderRadius: 12, padding: '12px 14px 10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <div>
+                  <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: color }}>{pair?.title || '— / —'}</div>
+                  <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', marginTop: 2 }}>{pair?.label || ''}</div>
+                </div>
+                {pair?.current != null && (
+                  <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: lineColor, textAlign: 'right' }}>
+                    {pair.current.toFixed(1)}
+                    <div style={{ fontFamily: DSANS, fontSize: 9, fontWeight: 600, color: lineColor, textTransform: 'uppercase', letterSpacing: '.07em', marginTop: 1 }}>
+                      {pair.trend === 'up' ? '▲ Rising' : pair.trend === 'down' ? '▼ Falling' : '— Flat'}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {pair && data ? <RatioPanelSVG pair={pair} dates={data.dates} /> : (
+                <div style={{ height: 130, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: DSANS, fontSize: 12, color: '#334155' }}>Loading…</div>
+              )}
+              {interp && (
+                <div style={{ fontFamily: DSANS, fontSize: 11, color: lineColor === '#22c55e' ? '#4ade80' : lineColor === '#ef4444' ? '#f87171' : '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
+                  {interp}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── Relative Rotation Graph (Idea 03A) ───────────────────────────────────────
+// 4-quadrant scatter: RS-Ratio (x) vs RS-Momentum (y), 12-week trails per sector.
+function SectorRRG() {
+  const [data,  setData]  = useStateD(null);
+  const [hover, setHover] = useStateD(null);
+  const svgRef = useRefD(null);
+
+  useEffectD(() => {
+    let alive = true;
+    fetch('/api/sector-cycle')
+      .then(r => r.json())
+      .then(d => { if (alive && d.sectors) setData(d); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const W = 640, H = 500;
+  const PAD = { t: 36, r: 36, b: 44, l: 52 };
+  const PW = W - PAD.l - PAD.r;
+  const PH = H - PAD.t - PAD.b;
+
+  // Compute data extents across all sectors' trails
+  let xMin = 97, xMax = 103, yMin = 97, yMax = 103;
+  if (data?.sectors) {
+    for (const sec of data.sectors) {
+      for (const pt of sec.trail) {
+        if (pt.rsRatio != null) { xMin = Math.min(xMin, pt.rsRatio); xMax = Math.max(xMax, pt.rsRatio); }
+        if (pt.rsMom   != null) { yMin = Math.min(yMin, pt.rsMom);   yMax = Math.max(yMax, pt.rsMom);   }
+      }
+    }
+    // Ensure 100 is always in view and add 15% margin
+    const xSpan = Math.max(xMax - xMin, 6), ySpan = Math.max(yMax - yMin, 6);
+    const xPad = xSpan * 0.18, yPad = ySpan * 0.18;
+    xMin = Math.min(xMin - xPad, 99); xMax = Math.max(xMax + xPad, 101);
+    yMin = Math.min(yMin - yPad, 99); yMax = Math.max(yMax + yPad, 101);
+  }
+
+  // Map data coords to SVG plot-area coords
+  const toX = v => PAD.l + ((v - xMin) / (xMax - xMin)) * PW;
+  const toY = v => PAD.t + (1 - (v - yMin) / (yMax - yMin)) * PH;
+  const cx100 = toX(100), cy100 = toY(100);
+
+  // Quadrant label positions
+  const qLabels = [
+    { label: 'Improving', x: PAD.l + PW * 0.04, y: PAD.t + PH * 0.08, color: '#60a5fa' },
+    { label: 'Leading',   x: PAD.l + PW * 0.96, y: PAD.t + PH * 0.08, color: '#4ade80', anchor: 'end' },
+    { label: 'Lagging',   x: PAD.l + PW * 0.04, y: PAD.t + PH * 0.96, color: '#f87171' },
+    { label: 'Weakening', x: PAD.l + PW * 0.96, y: PAD.t + PH * 0.96, color: '#fb923c', anchor: 'end' },
+  ];
+
+  const onMove = e => {
+    if (!data?.sectors || !svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const mx = ((e.clientX - rect.left) / rect.width)  * W;
+    const my = ((e.clientY - rect.top)  / rect.height) * H;
+    let best = null, bestDist = 20;
+    for (const sec of data.sectors) {
+      const last = sec.trail.at(-1);
+      if (!last?.rsRatio || !last?.rsMom) continue;
+      const sx = toX(last.rsRatio), sy = toY(last.rsMom);
+      const dist = Math.hypot(mx - sx, my - sy);
+      if (dist < bestDist) { bestDist = dist; best = { sec, last }; }
+    }
+    setHover(best);
+  };
+
+  // Determine quadrant label for a sector's current position
+  function quadrant(rsRatio, rsMom) {
+    if (rsRatio >= 100 && rsMom >= 100) return { label: 'Leading',   color: '#4ade80' };
+    if (rsRatio >= 100 && rsMom < 100)  return { label: 'Weakening', color: '#fb923c' };
+    if (rsRatio < 100  && rsMom >= 100) return { label: 'Improving', color: '#60a5fa' };
+    return { label: 'Lagging', color: '#f87171' };
+  }
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ marginBottom: 14 }}>
+        <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Relative Rotation Graph</div>
+        <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>
+          All 11 sectors vs SPY · weekly · 12-week trail shows rotation direction · clockwise = typical cycle sequence
+        </div>
+      </div>
+      <div style={{ position: 'relative' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+        <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', height: H }}>
+          {/* Quadrant fills */}
+          <rect x={PAD.l} y={PAD.t} width={cx100 - PAD.l} height={cy100 - PAD.t} fill="rgba(96,165,250,0.04)" />
+          <rect x={cx100} y={PAD.t} width={PAD.l + PW - cx100} height={cy100 - PAD.t} fill="rgba(74,222,128,0.04)" />
+          <rect x={PAD.l} y={cy100} width={cx100 - PAD.l} height={PAD.t + PH - cy100} fill="rgba(248,113,113,0.04)" />
+          <rect x={cx100} y={cy100} width={PAD.l + PW - cx100} height={PAD.t + PH - cy100} fill="rgba(251,146,60,0.04)" />
+
+          {/* Axes */}
+          <line x1={PAD.l} x2={PAD.l + PW} y1={cy100} y2={cy100} stroke="#243446" strokeWidth="1.5" />
+          <line x1={cx100} x2={cx100} y1={PAD.t} y2={PAD.t + PH} stroke="#243446" strokeWidth="1.5" />
+
+          {/* Grid lines */}
+          {[0.25, 0.5, 0.75].map(g => (
+            <g key={g}>
+              <line x1={PAD.l + g * PW} x2={PAD.l + g * PW} y1={PAD.t} y2={PAD.t + PH} stroke="#16202e" strokeWidth="1" strokeDasharray="2 4" />
+              <line x1={PAD.l} x2={PAD.l + PW} y1={PAD.t + g * PH} y2={PAD.t + g * PH} stroke="#16202e" strokeWidth="1" strokeDasharray="2 4" />
+            </g>
+          ))}
+
+          {/* Axis labels */}
+          <text x={PAD.l + PW / 2} y={H - 8} textAnchor="middle" fontSize="10" fill="#64748b" fontFamily="Inter,sans-serif">RS-Ratio →  (outperforming SPY)</text>
+          <text x={12} y={PAD.t + PH / 2} textAnchor="middle" fontSize="10" fill="#64748b" fontFamily="Inter,sans-serif" transform={`rotate(-90, 12, ${PAD.t + PH / 2})`}>RS-Momentum ↑</text>
+
+          {/* Axis value ticks */}
+          <text x={cx100 - 3} y={PAD.t - 6} textAnchor="middle" fontSize="9" fill="#475569" fontFamily="monospace">100</text>
+          <text x={PAD.l - 4} y={cy100 + 3} textAnchor="end" fontSize="9" fill="#475569" fontFamily="monospace">100</text>
+
+          {/* Quadrant labels */}
+          {qLabels.map(q => (
+            <text key={q.label} x={q.x} y={q.y} textAnchor={q.anchor || 'start'} fontSize="11" fontWeight="700"
+              fill={q.color} fontFamily="Inter,sans-serif" opacity="0.6">{q.label}</text>
+          ))}
+
+          {/* Sector trails */}
+          {data?.sectors && data.sectors.map(sec => {
+            const pts = sec.trail.filter(p => p.rsRatio != null && p.rsMom != null);
+            if (pts.length < 2) return null;
+            const isHov = hover?.sec?.sym === sec.sym;
+            const opacity = hover ? (isHov ? 1 : 0.25) : 0.75;
+
+            // Trail path (fade from old to new)
+            const trailPath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(p.rsRatio).toFixed(1)},${toY(p.rsMom).toFixed(1)}`).join('');
+            const last = pts[pts.length - 1];
+
+            return (
+              <g key={sec.sym} opacity={opacity}>
+                {/* Trail line */}
+                <path d={trailPath} fill="none" stroke={sec.color} strokeWidth={isHov ? 2 : 1.5} strokeLinejoin="round" strokeLinecap="round" />
+                {/* Trail dots (fade with age) */}
+                {pts.slice(0, -1).map((p, i) => (
+                  <circle key={i} cx={toX(p.rsRatio).toFixed(1)} cy={toY(p.rsMom).toFixed(1)} r={1.8}
+                    fill={sec.color} opacity={0.2 + (i / pts.length) * 0.5} />
+                ))}
+                {/* Current position dot */}
+                <circle cx={toX(last.rsRatio).toFixed(1)} cy={toY(last.rsMom).toFixed(1)} r={isHov ? 7 : 5}
+                  fill={sec.color} stroke="#080c14" strokeWidth="1.5" />
+                {/* Ticker label */}
+                <text x={(toX(last.rsRatio) + 8).toFixed(1)} y={(toY(last.rsMom) + 4).toFixed(1)}
+                  fontSize={isHov ? 12 : 10} fontWeight="700" fill={sec.color} fontFamily="Inter,sans-serif">
+                  {sec.sym}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Border */}
+          <rect x={PAD.l} y={PAD.t} width={PW} height={PH} fill="none" stroke="#1e2d3d" strokeWidth="1" />
+        </svg>
+
+        {/* Hover tooltip */}
+        {hover && (() => {
+          const { sec, last } = hover;
+          const q = quadrant(last.rsRatio, last.rsMom);
+          return (
+            <div style={{
+              position: 'absolute', top: 10, left: 10, pointerEvents: 'none', zIndex: 10,
+              background: '#0d1520', border: `1px solid ${sec.color}44`, borderRadius: 10,
+              padding: '10px 14px', minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,.6)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                <span style={{ width: 8, height: 8, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
+                <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5' }}>{sec.label}</span>
+                <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '.05em' }}>{sec.sym}</span>
+              </div>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <div>
+                  <div style={{ fontFamily: DSANS, fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>RS-Ratio</div>
+                  <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: last.rsRatio >= 100 ? '#4ade80' : '#f87171' }}>{last.rsRatio?.toFixed(2)}</div>
+                </div>
+                <div>
+                  <div style={{ fontFamily: DSANS, fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>RS-Mom</div>
+                  <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: last.rsMom >= 100 ? '#4ade80' : '#f87171' }}>{last.rsMom?.toFixed(2)}</div>
+                </div>
+              </div>
+              <div style={{ marginTop: 8, padding: '5px 8px', borderRadius: 6, background: `${q.color}18`, border: `1px solid ${q.color}33` }}>
+                <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, color: q.color }}>{q.label}</span>
+              </div>
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* Legend */}
+      {data?.sectors && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 18px', marginTop: 14 }}>
+          {data.sectors.map(sec => {
+            const last = sec.trail.at(-1);
+            const q = last?.rsRatio != null && last?.rsMom != null ? quadrant(last.rsRatio, last.rsMom) : null;
+            return (
+              <div key={sec.sym} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
+                <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>{sec.sym}</span>
+                {q && <span style={{ fontFamily: DSANS, fontSize: 10, color: q.color, fontWeight: 600 }}>{q.label}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Sector breakdown table (breadth card — sectorTable from /api/scores) ──
 function SectorBreakdown({ sectorTable }) {
   if (!sectorTable || !sectorTable.length) return null;
@@ -4912,6 +5257,10 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       {cardId === 'sectors' && <CycVsDefChart range={sectorsChartRange} setRange={setSectorsChartRange} />}
       {/* sectors-only: all-sector normalized performance watchlist */}
       {cardId === 'sectors' && <SectorsWatchlistChart />}
+      {/* sectors-only: cycle-signal ratio charts (Idea 03B) */}
+      {cardId === 'sectors' && <SectorRatioCharts />}
+      {/* sectors-only: relative rotation graph (Idea 03A) */}
+      {cardId === 'sectors' && <SectorRRG />}
       {/* credit-only: HYG / LQD / EMB vs 200d three-line chart */}
       {cardId === 'credit' && <CreditChart />}
       {cardId === 'credit' && <CreditSpreadChart />}
@@ -5054,4 +5403,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, DeepDiveContent });
