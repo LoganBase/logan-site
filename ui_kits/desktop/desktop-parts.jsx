@@ -803,7 +803,6 @@ function SectorRatioCharts() {
 // 4-quadrant scatter: RS-Ratio (x) vs RS-Momentum (y), 12-week trails per sector.
 function SectorRRG() {
   const [data,      setData]      = useStateD(null);
-  const [hover,     setHover]     = useStateD(null);
   const [hidden,    setHidden]    = useStateD({});
   const [hovLegend, setHovLegend] = useStateD(null);
   const svgRef = useRefD(null);
@@ -851,22 +850,6 @@ function SectorRRG() {
     { label: 'Weakening', x: PAD.l + PW * 0.96, y: PAD.t + PH * 0.96, color: '#fb923c', anchor: 'end' },
   ];
 
-  const onMove = e => {
-    if (!data?.sectors || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const mx = ((e.clientX - rect.left) / rect.width)  * W;
-    const my = ((e.clientY - rect.top)  / rect.height) * H;
-    let best = null, bestDist = 20;
-    for (const sec of data.sectors) {
-      const last = sec.trail.at(-1);
-      if (!last?.rsRatio || !last?.rsMom) continue;
-      const sx = toX(last.rsRatio), sy = toY(last.rsMom);
-      const dist = Math.hypot(mx - sx, my - sy);
-      if (dist < bestDist) { bestDist = dist; best = { sec, last }; }
-    }
-    setHover(best);
-  };
-
   // Determine quadrant label for a sector's current position
   function quadrant(rsRatio, rsMom) {
     if (rsRatio >= 100 && rsMom >= 100) return { label: 'Leading',   color: '#4ade80' };
@@ -883,7 +866,7 @@ function SectorRRG() {
           All 11 sectors vs SPY · weekly · <span style={{ color: '#475569' }}>○ hollow = 12 weeks ago</span> · <span style={{ color: '#475569' }}>● filled + arrow = now</span> · clockwise = typical cycle
         </div>
       </div>
-      <div style={{ position: 'relative' }} onMouseMove={onMove} onMouseLeave={() => setHover(null)}>
+      <div style={{ position: 'relative' }}>
         <svg ref={svgRef} width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', height: H }}>
           {/* Quadrant fills */}
           <rect x={PAD.l} y={PAD.t} width={cx100 - PAD.l} height={cy100 - PAD.t} fill="rgba(96,165,250,0.04)" />
@@ -922,8 +905,8 @@ function SectorRRG() {
             if (hidden[sec.sym]) return null;
             const pts = sec.trail.filter(p => p.rsRatio != null && p.rsMom != null);
             if (pts.length < 2) return null;
-            const isHov = hover?.sec?.sym === sec.sym;
-            const opacity = hover ? (isHov ? 1 : 0.25) : 0.75;
+            const isHov = hovLegend === sec.sym;
+            const opacity = hovLegend ? (isHov ? 1 : 0.25) : 0.75;
 
             const trailPath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(p.rsRatio).toFixed(1)},${toY(p.rsMom).toFixed(1)}`).join('');
             const first = pts[0];
@@ -976,37 +959,6 @@ function SectorRRG() {
           <rect x={PAD.l} y={PAD.t} width={PW} height={PH} fill="none" stroke="#1e2d3d" strokeWidth="1" />
         </svg>
 
-        {/* Hover tooltip */}
-        {hover && (() => {
-          const { sec, last } = hover;
-          const q = quadrant(last.rsRatio, last.rsMom);
-          return (
-            <div style={{
-              position: 'absolute', top: 10, left: 10, pointerEvents: 'none', zIndex: 10,
-              background: '#0d1520', border: `1px solid ${sec.color}44`, borderRadius: 10,
-              padding: '10px 14px', minWidth: 190, boxShadow: '0 8px 24px rgba(0,0,0,.6)',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
-                <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5' }}>{sec.label}</span>
-                <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '.05em' }}>{sec.sym}</span>
-              </div>
-              <div style={{ display: 'flex', gap: 16 }}>
-                <div>
-                  <div style={{ fontFamily: DSANS, fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>RS-Ratio</div>
-                  <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: last.rsRatio >= 100 ? '#4ade80' : '#f87171' }}>{last.rsRatio?.toFixed(2)}</div>
-                </div>
-                <div>
-                  <div style={{ fontFamily: DSANS, fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>RS-Mom</div>
-                  <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: last.rsMom >= 100 ? '#4ade80' : '#f87171' }}>{last.rsMom?.toFixed(2)}</div>
-                </div>
-              </div>
-              <div style={{ marginTop: 8, padding: '5px 8px', borderRadius: 6, background: `${q.color}18`, border: `1px solid ${q.color}33` }}>
-                <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, color: q.color }}>{q.label}</span>
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
       {/* Legend — click to toggle, hover to see full sector name */}
@@ -1029,11 +981,32 @@ function SectorRRG() {
                   {q && !isHidden && <span style={{ fontFamily: DSANS, fontSize: 10, color: q.color, fontWeight: 600 }}>{q.label}</span>}
                 </button>
                 {isHovL && (
-                  <div style={{ position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, zIndex: 20, pointerEvents: 'none',
-                    background: '#0d1520', border: `1px solid ${sec.color}55`, borderRadius: 7,
-                    padding: '4px 10px', whiteSpace: 'nowrap',
-                    fontFamily: DSANS, fontSize: 11.5, fontWeight: 600, color: '#e8edf5' }}>
-                    {sec.label}
+                  <div style={{ position: 'absolute', bottom: 'calc(100% + 8px)', left: 0, zIndex: 20, pointerEvents: 'none',
+                    background: '#0d1520', border: `1px solid ${sec.color}55`, borderRadius: 10,
+                    padding: '10px 14px', minWidth: 190, whiteSpace: 'nowrap',
+                    boxShadow: '0 8px 24px rgba(0,0,0,.6)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: sec.color, flexShrink: 0 }} />
+                      <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5' }}>{sec.label}</span>
+                      <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569', textTransform: 'uppercase', letterSpacing: '.05em' }}>{sec.sym}</span>
+                    </div>
+                    {last?.rsRatio != null && (
+                      <div style={{ display: 'flex', gap: 16, marginBottom: 8 }}>
+                        <div>
+                          <div style={{ fontFamily: DSANS, fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>RS-Ratio</div>
+                          <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: last.rsRatio >= 100 ? '#4ade80' : '#f87171' }}>{last.rsRatio.toFixed(2)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontFamily: DSANS, fontSize: 9, color: '#64748b', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 3 }}>RS-Mom</div>
+                          <div style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: last.rsMom >= 100 ? '#4ade80' : '#f87171' }}>{last.rsMom?.toFixed(2)}</div>
+                        </div>
+                      </div>
+                    )}
+                    {q && (
+                      <div style={{ padding: '4px 8px', borderRadius: 6, background: `${q.color}18`, border: `1px solid ${q.color}33` }}>
+                        <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, color: q.color }}>{q.label}</span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
