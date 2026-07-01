@@ -21,11 +21,6 @@ jobs:
 
       - name: Check functions/api syntax
         run: |
-          for f in functions/api/*.js; do
-            echo "Checking $f"
-            node --input-type=module < "$f" --check 2>&1 || node --check "$f" 2>&1 || true
-          done
-          # Use acorn-based check: node can parse ES modules with --input-type
           node -e "
             const fs = require('fs');
             const path = require('path');
@@ -34,7 +29,14 @@ jobs:
             for (const file of files) {
               try {
                 const src = fs.readFileSync(path.join('functions/api', file), 'utf8');
-                new Function(src.replace(/^import\s/gm, '// import ').replace(/^export\s/gm, '// export '));
+                // Strip import lines entirely; remove 'export' keyword but keep the declaration
+                // (commenting out 'export async function' would orphan the body and break await)
+                new Function(
+                  src
+                    .replace(/^import\b[^\n]*/gm, '')
+                    .replace(/^export\s+default\s+/gm, '')
+                    .replace(/^export\s+/gm, '')
+                );
               } catch (e) {
                 console.error('SYNTAX ERROR in', file, ':', e.message);
                 failed++;
@@ -55,7 +57,12 @@ jobs:
               if (!fs.existsSync(file)) continue;
               try {
                 const src = fs.readFileSync(file, 'utf8');
-                new Function(src.replace(/^import\s/gm, '// import ').replace(/^export\s/gm, '// export '));
+                new Function(
+                  src
+                    .replace(/^import\b[^\n]*/gm, '')
+                    .replace(/^export\s+default\s+/gm, '')
+                    .replace(/^export\s+/gm, '')
+                );
               } catch (e) {
                 console.error('SYNTAX ERROR in', file, ':', e.message);
                 failed++;
