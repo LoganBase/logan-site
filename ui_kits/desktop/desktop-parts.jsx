@@ -5089,43 +5089,61 @@ function VIXTermStructure({ vix }) {
             <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: vixZone.color }}>{vixZone.label}</div>
           </div>
         </div>
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%' }}>
-          {ticks.map(v => {
-            const y = yOf(v);
+        <div style={{ position: 'relative' }}>
+          <svg viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%' }}>
+            {ticks.map(v => {
+              const y = yOf(v);
+              return (
+                <g key={v}>
+                  <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#1e2d3d" strokeWidth={0.5} />
+                  <text x={padL - 4} y={y + 3.5} textAnchor="end" fontSize={8.5} fill="#64748b">{v}</text>
+                </g>
+              );
+            })}
+            <polygon points={areaPts} fill={shapeColor} opacity={0.08} />
+            <polyline points={linePts} fill="none" stroke={shapeColor} strokeWidth={2} strokeLinejoin="round" />
+            {pts.map((p, i) => {
+              const x = xOf(i), y = yOf(p.val);
+              const isHov = hover === i;
+              return (
+                <g key={p.sym} style={{ cursor: 'crosshair' }}
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover(null)}>
+                  <circle cx={x} cy={y} r={12} fill="transparent" />
+                  <circle cx={x} cy={y} r={isHov ? 5 : 3.5} fill={shapeColor} />
+                  <circle cx={x} cy={y} r={isHov ? 2 : 1.4} fill="#0d1520" />
+                </g>
+              );
+            })}
+          </svg>
+          {hover !== null && (() => {
+            const frac = hover / Math.max(n - 1, 1);
+            const posStyle = frac > 0.55
+              ? { right: `calc(${(1 - frac) * 100}% + 14px)` }
+              : { left: `calc(${frac * 100}% + 14px)` };
             return (
-              <g key={v}>
-                <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#1e2d3d" strokeWidth={0.5} />
-                <text x={padL - 4} y={y + 3.5} textAnchor="end" fontSize={8.5} fill="#64748b">{v}</text>
-              </g>
-            );
-          })}
-          <polygon points={areaPts} fill={shapeColor} opacity={0.08} />
-          <polyline points={linePts} fill="none" stroke={shapeColor} strokeWidth={2} strokeLinejoin="round" />
-          {pts.map((p, i) => {
-            const x = xOf(i), y = yOf(p.val);
-            const isHov = hover === i;
-            return (
-              <g key={p.sym} style={{ cursor: 'crosshair' }}
-                onMouseEnter={() => setHover(i)}
-                onMouseLeave={() => setHover(null)}>
-                <circle cx={x} cy={y} r={10} fill="transparent" />
-                <circle cx={x} cy={y} r={isHov ? 5 : 3.5} fill={shapeColor} style={{ transition: 'r .1s' }} />
-                <circle cx={x} cy={y} r={isHov ? 2 : 1.4} fill="#0d1520" style={{ transition: 'r .1s' }} />
-                {isHov && (() => {
-                  const TW = 58, TH = 34, TX = Math.min(Math.max(x - TW / 2, padL), W - padR - TW);
-                  const TY = y - TH - 8;
+              <div style={{
+                position: 'absolute', top: 10, pointerEvents: 'none', zIndex: 10, ...posStyle,
+                background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 10,
+                padding: '10px 14px', minWidth: 160,
+                boxShadow: '0 8px 24px rgba(0,0,0,.5)',
+              }}>
+                {pts.map((p, i) => {
+                  const active = i === hover;
                   return (
-                    <g>
-                      <rect x={TX} y={TY} width={TW} height={TH} rx={5} fill="#0f1e2e" stroke="#1e3a52" strokeWidth={0.8} />
-                      <text x={TX + TW / 2} y={TY + 12} textAnchor="middle" fontSize={9} fontWeight="700" fill="#cbd5e1" fontFamily="Inter,sans-serif">{p.label}</text>
-                      <text x={TX + TW / 2} y={TY + 26} textAnchor="middle" fontSize={11} fontWeight="700" fill={shapeColor} fontFamily="Inter,sans-serif">{p.val.toFixed(1)}</text>
-                    </g>
+                    <div key={p.sym} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginBottom: i < pts.length - 1 ? 5 : 0 }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: active ? shapeColor : '#334155', flexShrink: 0 }} />
+                        <span style={{ fontFamily: DSANS, fontSize: 12, color: active ? '#cbd5e1' : '#475569' }}>{p.label}</span>
+                      </span>
+                      <span style={{ fontFamily: DMONO, fontSize: 12.5, color: active ? '#e8edf5' : '#475569', fontWeight: 600 }}>{p.val.toFixed(1)}</span>
+                    </div>
                   );
-                })()}
-              </g>
+                })}
+              </div>
             );
-          })}
-        </svg>
+          })()}
+        </div>
         <div style={{ fontFamily: DSANS, fontSize: 12, color: '#8295a9', lineHeight: 1.55, borderTop: '1px solid #1e2d3d', paddingTop: 10, marginTop: 4 }}>
           <span style={{ color: shapeColor, fontWeight: 600 }}>{shapeLabel}: </span>{interp}
         </div>
