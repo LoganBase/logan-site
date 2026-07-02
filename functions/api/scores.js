@@ -32,6 +32,7 @@ const ALL_SYMBOLS = [
   'XME','GDX','COPX','KBE',
   'USCI','CPER','GLD','SLV','IXC','DBA','SLX','URA',   // Commodities
   'IWM','NVDA','JPM','CAT','XOM','FCX',                          // Equities
+  '^VIX9D','^VIX','^VIX3M','^VIX6M',                            // VIX term structure
 ];
 
 // ── MATH ─────────────────────────────────────────────────────────────────────
@@ -1481,8 +1482,23 @@ function buildEquities(q) {
     ['Russell 2000',    iwmVs200,              'small-cap risk appetite', iwm?.vs200 != null ? (iwmAbove ? 'pos' : 'neg') : null],
     ['Freeport (FCX)',  fcxVs200,              'copper / global growth',  fcx?.vs200 != null ? (fcxAbove ? 'pos' : 'neg') : null],
   ];
+
+  // VIX term structure (spot values only \u2014 no MA scoring)
+  const v9d = q['^VIX9D']?.price ?? null;
+  const v30 = q['^VIX']?.price   ?? null;
+  const v3m = q['^VIX3M']?.price ?? null;
+  const v6m = q['^VIX6M']?.price ?? null;
+  const vixShape = (() => {
+    const front = v9d, back = v3m ?? v30;
+    if (front == null || back == null) return null;
+    return front > back + 0.5 ? 'backwardation' : front < back - 0.5 ? 'contango' : 'flat';
+  })();
+  const vix = (v9d != null || v30 != null || v3m != null)
+    ? { v9d, v30, v3m, v6m, shape: vixShape }
+    : null;
+
   return { id: 'equities', number: 11, title: 'Equities', subtitle: 'The Execution Layer',
-    status, rows, stats, hideIndicator: true, note: equityNote };
+    status, rows, stats, hideIndicator: true, note: equityNote, vix };
 }
 
 function buildCredit(q, creditCtx) {

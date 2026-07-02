@@ -279,6 +279,7 @@
       details: c.details || null,
       deltas:     c.deltas     || null,
       commDeltas: c.commDeltas || null,
+      vix:        c.vix        || null,
     };
     // Global Flows: derive the flag row from card.details (field is `sym`, not `symbol`).
     if (c.id === 'globalflows' && Array.isArray(c.details)) {

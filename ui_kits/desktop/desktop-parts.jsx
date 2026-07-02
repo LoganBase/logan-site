@@ -5028,6 +5028,95 @@ function CrowdSignalsDeepDive() {
   );
 }
 
+// ── VIX Term Structure panel — Equities deep-dive ────────────────────────────
+function VIXTermStructure({ vix }) {
+  if (!vix) return null;
+  const pts = [
+    { sym: '^VIX9D', label: 'VIX9D', desc: '9-Day',   val: vix.v9d },
+    { sym: '^VIX',   label: 'VIX',   desc: '30-Day',  val: vix.v30 },
+    { sym: '^VIX3M', label: 'VIX3M', desc: '3-Month', val: vix.v3m },
+    { sym: '^VIX6M', label: 'VIX6M', desc: '6-Month', val: vix.v6m },
+  ].filter(p => p.val != null);
+  if (pts.length < 2) return null;
+
+  const shape = vix.shape;
+  const shapeLabel = shape === 'backwardation' ? 'Backwardation' : shape === 'contango' ? 'Contango' : 'Flat';
+  const shapeColor = shape === 'backwardation' ? '#ef4444' : shape === 'contango' ? '#22c55e' : '#f59e0b';
+  const interp = shape === 'backwardation'
+    ? 'Near-term fear spike — VIX9D elevated over longer maturities signals acute near-term stress. Historically a contrarian buy signal at equity drawdowns of 5%+; wait for VIX9D to drop back below VIX before adding exposure.'
+    : shape === 'contango'
+    ? 'Normal term structure — near-term vol is below long-dated vol. No acute fear premium; market is calm. Deep contango alongside bullish macro signals is clean confirmation of risk appetite.'
+    : 'Flat term structure — muted differentiation across maturities. Transitional environment; no strong near-term fear or complacency read.';
+
+  const W = 480, H = 140, padL = 36, padB = 30, padT = 20, padR = 12;
+  const innerW = W - padL - padR, innerH = H - padB - padT;
+  const vals  = pts.map(p => p.val);
+  const minV  = Math.min(...vals), maxV = Math.max(...vals);
+  const span  = maxV - minV || 1;
+  const yFloor = Math.max(0, minV - span * 0.5);
+  const yCeil  = maxV + span * 0.3;
+  const yRange = yCeil - yFloor;
+  const yOf = v => padT + innerH * (1 - (v - yFloor) / yRange);
+  const n = pts.length;
+  const xOf = i => padL + i * (innerW / (n - 1));
+  const linePts = pts.map((p, i) => `${xOf(i).toFixed(1)},${yOf(p.val).toFixed(1)}`).join(' ');
+  const areaPts = `${xOf(0).toFixed(1)},${(padT + innerH).toFixed(1)} ${linePts} ${xOf(n-1).toFixed(1)},${(padT + innerH).toFixed(1)}`;
+  const ticks = [yFloor, (yFloor + yCeil) / 2, yCeil].map(v => Math.round(v));
+  const vixLevel = vix.v30 ?? pts[0].val;
+  const vixZone  = vixLevel < 15 ? { label: 'VIX < 15 — Complacency', color: '#f59e0b' }
+    : vixLevel < 20 ? { label: `VIX ${vixLevel.toFixed(1)} — Normal`,    color: '#22c55e' }
+    : vixLevel < 30 ? { label: `VIX ${vixLevel.toFixed(1)} — Elevated`,  color: '#f59e0b' }
+    :                  { label: `VIX ${vixLevel.toFixed(1)} — Fear Zone`, color: '#ef4444' };
+
+  return (
+    <div>
+      {sectionLabel('VIX Term Structure')}
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <div style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#cbd5e1' }}>CBOE Implied Volatility — Maturity Curve</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>Shape signals near-term fear (backwardation) vs complacency (contango)</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 16 }}>
+            <div style={{ background: shapeColor + '22', border: `1px solid ${shapeColor}55`, borderRadius: 6, padding: '3px 10px' }}>
+              <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, color: shapeColor }}>{shapeLabel}</span>
+            </div>
+            <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: vixZone.color }}>{vixZone.label}</div>
+          </div>
+        </div>
+        <svg viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%' }}>
+          {ticks.map(v => {
+            const y = yOf(v);
+            return (
+              <g key={v}>
+                <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#1e2d3d" strokeWidth={0.5} />
+                <text x={padL - 4} y={y + 3.5} textAnchor="end" fontSize={8.5} fill="#64748b">{v}</text>
+              </g>
+            );
+          })}
+          <polygon points={areaPts} fill={shapeColor} opacity={0.08} />
+          <polyline points={linePts} fill="none" stroke={shapeColor} strokeWidth={2} strokeLinejoin="round" />
+          {pts.map((p, i) => {
+            const x = xOf(i), y = yOf(p.val);
+            return (
+              <g key={p.sym}>
+                <circle cx={x} cy={y} r={4.5} fill={shapeColor} />
+                <circle cx={x} cy={y} r={2} fill="#0d1520" />
+                <text x={x} y={y - 10} textAnchor="middle" fontSize={11} fontWeight="700" fill={shapeColor}>{p.val.toFixed(1)}</text>
+                <text x={x} y={H - padB + 13} textAnchor="middle" fontSize={9.5} fontWeight="600" fill="#8295a9">{p.label}</text>
+                <text x={x} y={H - padB + 23} textAnchor="middle" fontSize={8} fill="#475569">{p.desc}</text>
+              </g>
+            );
+          })}
+        </svg>
+        <div style={{ fontFamily: DSANS, fontSize: 12, color: '#8295a9', lineHeight: 1.55, borderTop: '1px solid #1e2d3d', paddingTop: 10, marginTop: 4 }}>
+          <span style={{ color: shapeColor, fontWeight: 600 }}>{shapeLabel}: </span>{interp}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -5198,6 +5287,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         <EquitiesFocusChart />
         <EquitiesChart />
+        {card.vix && <VIXTermStructure vix={card.vix} />}
         <div>
           {sectionLabel('Equities History')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
@@ -5417,4 +5507,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, DeepDiveContent });

@@ -40,6 +40,8 @@ const ALL_SYMBOLS = [
   'USCI', 'CPER', 'GLD', 'SLV', 'IXC', 'DBA', 'SLX', 'URA',
   // Equities
   'IWM', 'NVDA', 'JPM', 'CAT', 'XOM', 'FCX', 'CCJ',
+  // VIX term structure
+  '^VIX9D', '^VIX', '^VIX3M', '^VIX6M',
   // Extended — deep-dive / supplemental
   'SOXX', 'LRCX', 'SITM',
   'AEM',
