@@ -390,7 +390,7 @@ const HISTORY_CAPTION = {
   globalflows: ['Global markets ', ['above', 'bullish'], ' or ', ['below', 'bearish'], ' their 200-day average'],
   sectors:     [['Cyclical', 'bullish'], ' vs. ', ['defensive', 'bearish'], ' sector leadership each month'],
   commodities: 'Commodity complex trend vs. 200-day average',
-  equities:    'Equity market breadth vs. 200-day average',
+  equities:    'VIX regime each month — red: fear (VIX ≥ 30 for 5+ days), orange: elevated (VIX ≥ 20 for 5+ days), green: calm',
 };
 const renderCaption = (cap) => {
   if (!cap) return null;
@@ -5394,11 +5394,11 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     return () => { alive = false; };
   }, [cardId]);
 
-  // Equities breadth history: real month-end watchlist breadth from D1
+  // Equities history: VIX-based monthly regime from D1
   useEffectD(() => {
     if (cardId !== 'equities') return;
     let alive = true;
-    fetch('/api/equities-breadth-history?months=24')
+    fetch('/api/vix-regime?months=24')
       .then(r => r.json())
       .then(d => { if (alive && d.dates?.length) setEqBreadthLive(d); })
       .catch(() => {});
