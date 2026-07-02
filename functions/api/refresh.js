@@ -247,6 +247,44 @@ async function refreshSymbol(db, symbol) {
   return { symbol, added: newRows.length, status: 'updated' };
 }
 
+// ── SECTOR WEIGHTS (Yahoo Finance ETF AUM → S&P 500 proxy weights) ───────────
+const SECTOR_WEIGHT_SYMS = ['XLK', 'XLF', 'XLV', 'XLC', 'XLY', 'XLI', 'XLP', 'XLE', 'XLB', 'XLRE', 'XLU'];
+
+async function refreshSectorWeights(kv) {
+  const settled = await Promise.allSettled(SECTOR_WEIGHT_SYMS.map(async sym => {
+    const res = await fetch(
+      `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${sym}?modules=summaryDetail`,
+      { headers: YF_HEADERS }
+    );
+    if (!res.ok) throw new Error(`Yahoo ${res.status}`);
+    const data = await res.json();
+    const ta = data?.quoteSummary?.result?.[0]?.summaryDetail?.totalAssets?.raw;
+    if (!ta || ta <= 0) throw new Error('no totalAssets');
+    return { sym, assets: ta };
+  }));
+
+  const assets = {};
+  for (const r of settled) {
+    if (r.status === 'fulfilled') assets[r.value.sym] = r.value.assets;
+  }
+
+  const fetched = Object.keys(assets).length;
+  const total   = Object.values(assets).reduce((s, v) => s + v, 0);
+  if (total === 0 || fetched < 8) return { status: 'insufficient data', fetched };
+
+  const weights = {};
+  for (const [sym, val] of Object.entries(assets)) {
+    weights[sym] = +(val / total).toFixed(4);
+  }
+
+  await kv.put('sector-weights:current', JSON.stringify({
+    updated: new Date().toISOString(),
+    weights,
+  }));
+
+  return { status: 'ok', fetched, weights };
+}
+
 // ── HANDLER ───────────────────────────────────────────────────────────────────
 export async function onRequest(context) {
   if (context.request.method === 'OPTIONS') {
@@ -294,10 +332,20 @@ export async function onRequest(context) {
     }
   }
 
+  let sectorWeights = { status: 'skipped' };
+  if (context.env.SUMMARIES) {
+    try {
+      sectorWeights = await refreshSectorWeights(context.env.SUMMARIES);
+    } catch (err) {
+      sectorWeights = { status: 'error', error: err.message };
+    }
+  }
+
   return new Response(JSON.stringify({
-    timestamp:  new Date().toISOString(),
+    timestamp:     new Date().toISOString(),
     totalAdded,
-    symbols:    results,
+    symbols:       results,
+    sectorWeights,
   }), {
     headers: {
       'Content-Type':                'application/json',

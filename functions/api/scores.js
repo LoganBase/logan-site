@@ -317,6 +317,14 @@ async function loadCreditContext(db) {
   } catch { return null; }
 }
 
+async function loadSectorWeights(kv) {
+  try {
+    if (!kv) return null;
+    const data = await kv.get('sector-weights:current', 'json');
+    return data?.weights ?? null;
+  } catch { return null; }
+}
+
 // ── CARD BUILDERS ─────────────────────────────────────────────────────────────
 
 function buildRegime(q, ctx) {
@@ -1086,7 +1094,7 @@ function buildGlobalFlows(q) {
   return { id: 'globalflows', number: 8, title: 'Global Flows', subtitle: 'The Tide', status: gStatus, rows, stats, details, hideIndicator: true, note: flowNote };
 }
 
-function buildSectors(q) {
+function buildSectors(q, sectorWeights) {
   // Full 11-sector GICS universe (SPDR ETFs)
   const SECTOR_META = {
     XLK:  { name: 'Technology',            type: 'cyclical'  },
@@ -1102,8 +1110,7 @@ function buildSectors(q) {
     XLRE: { name: 'Real Estate',           type: 'defensive' },
   };
 
-  // S&P 500 approximate index weights (SPDR ETF AUM proxy); update via /api/refresh + KV when dynamic fetch is wired
-  const SECTOR_WEIGHTS = {
+  const SECTOR_WEIGHTS = sectorWeights ?? {
     XLK: 0.31, XLF: 0.13, XLV: 0.12, XLC: 0.09, XLY: 0.10,
     XLI: 0.09, XLP: 0.06, XLE: 0.04, XLB: 0.02, XLRE: 0.02, XLU: 0.02,
   };
@@ -1844,7 +1851,7 @@ export async function onRequest(context) {
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1 or stale
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
-  const [d1, shiller, buffett, forwardPe, japanPe, breadthData, leaderCtx, breadthCtx] = await Promise.all([
+  const [d1, shiller, buffett, forwardPe, japanPe, breadthData, leaderCtx, breadthCtx, kvWeights] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
     db ? loadBuffettLatest(db) : Promise.resolve(null),
@@ -1853,6 +1860,7 @@ export async function onRequest(context) {
     db ? loadBreadthLatest(db) : Promise.resolve(null),
     db ? loadLeadershipContext(db) : Promise.resolve(null),
     db ? loadBreadthContext(db) : Promise.resolve(null),
+    loadSectorWeights(kv),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   // Treat D1 data as stale only if >3 calendar days old \u2014 handles weekends + pre-seeder Monday
@@ -1901,7 +1909,7 @@ export async function onRequest(context) {
     buildYield(q),
     buildCurrency(q),
     buildGlobalFlows(q),
-    buildSectors(q),
+    buildSectors(q, kvWeights),
     buildCommodities(q, commCtx),
     buildEquities(q),
     buildCredit(q, creditCtx),
