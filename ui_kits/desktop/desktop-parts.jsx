@@ -5117,6 +5117,210 @@ function VIXTermStructure({ vix }) {
   );
 }
 
+// ── VIX History chart — Equities deep-dive ───────────────────────────────────
+function VIXHistoryChart() {
+  const [tab, setTab]     = useStateD('levels');
+  const [range, setRange] = useStateD('1Y');
+  const [data, setData]   = useStateD(null);
+  const RMAP = { '1Y': '1y', '3Y': '3y', '5Y': '5y' };
+
+  useEffectD(() => {
+    let alive = true;
+    setData(null);
+    fetch(`/api/vix-history?range=${RMAP[range]}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (alive && d?.dates?.length) setData(d); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+
+  const W = 640, H = 170, padL = 38, padB = 26, padT = 14, padR = 8;
+  const innerW = W - padL - padR, innerH = H - padB - padT;
+  const xOf4 = (n) => [0, Math.floor(n / 3), Math.floor(2 * n / 3), n - 1];
+
+  const tabBtn = (key, label) => (
+    <button key={key} onClick={() => setTab(key)} style={{
+      fontFamily: DSANS, fontSize: 10, fontWeight: 700, padding: '3px 9px',
+      borderRadius: 4, border: 'none', cursor: 'pointer',
+      background: tab === key ? '#22d3ee' : 'transparent', color: tab === key ? '#000' : '#64748b',
+    }}>{label}</button>
+  );
+  const rangeBtn = (r) => (
+    <button key={r} onClick={() => setRange(r)} style={{
+      fontFamily: DSANS, fontSize: 10, fontWeight: 700, padding: '3px 7px',
+      borderRadius: 4, border: 'none', cursor: 'pointer',
+      background: range === r ? '#334155' : 'transparent', color: range === r ? '#cbd5e1' : '#475569',
+    }}>{r}</button>
+  );
+
+  const empty = (msg) => (
+    <div style={{ height: H, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b' }}>{msg}</span>
+    </div>
+  );
+
+  const renderLevels = () => {
+    const series = data?.series || [];
+    if (!series.length) return empty('No VIX history yet — run /api/refresh to seed data');
+    const n = data.dates.length;
+    const allVals = series.flatMap(s => s.values).filter(v => v != null);
+    const maxV = Math.max(...allVals, 30) * 1.08;
+    const xOf = i => padL + (i / Math.max(n - 1, 1)) * innerW;
+    const yOf = v => padT + innerH * (1 - v / maxV);
+    const ticks = [0, 20, 30, Math.round(maxV)].filter((v, i, a) => v <= maxV && a.indexOf(v) === i);
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%' }}>
+        {/* Background bands */}
+        <rect x={padL} y={yOf(maxV)}  width={innerW} height={yOf(30) - yOf(maxV)} fill="rgba(239,68,68,0.07)" />
+        <rect x={padL} y={yOf(30)}    width={innerW} height={yOf(20) - yOf(30)}   fill="rgba(245,158,11,0.06)" />
+        <rect x={padL} y={yOf(20)}    width={innerW} height={yOf(0)  - yOf(20)}   fill="rgba(34,197,94,0.04)"  />
+        {/* Band labels */}
+        <text x={W - padR - 2} y={yOf((maxV + 30) / 2) + 3} textAnchor="end" fontSize={7.5} fill="rgba(239,68,68,0.45)">Fear</text>
+        <text x={W - padR - 2} y={yOf(25) + 3}              textAnchor="end" fontSize={7.5} fill="rgba(245,158,11,0.45)">Elevated</text>
+        <text x={W - padR - 2} y={yOf(10) + 3}              textAnchor="end" fontSize={7.5} fill="rgba(34,197,94,0.45)">Normal</text>
+        {/* Y gridlines */}
+        {ticks.map(v => {
+          const y = yOf(v);
+          return (
+            <g key={v}>
+              <line x1={padL} y1={y} x2={W - padR} y2={y} stroke="#1e2d3d" strokeWidth={v === 20 || v === 30 ? 0.7 : 0.4} strokeDasharray={v === 20 || v === 30 ? '3 3' : null} />
+              <text x={padL - 4} y={y + 3.5} textAnchor="end" fontSize={8} fill="#64748b">{v}</text>
+            </g>
+          );
+        })}
+        {/* Series lines */}
+        {series.map(s => {
+          let d = ''; let on = false;
+          s.values.forEach((v, i) => {
+            if (v == null) { on = false; return; }
+            const pt = `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`;
+            d += on ? ` L${pt}` : `M${pt}`; on = true;
+          });
+          return <path key={s.sym} d={d} fill="none" stroke={s.color} strokeWidth={1.5} />;
+        })}
+        {/* X labels */}
+        {xOf4(n).map(i => (
+          <text key={i} x={xOf(i)} y={H - 4} textAnchor="middle" fontSize={7.5} fill="#475569">{(data.dates[i] || '').slice(0, 7)}</text>
+        ))}
+      </svg>
+    );
+  };
+
+  const renderSpread = () => {
+    const spread = data?.spread;
+    if (!spread) return empty('Requires both VIX9D and VIX3M data');
+    const vals = spread.values;
+    const n = data.dates.length;
+    const nonNull = vals.filter(v => v != null);
+    if (!nonNull.length) return empty('No spread data yet');
+    const absMax = Math.max(Math.abs(Math.min(...nonNull)), Math.abs(Math.max(...nonNull)), 2) * 1.2;
+    const xOf  = i => padL + (i / Math.max(n - 1, 1)) * innerW;
+    const yOf  = v => padT + innerH * (1 - (v + absMax) / (absMax * 2));
+    const yZ   = yOf(0);
+    const ticks = [-Math.round(absMax), -2, 0, 2, Math.round(absMax)].filter((v, i, a) => Math.abs(v) <= absMax && a.indexOf(v) === i);
+
+    // Build polygon of the full spread area; clipPaths cut it at zero for two-color fill
+    const first = vals.findIndex(v => v != null);
+    const last  = vals.length - 1 - [...vals].reverse().findIndex(v => v != null);
+    const polyPts = [
+      `${xOf(first).toFixed(1)},${yZ.toFixed(1)}`,
+      ...vals.map((v, i) => v != null ? `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}` : null).filter(Boolean),
+      `${xOf(last).toFixed(1)},${yZ.toFixed(1)}`,
+    ].join(' ');
+
+    let linePts = ''; let on = false;
+    vals.forEach((v, i) => {
+      if (v == null) { on = false; return; }
+      const pt = `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`;
+      linePts += on ? ` L${pt}` : `M${pt}`; on = true;
+    });
+
+    const aboveId = `vix-above-${range}`, belowId = `vix-below-${range}`;
+
+    return (
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', width: '100%' }}>
+        <defs>
+          <clipPath id={aboveId}><rect x={padL} y={padT}  width={innerW} height={Math.max(0, yZ - padT)} /></clipPath>
+          <clipPath id={belowId}><rect x={padL} y={yZ}    width={innerW} height={Math.max(0, padT + innerH - yZ)} /></clipPath>
+        </defs>
+        {/* Y gridlines */}
+        {ticks.map(v => {
+          const y = yOf(v);
+          return (
+            <g key={v}>
+              <line x1={padL} y1={y} x2={W - padR} y2={y} stroke={v === 0 ? '#334155' : '#1e2d3d'} strokeWidth={v === 0 ? 1.2 : 0.4} />
+              <text x={padL - 4} y={y + 3.5} textAnchor="end" fontSize={8} fill={v === 0 ? '#475569' : '#374151'}>{v > 0 ? '+' : ''}{v}</text>
+            </g>
+          );
+        })}
+        {/* Colour fills clipped at zero */}
+        <polygon points={polyPts} fill="rgba(239,68,68,0.25)"  clipPath={`url(#${aboveId})`} />
+        <polygon points={polyPts} fill="rgba(34,197,94,0.2)"   clipPath={`url(#${belowId})`} />
+        {/* Spread line */}
+        <path d={linePts} fill="none" stroke="#94a3b8" strokeWidth={1.2} />
+        {/* Zone labels */}
+        <text x={W - padR - 2} y={yOf(absMax * 0.6) + 3}  textAnchor="end" fontSize={7.5} fill="rgba(239,68,68,0.55)">Backwardation</text>
+        <text x={W - padR - 2} y={yOf(-absMax * 0.6) + 3} textAnchor="end" fontSize={7.5} fill="rgba(34,197,94,0.55)">Contango</text>
+        {/* X labels */}
+        {xOf4(n).map(i => (
+          <text key={i} x={xOf(i)} y={H - 4} textAnchor="middle" fontSize={7.5} fill="#475569">{(data.dates[i] || '').slice(0, 7)}</text>
+        ))}
+      </svg>
+    );
+  };
+
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#cbd5e1' }}>VIX History</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>
+            {tab === 'levels'
+              ? 'Implied volatility levels across maturities over time'
+              : 'VIX9D − VIX3M spread — positive = backwardation (near-term fear), negative = contango (calm)'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0, marginLeft: 12 }}>
+          <div style={{ display: 'flex', background: '#111827', borderRadius: 5, padding: 2 }}>
+            {tabBtn('levels', 'Levels')}
+            {tabBtn('spread', 'Shape Signal')}
+          </div>
+          <div style={{ display: 'flex', background: '#111827', borderRadius: 5, padding: 2 }}>
+            {['1Y', '3Y', '5Y'].map(rangeBtn)}
+          </div>
+        </div>
+      </div>
+      {tab === 'levels' && data?.series?.length > 0 && (
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 8 }}>
+          {data.series.map(s => (
+            <div key={s.sym} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div style={{ width: 18, height: 2, background: s.color, borderRadius: 1 }} />
+              <span style={{ fontFamily: DSANS, fontSize: 10, color: '#8295a9' }}>{s.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {!data
+        ? empty('Loading…')
+        : tab === 'levels' ? renderLevels() : renderSpread()
+      }
+      {tab === 'spread' && data && (
+        <div style={{ display: 'flex', gap: 16, marginTop: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 12, height: 8, background: 'rgba(239,68,68,0.4)', borderRadius: 1 }} />
+            <span style={{ fontFamily: DSANS, fontSize: 10, color: '#8295a9' }}>Backwardation — near-term fear spike</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 12, height: 8, background: 'rgba(34,197,94,0.35)', borderRadius: 1 }} />
+            <span style={{ fontFamily: DSANS, fontSize: 10, color: '#8295a9' }}>Contango — normal / calm market</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Full deep-dive content (chart + regime timeline + stats + indicators) — shared by all options ──
 function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   const sg = DSIG[card.status];
@@ -5288,6 +5492,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
         <EquitiesFocusChart />
         <EquitiesChart />
         {card.vix && <VIXTermStructure vix={card.vix} />}
+        <VIXHistoryChart />
         <div>
           {sectionLabel('Equities History')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
@@ -5507,4 +5712,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, DeepDiveContent });
