@@ -5034,6 +5034,7 @@ const sectionLabel = (txt) => (
 );
 
 function VIXTermStructure({ vix }) {
+  const [hover, setHover] = useStateD(null);
   if (!vix) return null;
   const pts = [
     { sym: '^VIX9D', label: 'VIX9D', desc: '9-Day',   val: vix.v9d },
@@ -5102,28 +5103,30 @@ function VIXTermStructure({ vix }) {
           <polyline points={linePts} fill="none" stroke={shapeColor} strokeWidth={2} strokeLinejoin="round" />
           {pts.map((p, i) => {
             const x = xOf(i), y = yOf(p.val);
+            const isHov = hover === i;
             return (
-              <g key={p.sym}>
-                <circle cx={x} cy={y} r={3} fill={shapeColor} />
-                <circle cx={x} cy={y} r={1.2} fill="#0d1520" />
+              <g key={p.sym} style={{ cursor: 'crosshair' }}
+                onMouseEnter={() => setHover(i)}
+                onMouseLeave={() => setHover(null)}>
+                <circle cx={x} cy={y} r={10} fill="transparent" />
+                <circle cx={x} cy={y} r={isHov ? 5 : 3.5} fill={shapeColor} style={{ transition: 'r .1s' }} />
+                <circle cx={x} cy={y} r={isHov ? 2 : 1.4} fill="#0d1520" style={{ transition: 'r .1s' }} />
+                {isHov && (() => {
+                  const TW = 58, TH = 34, TX = Math.min(Math.max(x - TW / 2, padL), W - padR - TW);
+                  const TY = y - TH - 8;
+                  return (
+                    <g>
+                      <rect x={TX} y={TY} width={TW} height={TH} rx={5} fill="#0f1e2e" stroke="#1e3a52" strokeWidth={0.8} />
+                      <text x={TX + TW / 2} y={TY + 12} textAnchor="middle" fontSize={9} fontWeight="700" fill="#cbd5e1" fontFamily="Inter,sans-serif">{p.label}</text>
+                      <text x={TX + TW / 2} y={TY + 26} textAnchor="middle" fontSize={11} fontWeight="700" fill={shapeColor} fontFamily="Inter,sans-serif">{p.val.toFixed(1)}</text>
+                    </g>
+                  );
+                })()}
               </g>
             );
           })}
         </svg>
-        <div style={{ display: 'flex', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
-          {pts.map(p => (
-            <div key={p.sym} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <svg width="18" height="10" viewBox="0 0 18 10" style={{ flexShrink: 0 }}>
-                <line x1="0" y1="5" x2="18" y2="5" stroke={shapeColor} strokeWidth={1.5} />
-                <circle cx="9" cy="5" r="2.5" fill={shapeColor} />
-                <circle cx="9" cy="5" r="1" fill="#0d1520" />
-              </svg>
-              <span style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8' }}>{p.label}</span>
-              <span style={{ fontFamily: DSANS, fontSize: 11.5, fontWeight: 600, color: shapeColor }}>{p.val.toFixed(1)}</span>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontFamily: DSANS, fontSize: 12, color: '#8295a9', lineHeight: 1.55, borderTop: '1px solid #1e2d3d', paddingTop: 10, marginTop: 10 }}>
+        <div style={{ fontFamily: DSANS, fontSize: 12, color: '#8295a9', lineHeight: 1.55, borderTop: '1px solid #1e2d3d', paddingTop: 10, marginTop: 4 }}>
           <span style={{ color: shapeColor, fontWeight: 600 }}>{shapeLabel}: </span>{interp}
         </div>
       </div>
