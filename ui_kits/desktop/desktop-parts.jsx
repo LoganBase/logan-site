@@ -5047,10 +5047,10 @@ function VIXTermStructure({ vix }) {
   const shapeLabel = shape === 'backwardation' ? 'Backwardation' : shape === 'contango' ? 'Contango' : 'Flat';
   const shapeColor = shape === 'backwardation' ? '#ef4444' : shape === 'contango' ? '#22c55e' : '#f59e0b';
   const interp = shape === 'backwardation'
-    ? 'Near-term fear spike — VIX9D elevated over longer maturities signals acute near-term stress. Historically a contrarian buy signal at equity drawdowns of 5%+; wait for VIX9D to drop back below VIX before adding exposure.'
+    ? 'Short-term options are more expensive than long-term ones — traders are paying up to hedge against something happening soon. This is unusual and signals near-term stress or a known risk event. It often marks a fear peak; once the spike fades and VIX9D drops back below VIX, that is typically the cleaner entry for risk.'
     : shape === 'contango'
-    ? 'Normal term structure — near-term vol is below long-dated vol. No acute fear premium; market is calm. Deep contango alongside bullish macro signals is clean confirmation of risk appetite.'
-    : 'Flat term structure — muted differentiation across maturities. Transitional environment; no strong near-term fear or complacency read.';
+    ? 'Short-term options are cheaper than long-term ones — the normal state. No one is panicking about next week; any uncertainty is priced further out. When this lines up with a bullish macro backdrop, it is straightforward confirmation that risk appetite is healthy.'
+    : 'Volatility is priced roughly the same across all maturities — neither near-term fear nor long-term complacency is dominant. Typically a transitional read with no strong signal in either direction.';
 
   const W = 480, H = 140, padL = 36, padB = 30, padT = 20, padR = 12;
   const innerW = W - padL - padR, innerH = H - padB - padT;
@@ -5078,8 +5078,8 @@ function VIXTermStructure({ vix }) {
       <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
-            <div style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#cbd5e1' }}>CBOE Implied Volatility — Maturity Curve</div>
-            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>Shape signals near-term fear (backwardation) vs complacency (contango)</div>
+            <div style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#cbd5e1' }}>VIX Term Structure</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>Implied volatility across maturities — slope reveals near-term fear vs calm</div>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 5, flexShrink: 0, marginLeft: 16 }}>
             <div style={{ background: shapeColor + '22', border: `1px solid ${shapeColor}55`, borderRadius: 6, padding: '3px 10px' }}>
@@ -5104,11 +5104,11 @@ function VIXTermStructure({ vix }) {
             const x = xOf(i), y = yOf(p.val);
             return (
               <g key={p.sym}>
-                <circle cx={x} cy={y} r={4.5} fill={shapeColor} />
-                <circle cx={x} cy={y} r={2} fill="#0d1520" />
-                <text x={x} y={y - 10} textAnchor="middle" fontSize={11} fontWeight="700" fill={shapeColor}>{p.val.toFixed(1)}</text>
-                <text x={x} y={H - padB + 13} textAnchor="middle" fontSize={9.5} fontWeight="600" fill="#8295a9">{p.label}</text>
-                <text x={x} y={H - padB + 23} textAnchor="middle" fontSize={8} fill="#475569">{p.desc}</text>
+                <circle cx={x} cy={y} r={3.5} fill={shapeColor} />
+                <circle cx={x} cy={y} r={1.5} fill="#0d1520" />
+                <text x={x} y={y - 7} textAnchor="middle" fontSize={8} fontWeight="600" fill={shapeColor}>{p.val.toFixed(1)}</text>
+                <text x={x} y={H - padB + 12} textAnchor="middle" fontSize={8} fill="#64748b">{p.label}</text>
+                <text x={x} y={H - padB + 21} textAnchor="middle" fontSize={7} fill="#374151">{p.desc}</text>
               </g>
             );
           })}
