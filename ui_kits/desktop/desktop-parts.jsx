@@ -5029,6 +5029,10 @@ function CrowdSignalsDeepDive() {
 }
 
 // ── VIX Term Structure panel — Equities deep-dive ────────────────────────────
+const sectionLabel = (txt) => (
+  <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 10 }}>{txt}</div>
+);
+
 function VIXTermStructure({ vix }) {
   if (!vix) return null;
   const pts = [
@@ -5444,10 +5448,6 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
       spread: fmt(last),
     };
   })();
-
-  const sectionLabel = (txt) => (
-    <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 10 }}>{txt}</div>
-  );
 
   if (cardId === 'breadth') {
     // Breadth order: NYSE Breadth → Breadth History → Sector ETF Breadth → Sector Breakdown → Consumer Signal → Key Metrics → Summary
