@@ -115,3 +115,101 @@ A sector with a clockwise hook from Lagging → Improving is the "early run" buy
 **Implementation order:** 03B first (low complexity), then 03A (medium complexity, more powerful).
 
 ---
+
+## Idea 04 · Historical Scorecard Chart *(Priority 1 recommendation)*
+
+**Status:** Under Review
+
+**The gap:** The 0–10 aggregate score is computed daily but never stored or visualised over time. A historical chart would immediately add context to every reading — "score was 7.8 in January when the market peaked, dropped to 2.4 in April, currently recovering at 5.3."
+
+**What to store:** On each `/api/refresh` run, write the day's aggregate score + 3 category scores (Trend, Participation, Macro) to a new D1 table `scorecard_history (date, score, trend_score, participation_score, macro_score)`.
+
+**What to show:** A new chart in the Exec Summary / aggregate view:
+- Primary line: composite 0–10 score over time
+- Optional overlays: 3 category lines (toggle-able)
+- Colour-coded background bands: red (<4), yellow (4–7), green (≥7)
+- Range selector: 1Y / 2Y / 5Y
+
+**Infrastructure:** No new data source. D1 write on each refresh, new `/api/scorecard-history` endpoint, new chart component in the desktop Exec Summary.
+
+**Complexity:** Low. **Value:** Very high — makes every other card more interpretable by showing where the composite score has been.
+
+---
+
+## Idea 05 · VIX Term Structure Panel
+
+**Status:** Under Review
+
+**The signal:** The shape of the VIX term structure tells you whether the market fears the near term or the medium term:
+- **Backwardation** (VIX > VIX3M): acute near-term fear spike — historically a contrarian buy signal
+- **Deep contango** (VIX3M >> VIX): complacency — warning when equity signals are bullish
+
+**What to show:** A compact bar or stepped-line chart showing the term structure curve: VIX9D → VIX → VIX3M → VIX6M. Colour-coded by shape (backwardation = amber/red, contango = green/neutral).
+
+**Infrastructure:** All tickers available free from Yahoo Finance (`^VIX9D`, `^VIX`, `^VIX3M`). Same fetch pattern already used everywhere. Would live in the Equities deep-dive or as a standalone panel.
+
+**Complexity:** Low. **Value:** High — adds forward-looking options-market fear dimension not captured by any current card.
+
+---
+
+## Idea 06 · FRED Credit Spreads
+
+**Status:** Under Review
+
+**The gap:** The Credit card uses HYG price vs 200d SMA, but the actual spread in basis points is more informative and historically interpretable.
+
+**FRED series (free API, no cost):**
+- `BAMLH0A0HYM2` — ICE BofA US High Yield OAS (bps)
+- `BAMLC0A0CM` — ICE BofA US Corporate Investment Grade OAS (bps)
+
+**Historical thresholds:**
+- HY OAS > 500bps: historically precedes equity drawdowns by 4–8 weeks
+- HY OAS < 300bps: complacency / late-cycle compression
+- IG OAS > 150bps: credit stress bleeding into investment grade
+
+**Where to add it:** Enhance the existing Credit card deep-dive with a proper spread chart in bps alongside the current HYG price chart.
+
+**Infrastructure:** FRED API (free, requires API key stored as Worker secret). New `/api/credit-spreads` endpoint. New chart component.
+
+**Complexity:** Low–Medium. **Value:** High — turns the Credit card from a price proxy into a true spread monitor.
+
+---
+
+## Idea 07 · COT Positioning (Commitment of Traders)
+
+**Status:** Under Review
+
+**The signal:** CFTC publishes weekly positioning data every Friday for the prior Tuesday. Tracks what speculative (hedge fund) vs commercial (hedger) participants hold in futures markets. Extreme net-long speculative positioning = crowded trade = potential reversal. Extreme net-short = potential bottom.
+
+**Key contracts:**
+- S&P 500 e-mini futures (speculative positioning as % of open interest)
+- Gold futures (safe-haven demand signal)
+- WTI Crude (commodity cycle confirmation)
+
+**Unique angle:** Shows *what institutional money is positioned for*, not what it has already done — a leading rather than lagging signal.
+
+**Infrastructure:** CFTC publishes free downloadable CSVs at cftc.gov. Could fetch weekly and store in D1. Alternatively, Quandl/Nasdaq Data Link has a free COT API. New card or supplemental panel in Breadth or Commodities deep-dive.
+
+**Complexity:** Medium. **Value:** High — unique institutional positioning angle not available from price data alone.
+
+---
+
+## Idea 08 · Earnings Revision Breadth
+
+**Status:** Under Review
+
+**The signal:** Whether Wall Street analysts are collectively revising S&P 500 EPS estimates up or down is a leading indicator for price:
+- Rising price + rising estimates = healthy, confirmed bull
+- Rising price + falling estimates = multiple expansion only, vulnerable
+- Flat price + rising estimates = undervalued, potential catalyst
+
+**Proxy approaches (without paid data):**
+- Track divergence between CAPE (trailing) and forward P/E (already fetched) — widening gap signals estimate cuts
+- Yardeni Research publishes weekly forward P/E and EPS estimates (scrapeable)
+- Full breadth data (% of S&P 500 stocks with upward revisions) requires paid source (FactSet, Bloomberg)
+
+**Where to add it:** Valuations card deep-dive — a "Earnings Revision" row or supplemental panel.
+
+**Complexity:** Medium–High (depends on data source). **Value:** Medium — complements existing Valuations card; identifies whether current multiples are justified.
+
+---
