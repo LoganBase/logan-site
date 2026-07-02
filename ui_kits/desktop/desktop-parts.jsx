@@ -5052,7 +5052,7 @@ function VIXTermStructure({ vix }) {
     ? 'Short-term options are cheaper than long-term ones — the normal state. No one is panicking about next week; any uncertainty is priced further out. When this lines up with a bullish macro backdrop, it is straightforward confirmation that risk appetite is healthy.'
     : 'Volatility is priced roughly the same across all maturities — neither near-term fear nor long-term complacency is dominant. Typically a transitional read with no strong signal in either direction.';
 
-  const W = 480, H = 140, padL = 36, padB = 30, padT = 20, padR = 12;
+  const W = 480, H = 120, padL = 36, padB = 8, padT = 20, padR = 12;
   const innerW = W - padL - padR, innerH = H - padB - padT;
   const vals  = pts.map(p => p.val);
   const minV  = Math.min(...vals), maxV = Math.max(...vals);
@@ -5104,16 +5104,26 @@ function VIXTermStructure({ vix }) {
             const x = xOf(i), y = yOf(p.val);
             return (
               <g key={p.sym}>
-                <circle cx={x} cy={y} r={3.5} fill={shapeColor} />
-                <circle cx={x} cy={y} r={1.5} fill="#0d1520" />
-                <text x={x} y={y - 7} textAnchor="middle" fontSize={8} fontWeight="600" fill={shapeColor}>{p.val.toFixed(1)}</text>
-                <text x={x} y={H - padB + 12} textAnchor="middle" fontSize={8} fill="#64748b">{p.label}</text>
-                <text x={x} y={H - padB + 21} textAnchor="middle" fontSize={7} fill="#374151">{p.desc}</text>
+                <circle cx={x} cy={y} r={3} fill={shapeColor} />
+                <circle cx={x} cy={y} r={1.2} fill="#0d1520" />
               </g>
             );
           })}
         </svg>
-        <div style={{ fontFamily: DSANS, fontSize: 12, color: '#8295a9', lineHeight: 1.55, borderTop: '1px solid #1e2d3d', paddingTop: 10, marginTop: 4 }}>
+        <div style={{ display: 'flex', gap: 18, marginTop: 8, flexWrap: 'wrap' }}>
+          {pts.map(p => (
+            <div key={p.sym} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="18" height="10" viewBox="0 0 18 10" style={{ flexShrink: 0 }}>
+                <line x1="0" y1="5" x2="18" y2="5" stroke={shapeColor} strokeWidth={1.5} />
+                <circle cx="9" cy="5" r="2.5" fill={shapeColor} />
+                <circle cx="9" cy="5" r="1" fill="#0d1520" />
+              </svg>
+              <span style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8' }}>{p.label}</span>
+              <span style={{ fontFamily: DSANS, fontSize: 11.5, fontWeight: 600, color: shapeColor }}>{p.val.toFixed(1)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontFamily: DSANS, fontSize: 12, color: '#8295a9', lineHeight: 1.55, borderTop: '1px solid #1e2d3d', paddingTop: 10, marginTop: 10 }}>
           <span style={{ color: shapeColor, fontWeight: 600 }}>{shapeLabel}: </span>{interp}
         </div>
       </div>
