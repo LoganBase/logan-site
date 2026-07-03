@@ -4815,25 +4815,34 @@ function CpiHistoryChart() {
     setLatest(null);
     setLatestMom(null);
     const mo = new Date().toISOString().slice(0, 7);
-    fetch(`/api/cpi-history?range=${RMAP[range]}&d=${mo}`)
+    fetch(`/api/cpi-history?range=${RMAP[range]}&d=${mo}&v=2`)
       .then(r => r.json())
       .then(j => {
-        if (!alive || !Array.isArray(j.headline_yoy) || !j.headline_yoy.length) return;
-        const lastYoy = [...j.headline_yoy].reverse().find(v => v != null);
-        const lastMom = [...(j.headline || [])].reverse().find(v => v != null);
+        const hasYoy = Array.isArray(j.headline_yoy) && j.headline_yoy.length > 0;
+        const hasMom = Array.isArray(j.headline)     && j.headline.length > 0;
+        if (!alive || (!hasYoy && !hasMom)) return;
+        const yoyValues  = hasYoy ? j.headline_yoy : null;
+        const coreYoy    = hasYoy ? (j.core_yoy || []) : (j.core || []);
+        const momValues  = j.headline || [];
+        const coreMom    = j.core || [];
+        const lastYoy    = hasYoy ? [...yoyValues].reverse().find(v => v != null) : null;
+        const lastMom    = [...momValues].reverse().find(v => v != null);
         if (lastYoy != null) setLatest(lastYoy);
         if (lastMom != null) setLatestMom(lastMom);
-        setMomData({ headline: j.headline || [], core: j.core || [] });
+        setMomData({ headline: momValues, core: coreMom });
         setLive({
-          values:     j.headline_yoy,
+          values:     yoyValues || momValues,
           dates:      j.dates,
-          label:      'Headline YoY',
+          label:      hasYoy ? 'Headline YoY' : 'Headline MoM',
           format:     'pct',
           lineColor:  '#a855f7',
-          overlays:   [{ label: 'Core YoY', values: j.core_yoy || [], color: '#22d3ee', dash: null }],
-          thresholds: [
-            { y: 2.0, color: '#22c55e' },  // Fed target
-            { y: 5.0, color: '#ef4444' },  // Elevated
+          overlays:   [{ label: hasYoy ? 'Core YoY' : 'Core MoM', values: coreYoy, color: '#22d3ee', dash: null }],
+          thresholds: hasYoy ? [
+            { y: 2.0, color: '#22c55e' },
+            { y: 5.0, color: '#ef4444' },
+          ] : [
+            { y: 0.167, color: '#22c55e' },
+            { y: 0.4,   color: '#ef4444' },
           ],
         });
       })
