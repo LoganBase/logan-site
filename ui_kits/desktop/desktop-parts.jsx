@@ -4843,6 +4843,20 @@ function CpiHistoryChart() {
   );
 }
 
+function PositioningDeepDive() {
+  const secLabel = (txt) => (
+    <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 10 }}>{txt}</div>
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div>
+        {secLabel('COT — Commitment of Traders')}
+        <COTPositioning />
+      </div>
+    </div>
+  );
+}
+
 function CrowdSignalsDeepDive() {
   const [kalshi, setKalshi]           = useStateD(null);
   const [poly, setPoly]               = useStateD(null);
@@ -5027,10 +5041,6 @@ function CrowdSignalsDeepDive() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-      <div>
-        {secLabel('COT — Institutional Positioning')}
-        <COTPositioning />
-      </div>
       <div>
         {secLabel('CPI Inflation History')}
         <CpiHistoryChart />
@@ -5669,6 +5679,10 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     );
   }
 
+  if (cardId === 'positioning') {
+    return <PositioningDeepDive />;
+  }
+
   if (cardId === 'crowdsignals') {
     return <CrowdSignalsDeepDive />;
   }
@@ -5860,4 +5874,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, COTPositioning, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, COTPositioning, PositioningDeepDive, DeepDiveContent });

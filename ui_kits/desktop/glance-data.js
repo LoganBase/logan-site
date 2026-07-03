@@ -14,7 +14,7 @@ window.GLANCE = {
     { label: 'Macro Pricing',    ids: ['valuations', 'yield', 'credit', 'currency'] },
     { label: 'Flow & Rotation',  ids: ['globalflows', 'sectors'] },
     { label: 'Real Assets',      ids: ['commodities', 'equities'] },
-    { label: 'Crowd Intelligence', ids: ['crowdsignals'] },
+    { label: 'Crowd Intelligence', ids: ['crowdsignals', 'positioning'] },
   ],
   cards: {
     regime: { id: 'regime', title: 'Regime', status: 'bullish', seed: 11, trend: 0.7, metric: 'SPY vs 200-day SMA', metricVal: '+8.4%', metricUnit: '% above',
@@ -56,5 +56,9 @@ window.GLANCE = {
       stats: [['FOMC Action', '—', 'Next FOMC decision', null], ['FOMC Confidence', '—', '% at implied rate', null], ['CPI Consensus', '—', 'MoM estimate', null]],
       rows: [['FOMC Rate', '—', 'Awaiting live data', 'neutral'], ['CPI Outlook', '—', 'Awaiting live data', 'neutral'], ['Crowd Bias', '—', 'Polymarket signals', 'neutral']],
       note: 'Live consensus from Kalshi prediction markets (FOMC rate, CPI) and Polymarket macro signals. Data reflects current market-implied probabilities for near-term macro events.' },
+    positioning: { id: 'positioning', title: 'Positioning', status: 'neutral', seed: 115, trend: 0.0, metric: 'COT Net Position', metricVal: '—', metricUnit: 'CFTC weekly · 3Y pctile',
+      stats: [['S&P 500 (ES)', '—', 'Net speculative pctile', null], ['Gold (GC)', '—', 'Net speculative pctile', null], ['WTI Crude (CL)', '—', 'Net speculative pctile', null]],
+      rows: [['S&P Futures (ES)', '—', 'Awaiting live data', 'neutral'], ['Gold (GC)', '—', 'Awaiting live data', 'neutral'], ['WTI Crude (CL)', '—', 'Awaiting live data', 'neutral']],
+      note: 'CFTC Commitment of Traders — weekly institutional positioning vs. 3-year range. Contrarian signal: extreme speculative crowding (≥80th or ≤20th pctile) tends to precede reversals.' },
   },
 };

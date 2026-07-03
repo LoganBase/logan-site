@@ -1315,9 +1315,11 @@ function ScoreTile({ card, onOpen, active }) {
   const [crowdStatus, setCrowdStatus] = useStateA(null);
   const [currencyStatus, setCurrencyStatus] = useStateA(null);
   const [yieldStatus, setYieldStatus] = useStateA(null);
-  const effStatus = card.id === 'crowdsignals' && crowdStatus   ? crowdStatus
-                  : card.id === 'currency'    && currencyStatus ? currencyStatus
-                  : card.id === 'yield'       && yieldStatus    ? yieldStatus
+  const [positioningStatus, setPositioningStatus] = useStateA(null);
+  const effStatus = card.id === 'crowdsignals' && crowdStatus        ? crowdStatus
+                  : card.id === 'currency'    && currencyStatus      ? currencyStatus
+                  : card.id === 'yield'       && yieldStatus         ? yieldStatus
+                  : card.id === 'positioning' && positioningStatus   ? positioningStatus
                   : card.status;
   const sg = DSIG[effStatus];
   return (
@@ -1345,6 +1347,8 @@ function ScoreTile({ card, onOpen, active }) {
           ? <CurrencyMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
           : card.id === 'crowdsignals'
           ? <CrowdSignalsMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
+          : card.id === 'positioning'
+          ? <PositioningMiniSpark seed={card.seed} trend={card.trend} color={sg.c} w={56} h={20} />
           : <SparkD seed={card.seed} trend={card.trend} color="#a855f7" w={56} h={20} />}
         <StatusPill status={effStatus} size="sm" />
       </div>
@@ -1354,6 +1358,8 @@ function ScoreTile({ card, onOpen, active }) {
         ? <CurrencyGlanceKpis compact={true} onStatus={setCurrencyStatus} />
         : card.id === 'crowdsignals'
         ? <CrowdSignalsGlanceKpis compact={true} onStatus={setCrowdStatus} />
+        : card.id === 'positioning'
+        ? <PositioningGlanceKpis compact={true} onStatus={setPositioningStatus} />
         : <div style={{ display: 'flex', gap: 10 }}>
             {card.rows.slice(0, 3).map((r, i) => {
               const rs = DSIG[r[3]];
@@ -1531,6 +1537,8 @@ function OptionWorkspace({ D }) {
                       ? <CurrencyMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
                       : id === 'crowdsignals'
                       ? <CrowdSignalsMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
+                      : id === 'positioning'
+                      ? <PositioningMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={46} h={16} />
                       : <SparkD seed={c.seed} trend={c.trend} color="#a855f7" w={46} h={16} />}
                   </button>
                 );
@@ -1622,6 +1630,117 @@ function CurrencyGlanceRow({ c, onOpen }) {
   );
 }
 
+// ── Positioning (COT) glance components ──
+function PositioningGlanceKpis({ compact = true, onStatus }) {
+  const [contracts, setContracts] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    fetch('/api/cot').then(r => r.json())
+      .then(d => {
+        if (!alive || !d.contracts) return;
+        setContracts(d.contracts);
+        if (onStatus) {
+          const es = d.contracts.find(c => c.key === 'ES');
+          const status = !es ? 'neutral'
+            : es.crowding === 'crowded_short' ? 'bullish'
+            : es.crowding === 'crowded_long'  ? 'bearish'
+            : 'neutral';
+          onStatus(status);
+        }
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  const fallback = [
+    { label: 'S&P 500 (ES)', val: '—', tone: 'neutral' },
+    { label: 'Gold (GC)',     val: '—', tone: 'neutral' },
+    { label: 'WTI (CL)',      val: '—', tone: 'neutral' },
+  ];
+  const items = contracts ? contracts.map(c => ({
+    label: c.key === 'ES' ? 'S&P 500 (ES)' : c.key === 'GC' ? 'Gold (GC)' : 'WTI (CL)',
+    val:   c.empty ? '—' : `${c.pctile}th`,
+    tone:  c.crowding === 'crowded_short' ? 'bullish'
+         : c.crowding === 'crowded_long'  ? 'bearish'
+         : 'neutral',
+  })) : fallback;
+  if (compact) {
+    return (
+      <div style={{ display: 'flex', gap: 10 }}>
+        {items.map(({ label, val, tone }, i) => {
+          const rs = DSIG[tone] || DSIG.neutral;
+          return (
+            <div key={i} style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ width: 5, height: 5, borderRadius: '50%', background: rs.c, boxShadow: `0 0 5px ${rs.glow}`, flexShrink: 0 }} />
+                <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 600, color: rs.c, whiteSpace: 'nowrap' }}>{val}</span>
+              </div>
+              <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', marginTop: 4, whiteSpace: 'nowrap' }}>{label}</div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', gap: 22, flex: 1 }}>
+      {items.map(({ label, val, tone }, i) => {
+        const rs = DSIG[tone] || DSIG.neutral;
+        return (
+          <div key={i} style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: rs.c, boxShadow: `0 0 5px ${rs.glow}`, flexShrink: 0 }} />
+              <span style={{ fontFamily: DMONO, fontSize: 13.5, fontWeight: 600, color: rs.c, whiteSpace: 'nowrap' }}>{val}</span>
+            </div>
+            <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', marginTop: 3, whiteSpace: 'nowrap' }}>{label}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PositioningMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
+  const [netPcts, setNetPcts] = useStateA(null);
+  useEffectA(() => {
+    let alive = true;
+    fetch('/api/cot').then(r => r.json())
+      .then(d => {
+        if (!alive || !d.contracts) return;
+        const es = d.contracts.find(c => c.key === 'ES');
+        if (es?.netPcts?.length > 0) setNetPcts(es.netPcts.slice(-20));
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+  if (!netPcts) return <SparkD seed={seed} trend={trend} color={color} w={w} h={h} />;
+  const lo = Math.min(...netPcts), hi = Math.max(...netPcts), span = hi - lo || 1;
+  const dx = w / Math.max(netPcts.length - 1, 1);
+  const path = netPcts.map((v, i) =>
+    `${i === 0 ? 'M' : 'L'}${(i * dx).toFixed(1)},${(h - ((v - lo) / span) * h * 0.86 - h * 0.07).toFixed(1)}`
+  ).join(' ');
+  return (
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: 'block' }}>
+      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PositioningGlanceRow({ c, onOpen }) {
+  const [liveStatus, setLiveStatus] = useStateA(null);
+  const eff = liveStatus || c.status;
+  const sg  = DSIG[eff];
+  return (
+    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
+      background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sg.c}`, borderRadius: 13 }}>
+      <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', width: 150 }}>{c.title}</span>
+      <PositioningGlanceKpis compact={false} onStatus={setLiveStatus} />
+      <PositioningMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+      <StatusPill status={eff} size="sm" />
+      <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    </button>
+  );
+}
+
 // ── Crowd Signals glance row — standalone component so hooks can track live status ──
 function CrowdSignalsGlanceRow({ c, onOpen }) {
   const [liveStatus, setLiveStatus] = useStateA(null);
@@ -1679,6 +1798,7 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
             if (id === 'yield')        return <YieldGlanceRow key={id} c={c} onOpen={() => setOpen(id)} />;
             if (id === 'currency')     return <CurrencyGlanceRow key={id} c={c} onOpen={() => setOpen(id)} />;
             if (id === 'crowdsignals') return <CrowdSignalsGlanceRow key={id} c={c} onOpen={() => setOpen(id)} />;
+            if (id === 'positioning')  return <PositioningGlanceRow  key={id} c={c} onOpen={() => setOpen(id)} />;
             return (
               <button key={id} onClick={() => setOpen(id)} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
                 background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sg.c}`, borderRadius: 13 }}>
@@ -1724,6 +1844,8 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
                   ? <CurrencyMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
                   : id === 'crowdsignals'
                   ? <CrowdSignalsMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+                  : id === 'positioning'
+                  ? <PositioningMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
                   : <SparkD seed={c.seed} trend={c.trend} color="#a855f7" w={64} h={22} />}
                 <StatusPill status={c.status} size="sm" />
                 <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
