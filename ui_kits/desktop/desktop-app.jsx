@@ -1161,7 +1161,7 @@ function CrowdSignalsGlanceKpis({ compact = true, onStatus }) {
   const [kpis, setKpis] = useStateA(null);
   useEffectA(() => {
     let alive = true;
-    fetch('/api/kalshi').then(r => r.json()).catch(() => ({ events: [] }))
+    fetch('/api/kalshi', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ events: [] }))
     .then(k => {
       if (!alive) return;
       const fomc = (k.events || []).find(e => e.type === 'fomc');
