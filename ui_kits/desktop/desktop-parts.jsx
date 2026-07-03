@@ -861,7 +861,8 @@ function AnchorDial({ anchor }) {
         <span style={{ fontFamily: DMONO, fontSize: 12, color: '#64748b', marginBottom: 3 }}>/10</span>
         <span style={{ marginLeft: 'auto', fontFamily: DMONO, fontSize: 12, fontWeight: 700, color: c, border: `1px solid ${c}55`, borderRadius: 6, padding: '3px 8px' }}>SIZE {sizePct}%</span>
       </div>
-      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: 'linear-gradient(90deg,#ef4444 0%,#f59e0b 45%,#22c55e 100%)', opacity: .25 }}>
+      <div style={{ position: 'relative', height: 6, borderRadius: 3, overflow: 'visible' }}>
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 3, background: 'linear-gradient(90deg,#ef4444 0%,#f59e0b 45%,#22c55e 100%)', opacity: .25 }} />
         <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${Math.max(0, Math.min(100, anchor.score * 10))}% - 1px)`, width: 2, background: c, boxShadow: `0 0 6px ${c}` }} />
       </div>
       <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.35, minHeight: 30 }}>{anchor.note}</span>

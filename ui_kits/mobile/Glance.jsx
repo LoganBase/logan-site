@@ -431,6 +431,98 @@ function HeroGauge({ exec }) {
 }
 
 // ── Category breadth dots ─────────────────────────────────────────────────────
+// ── Three-horizon hero (mobile) ──────────────────────────────────────────────
+function hzColor(score) { return score >= 7 ? '#22c55e' : score >= 4 ? '#f59e0b' : '#ef4444'; }
+function hzZoneColor(zone) { return zone === 'green' ? '#22c55e' : zone === 'amber' ? '#f59e0b' : '#ef4444'; }
+
+function MobileDial({ title, horizon, score, level, trigger, veto, vixRatio, isAnchor, sizePct, note, zone }) {
+  const c = isAnchor ? hzZoneColor(zone) : hzColor(score);
+  const w = Math.max(0, Math.min(100, score * 10));
+  return (
+    <div style={{ background: '#0a1119', border: '1px solid #1e2d3d', borderRadius: 14, padding: '13px 15px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <span style={{ fontFamily: SANS, fontSize: 13.5, fontWeight: 700, color: '#e8edf5' }}>{title}</span>
+        <span style={{ fontFamily: SANS, fontSize: 10.5, color: '#64748b', letterSpacing: '.04em' }}>{horizon}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7 }}>
+        <span style={{ fontFamily: MONO, fontSize: 32, fontWeight: 700, color: c, lineHeight: 1 }}>{score.toFixed(1)}</span>
+        <span style={{ fontFamily: MONO, fontSize: 12, color: '#64748b', marginBottom: 3 }}>/10</span>
+        <span style={{ marginLeft: 'auto', fontFamily: isAnchor ? MONO : SANS, fontSize: isAnchor ? 12 : 10, fontWeight: 700, letterSpacing: isAnchor ? '0' : '.06em', textTransform: isAnchor ? 'none' : 'uppercase', color: c, border: `1px solid ${c}55`, borderRadius: 6, padding: isAnchor ? '3px 8px' : '2px 7px' }}>{isAnchor ? `SIZE ${sizePct}%` : level}</span>
+      </div>
+      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: isAnchor ? 'transparent' : '#16202e', overflow: 'visible' }}>
+        {isAnchor
+          ? <React.Fragment>
+              <div style={{ position: 'absolute', inset: 0, borderRadius: 3, background: 'linear-gradient(90deg,#ef4444 0%,#f59e0b 45%,#22c55e 100%)', opacity: .28 }} />
+              <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${w}% - 1px)`, width: 2, background: c, boxShadow: `0 0 6px ${c}` }} />
+            </React.Fragment>
+          : <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${w}%`, background: c, boxShadow: `0 0 8px ${c}88`, borderRadius: 3 }} />
+        }
+      </div>
+      <span style={{ fontFamily: SANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>{isAnchor ? note : trigger}</span>
+      {veto && <span style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.03em', color: '#ef4444' }}>⚠ VIX BACKWARDATION{vixRatio != null ? ` (${vixRatio})` : ''} — TACTICAL CAPPED</span>}
+    </div>
+  );
+}
+
+function MobileMatrix({ matrix }) {
+  const QMETA = {
+    'add-risk':   { label: 'Add Risk',   color: '#22c55e' },
+    'bear-rally': { label: 'Bear Rally', color: '#f59e0b' },
+    'accumulate': { label: 'Accumulate', color: '#60a5fa' },
+    'risk-off':   { label: 'Risk-Off',   color: '#ef4444' },
+  };
+  const rows = [['add-risk', 'bear-rally'], ['accumulate', 'risk-off']];
+  const cell = (q) => {
+    const active = q === matrix.quadrant, m = QMETA[q];
+    return (
+      <div key={q} style={{ background: active ? `${m.color}1a` : '#0a1119', border: `1px solid ${active ? m.color : '#1e2d3d'}`, borderRadius: 10, padding: '9px 10px', display: 'flex', flexDirection: 'column', gap: 2, minHeight: 46, justifyContent: 'center', boxShadow: active ? `0 0 14px ${m.color}33` : 'none' }}>
+        <span style={{ fontFamily: SANS, fontSize: 12, fontWeight: 700, color: active ? m.color : '#64748b' }}>{m.label}</span>
+        {active && <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.08em', color: m.color }}>◄ CURRENT</span>}
+      </div>
+    );
+  };
+  const colHead = (t) => <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#475569', textAlign: 'center' }}>{t}</span>;
+  const rowHead = (t) => <span style={{ fontFamily: SANS, fontSize: 9, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#475569', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', alignSelf: 'center' }}>{t}</span>;
+  return (
+    <div style={{ background: '#0a1119', border: '1px solid #1e2d3d', borderRadius: 14, padding: '13px 15px' }}>
+      <div style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 11 }}>Speedometer × Compass</div>
+      <div style={{ display: 'grid', gridTemplateColumns: '16px 1fr 1fr', gridTemplateRows: 'auto auto auto', gap: 5, alignItems: 'stretch' }}>
+        <div />{colHead('Cmp High')}{colHead('Cmp Low')}
+        {rowHead('Spd High')}{cell(rows[0][0])}{cell(rows[0][1])}
+        {rowHead('Spd Low')}{cell(rows[1][0])}{cell(rows[1][1])}
+      </div>
+      <div style={{ marginTop: 11, paddingTop: 11, borderTop: '1px solid #16202e', fontFamily: SANS, fontSize: 12, color: '#cbd5e1', lineHeight: 1.45 }}>
+        <span style={{ color: QMETA[matrix.quadrant].color, fontWeight: 700 }}>{matrix.label}: </span>{matrix.guidance}
+        <span style={{ color: '#64748b' }}>{` Size ${Math.round((matrix.sizingFactor ?? 1) * 100)}%.`}</span>
+      </div>
+    </div>
+  );
+}
+
+function HorizonHeroMobile({ horizons, exec }) {
+  if (!horizons) return null;
+  const { speedometer: s, compass: c, anchor: a, matrix: m } = horizons;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontFamily: SANS, fontSize: 11.5, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#94a3b8' }}>Three Horizons</span>
+        <div style={{ flex: 1, height: 1, background: '#1e2d3d' }} />
+        <span style={{ fontFamily: SANS, fontSize: 10, color: '#64748b' }}>tactical · trend · structural</span>
+      </div>
+      <MobileDial title="Tactical Speedometer" horizon={s.horizon || '2–3 wk'} score={s.score} level={s.level} trigger={s.trigger} veto={s.veto} vixRatio={s.vixRatio} />
+      <MobileDial title="Trend Compass" horizon={c.horizon || '2–3 mo'} score={c.score} level={c.level} trigger={c.trigger} />
+      <MobileDial title="Macro Anchor" horizon={a.horizon || '2–3 yr'} score={a.score} isAnchor zone={a.zone} sizePct={Math.round((a.sizingFactor ?? 1) * 100)} note={a.note} />
+      <MobileMatrix matrix={m} />
+      {exec && exec.regimeBearish && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 12px', background: '#1a1200', border: '1px solid #2d1a00', borderRadius: 10 }}>
+          <span style={{ fontFamily: SANS, fontSize: 11, fontWeight: 700, color: '#f59e0b', letterSpacing: '.04em', flexShrink: 0 }}>⚠ REGIME</span>
+          <span style={{ fontFamily: SANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>SPY below its 200-day SMA — primary trend bearish. Size positions accordingly.</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CategoryBreadth({ cats }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 13, padding: '4px 4px 0' }}>
@@ -917,7 +1009,7 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
       </div>
 
       <div style={{ padding: '0 16px 28px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <HeroGauge exec={D.exec} />
+        {D.horizons ? <HorizonHeroMobile horizons={D.horizons} exec={D.exec} /> : <HeroGauge exec={D.exec} />}
         <div style={{ height: 1, background: '#16202e' }} />
         <CategoryBreadth cats={D.categories} />
         <div style={{ height: 1, background: '#16202e' }} />
