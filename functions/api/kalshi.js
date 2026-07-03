@@ -209,7 +209,7 @@ export async function onRequest(context) {
       .sort((a, b) => (a.closeTime && b.closeTime) ? new Date(a.closeTime) - new Date(b.closeTime) : a.closeTime ? -1 : 1);
 
     return new Response(JSON.stringify({ events, timestamp: new Date().toISOString(), source: 'kalshi' }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=300' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=60' },
     });
   } catch (err) {
     return new Response(JSON.stringify({ events: [], error: err.message, source: 'kalshi' }), {
