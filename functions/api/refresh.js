@@ -419,7 +419,7 @@ export async function onRequest(context) {
   }
 
   let cot = { status: 'skipped' };
-  if (startIdx === 0) {
+  if (startIdx === 0 || url.searchParams.has('cot')) {
     try {
       cot = await refreshCOT(db);
     } catch (err) {
