@@ -5,7 +5,7 @@
  * Appends the most recent observations of a small set of FRED macro series into
  * the D1 `fred_series` table. These feed the horizon scores in /api/scores:
  *   DFII10          — 10y TIPS real yield        → Macro Anchor
- *   BAMLH0A0HYM2OAS — US High-Yield OAS spread    → Trend Compass credit
+ *   BAMLH0A0HYM2 — US High-Yield OAS spread    → Trend Compass credit
  *   DFEDTARU        — Fed funds target upper bound → Macro Anchor (rate direction)
  *
  * Called nightly by workers/data-refresh after the price batches. Self-creates
@@ -87,7 +87,7 @@ export async function onRequest(context) {
      )`
   ).run();
 
-  const SERIES = ['DFII10', 'BAMLH0A0HYM2OAS', 'DFEDTARU'];
+  const SERIES = ['DFII10', 'BAMLH0A0HYM2', 'DFEDTARU'];
   const saved = {};
   for (const seriesId of SERIES) {
     const r = await fetchFredRecent(seriesId, apiKey);

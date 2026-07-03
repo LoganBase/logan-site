@@ -2069,7 +2069,7 @@ export async function onRequest(context) {
     db ? loadPercentile(db, 'shiller_data', 'cape') : Promise.resolve(null),
     db ? loadPercentile(db, 'buffett_data', 'ratio') : Promise.resolve(null),
     db ? loadPercentile(db, 'forward_pe_data', 'pe') : Promise.resolve(null),
-    db ? loadFredSeries(db, 'BAMLH0A0HYM2OAS', 250) : Promise.resolve([]),
+    db ? loadFredSeries(db, 'BAMLH0A0HYM2', 250) : Promise.resolve([]),
     db ? loadFredSeries(db, 'DFII10', 5) : Promise.resolve([]),
     db ? loadFredSeries(db, 'DFEDTARU', 60) : Promise.resolve([]),
   ]);

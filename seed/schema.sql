@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_japan_pe_date ON japan_pe_data (date DESC);
 -- Generic FRED daily series store (Macro Anchor + Trend Compass credit).
 -- Keyed by (series_id, date) so multiple FRED series share one table:
 --   DFII10          — 10-year TIPS real yield (%)
---   BAMLH0A0HYM2OAS — ICE BofA US High-Yield option-adjusted spread (%)
+--   BAMLH0A0HYM2 — ICE BofA US High-Yield option-adjusted spread (%)
 --   DFEDTARU        — Federal funds target rate, upper bound (%)
 CREATE TABLE IF NOT EXISTS fred_series (
   series_id TEXT NOT NULL,

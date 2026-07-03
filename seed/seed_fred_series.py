@@ -4,7 +4,7 @@ Backfills daily FRED macro series into Cloudflare D1 `fred_series`.
 
 Series (feed the horizon scores in /api/scores):
   DFII10          — 10-year TIPS real yield (%)          → Macro Anchor
-  BAMLH0A0HYM2OAS — US High-Yield OAS credit spread (%)  → Trend Compass credit
+  BAMLH0A0HYM2 — US High-Yield OAS credit spread (%)  → Trend Compass credit
   DFEDTARU        — Federal funds target rate, upper (%)  → Macro Anchor direction
 
 Backfills ~3 years so a 200-day SMA on the OAS series is valid on day one.
@@ -32,7 +32,7 @@ FRED_API_KEY  = os.environ.get('FRED_API_KEY',  '').strip()
 
 FRED_BASE   = 'https://api.stlouisfed.org/fred/series/observations'
 D1_MAX_VARS = 90
-SERIES      = ['DFII10', 'BAMLH0A0HYM2OAS', 'DFEDTARU']
+SERIES      = ['DFII10', 'BAMLH0A0HYM2', 'DFEDTARU']
 START_DATE  = (date.today() - timedelta(days=3 * 365 + 30)).isoformat()
 
 # ── D1 REST API ───────────────────────────────────────────────────────────────
