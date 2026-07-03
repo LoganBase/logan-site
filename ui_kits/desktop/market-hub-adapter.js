@@ -299,9 +299,9 @@
       weight: Math.round((cat.weight || 0) * 100) + '%',
       cards: (cat.cards || []).map((c) => c.status),
     }));
-    // Inject seed-only cards the API doesn't return (crowdsignals only — currency is now in /api/scores).
+    // Inject seed-only cards the API doesn't return (crowdsignals, positioning — currency is now in /api/scores).
     const seedCards = (window.GLANCE || {}).cards || {};
-    ['currency', 'crowdsignals'].forEach(id => { if (!byId[id] && seedCards[id]) byId[id] = seedCards[id]; });
+    ['currency', 'crowdsignals', 'positioning'].forEach(id => { if (!byId[id] && seedCards[id]) byId[id] = seedCards[id]; });
     // Currency is a Macro Conditions signal — inject into display category and exec counts when
     // it comes from the seed fallback (API already includes it in categories when server-side).
     const macroIdx = categories.findIndex((c) => /macro/i.test(c.label));
@@ -317,7 +317,7 @@
       { label: 'Macro Pricing',    ids: ['valuations', 'yield', 'credit', 'currency'] },
       { label: 'Flow & Rotation',  ids: ['globalflows', 'sectors'] },
       { label: 'Real Assets',      ids: ['commodities', 'equities'] },
-      { label: 'Crowd Intelligence', ids: ['crowdsignals'] },
+      { label: 'Crowd Intelligence', ids: ['crowdsignals', 'positioning'] },
     ].map((g) => ({ label: g.label, ids: g.ids.filter((id) => byId[id]) })).filter((g) => g.ids.length);
     return {
       asOf: asOfLabel(),
