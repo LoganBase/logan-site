@@ -300,14 +300,14 @@ const COT_CONTRACTS = [
   {
     key:     'GC',
     dataset: 'jun7-fc8e',  // Legacy Futures-Only
-    filter:  'GOLD',
+    filter:  'GOLD - COMMODITY EXCHANGE INC.',
     longFld: 'noncomm_positions_long_all',
     shrtFld: 'noncomm_positions_short_all',
   },
   {
     key:     'CL',
     dataset: 'jun7-fc8e',
-    filter:  'CRUDE OIL, LIGHT SWEET',
+    filter:  'CRUDE OIL, LIGHT SWEET - NEW YORK MERCANTILE EXCHANGE',
     longFld: 'noncomm_positions_long_all',
     shrtFld: 'noncomm_positions_short_all',
   },
