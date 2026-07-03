@@ -553,7 +553,8 @@ body {
       <span>Loading market data…</span>
     </div>
     <div id="execContent" style="display:none">
-      <div class="exec-top">
+      <div id="horizonsPanel" style="display:none"></div>
+      <div class="exec-top" id="execTop">
         <div>
           <div class="exec-label">Executive Summary</div>
           <div class="exec-title" id="execLabel">—</div>
@@ -679,6 +680,113 @@ function buildNarrative(categories, glow) {
 }
 
 // ── RENDER EXEC SUMMARY ───────────────────────────────────────────────────────
+// ── RENDER THREE-HORIZON HERO ────────────────────────────────────────────────
+function horizonColor(score) { return score >= 7 ? '#22c55e' : score >= 4 ? '#f59e0b' : '#ef4444'; }
+function zoneColor(zone) { return zone === 'green' ? '#22c55e' : zone === 'amber' ? '#f59e0b' : '#ef4444'; }
+
+function horizonDialHTML(title, horizon, score, level, trigger, veto, vixRatio) {
+  const c = horizonColor(score);
+  const w = Math.max(0, Math.min(100, score * 10));
+  return `
+    <div style="background:#0a1119;border:1px solid #1e2d3d;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span style="font-size:13px;font-weight:700;color:#e8edf5">${title}</span>
+        <span style="font-size:10.5px;color:#64748b;letter-spacing:.04em">${horizon}</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:7px">
+        <span style="font-family:monospace;font-size:30px;font-weight:700;color:${c};line-height:1">${score.toFixed(1)}</span>
+        <span style="font-family:monospace;font-size:12px;color:#64748b;margin-bottom:3px">/10</span>
+        <span style="margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${c};border:1px solid ${c}55;border-radius:6px;padding:2px 7px">${level}</span>
+      </div>
+      <div style="position:relative;height:6px;border-radius:3px;background:#16202e;overflow:hidden">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:${w}%;background:${c};box-shadow:0 0 8px ${c}88"></div>
+      </div>
+      <span style="font-size:11.5px;color:#94a3b8;line-height:1.35;min-height:30px">${trigger}</span>
+      ${veto ? `<span style="font-size:10px;font-weight:700;letter-spacing:.03em;color:#ef4444">⚠ VIX BACKWARDATION${vixRatio != null ? ` (${vixRatio})` : ''} — TACTICAL CAPPED</span>` : ''}
+    </div>`;
+}
+
+function anchorDialHTML(anchor) {
+  const c = zoneColor(anchor.zone);
+  const sizePct = Math.round((anchor.sizingFactor ?? 1) * 100);
+  const markLeft = Math.max(0, Math.min(100, anchor.score * 10));
+  return `
+    <div style="background:#0a1119;border:1px solid #1e2d3d;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:9px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline">
+        <span style="font-size:13px;font-weight:700;color:#e8edf5">Macro Anchor</span>
+        <span style="font-size:10.5px;color:#64748b;letter-spacing:.04em">${anchor.horizon || '2–3 years'}</span>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:7px">
+        <span style="font-family:monospace;font-size:30px;font-weight:700;color:${c};line-height:1">${anchor.score.toFixed(1)}</span>
+        <span style="font-family:monospace;font-size:12px;color:#64748b;margin-bottom:3px">/10</span>
+        <span style="margin-left:auto;font-family:monospace;font-size:12px;font-weight:700;color:${c};border:1px solid ${c}55;border-radius:6px;padding:3px 8px">SIZE ${sizePct}%</span>
+      </div>
+      <div style="position:relative;height:6px;border-radius:3px;background:linear-gradient(90deg,#ef4444 0%,#f59e0b 45%,#22c55e 100%);opacity:.25">
+        <div style="position:absolute;top:-3px;bottom:-3px;left:calc(${markLeft}% - 1px);width:2px;background:${c};box-shadow:0 0 6px ${c}"></div>
+      </div>
+      <span style="font-size:11px;color:#94a3b8;line-height:1.35;min-height:30px">${anchor.note || ''}</span>
+    </div>`;
+}
+
+function matrixHTML(matrix) {
+  const QMETA = {
+    'add-risk':   { label: 'Add Risk',   color: '#22c55e' },
+    'bear-rally': { label: 'Bear Rally', color: '#f59e0b' },
+    'accumulate': { label: 'Accumulate', color: '#60a5fa' },
+    'risk-off':   { label: 'Risk-Off',   color: '#ef4444' },
+  };
+  const rows = [['add-risk', 'bear-rally'], ['accumulate', 'risk-off']];
+  const cell = (q) => {
+    const active = q === matrix.quadrant, m = QMETA[q];
+    return `<div style="background:${active ? m.color + '1a' : '#0a1119'};border:1px solid ${active ? m.color : '#1e2d3d'};border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:3px;min-height:52px;justify-content:center;${active ? `box-shadow:0 0 16px ${m.color}33` : ''}">
+      <span style="font-size:12.5px;font-weight:700;color:${active ? m.color : '#64748b'}">${m.label}</span>
+      ${active ? `<span style="font-size:9.5px;font-weight:700;letter-spacing:.08em;color:${m.color}">◄ CURRENT</span>` : ''}
+    </div>`;
+  };
+  const colHead = (t) => `<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#475569;text-align:center">${t}</span>`;
+  const rowHead = (t) => `<span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#475569;writing-mode:vertical-rl;transform:rotate(180deg);text-align:center;align-self:center">${t}</span>`;
+  return `
+    <div style="background:#0a1119;border:1px solid #1e2d3d;border-radius:14px;padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <span style="font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#94a3b8">Speedometer × Compass</span>
+        <span style="font-size:11px;color:#64748b">— the primary read</span>
+      </div>
+      <div style="display:grid;grid-template-columns:18px 1fr 1fr;grid-template-rows:auto auto auto;gap:6px;align-items:stretch">
+        <div></div>${colHead('Compass High')}${colHead('Compass Low')}
+        ${rowHead('Speed High')}${cell(rows[0][0])}${cell(rows[0][1])}
+        ${rowHead('Speed Low')}${cell(rows[1][0])}${cell(rows[1][1])}
+      </div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #16202e;font-size:12.5px;color:#cbd5e1;line-height:1.45">
+        <span style="color:${QMETA[matrix.quadrant].color};font-weight:700">${matrix.label}: </span>${matrix.guidance}
+        <span style="color:#64748b"> Size positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% (Anchor overlay).</span>
+      </div>
+    </div>`;
+}
+
+function renderHorizons(h) {
+  const panel = document.getElementById('horizonsPanel');
+  if (!h || !panel) return;
+  const { speedometer: s, compass: c, anchor: a, matrix: m } = h;
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <span style="font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8">Market Regime — Three Horizons</span>
+      <div style="flex:1;height:1px;background:#1e2d3d"></div>
+      <span style="font-size:11px;color:#64748b">tactical · trend · structural</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px">
+      ${horizonDialHTML('Tactical Speedometer', s.horizon || '2–3 weeks', s.score, s.level, s.trigger, s.veto, s.vixRatio)}
+      ${horizonDialHTML('Trend Compass', c.horizon || '2–3 months', c.score, c.level, c.trigger, false, null)}
+      ${anchorDialHTML(a)}
+    </div>
+    ${matrixHTML(m)}`;
+  panel.style.display = '';
+  // Horizons replace the single composite score as the hero.
+  const top = document.getElementById('execTop');
+  const chips = document.getElementById('execChips');
+  if (top) top.style.display = 'none';
+  if (chips) chips.style.display = 'none';
+}
+
 function renderExec(agg) {
   const card = document.getElementById('execCard');
   card.className = `exec-card glow-${agg.glow}`;
@@ -4101,9 +4209,8 @@ function showError(msg) {
 }
 
 async function loadData() {
-  const btn = document.getElementById('refreshBtn');
-  btn.textContent = '…';
-  btn.disabled = true;
+  const btn = document.getElementById('refreshBtn');   // may be absent (Refresh button removed)
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
   try {
     const [scoresRes, pmRes, kalshiRes] = await Promise.all([
       fetch('/api/scores'),
@@ -4114,6 +4221,7 @@ async function loadData() {
     const data = await scoresRes.json();
     lastData = data;
     renderExec(data.aggregate);
+    renderHorizons(data.horizons);
     renderGrid(data.cards);
     if (pmRes?.ok) {
       const pmData = await pmRes.json();
@@ -4126,8 +4234,7 @@ async function loadData() {
   } catch (err) {
     showError(`Could not reach /api/scores — ${err.message}`);
   } finally {
-    btn.textContent = '⟳ Refresh';
-    btn.disabled = false;
+    if (btn) { btn.textContent = '⟳ Refresh'; btn.disabled = false; }
   }
 }
 
