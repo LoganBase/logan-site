@@ -137,6 +137,11 @@ async function runRefresh(env) {
   const symbols    = [...(b1.symbols ?? []), ...(b2.symbols ?? []), ...(b3.symbols ?? [])];
   console.log(`[data-refresh] refresh done — ${totalAdded} rows added across ${symbols.length} symbols`);
 
+  // Append FRED macro series (real yield, HY OAS, fed funds) for the horizon scores.
+  console.log(`[data-refresh] running fred-refresh`);
+  const fred = await callHub(`${siteUrl}/api/fred-refresh`, hubToken);
+  console.log(`[data-refresh] fred-refresh done — ${fred.error ? 'error: ' + fred.error : 'saved: ' + Object.keys(fred.saved ?? {}).join(', ')}`);
+
   // Run signals after refresh — records card statuses and scores outcomes.
   console.log(`[data-refresh] running signals`);
   const sig = await callHub(`${siteUrl}/api/signals`, hubToken);
@@ -157,6 +162,7 @@ async function runRefresh(env) {
     batch1Error:    b1.error,
     batch2Error:    b2.error,
     batch3Error:    b3.error,
+    fred,
     signals:        sig,
     health,
   };
