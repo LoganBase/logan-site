@@ -814,6 +814,181 @@ function SectorRatioCharts() {
   );
 }
 
+// ── Horizon Hero — three timeframe-isolated scores + interaction matrix ───────
+// Replaces the single blended composite. Speedometer (2–3wk) and Compass (2–3mo)
+// are directional 0–10; Anchor (2–3yr) is a Structural Risk Budget that sizes,
+// not directs. The 2×2 matrix reads Speedometer × Compass; Anchor sets sizing.
+function horizonColorH(score) {
+  return score >= 7 ? '#22c55e' : score >= 4 ? '#f59e0b' : '#ef4444';
+}
+function zoneColorH(zone) {
+  return zone === 'green' ? '#22c55e' : zone === 'amber' ? '#f59e0b' : '#ef4444';
+}
+
+function HorizonDial({ title, horizon, score, level, trigger, veto, vixRatio }) {
+  const c = horizonColorH(score);
+  return (
+    <div style={{ background: '#0a1119', border: '1px solid #1e2d3d', borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5' }}>{title}</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', letterSpacing: '.04em' }}>{horizon}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7 }}>
+        <span style={{ fontFamily: DMONO, fontSize: 30, fontWeight: 700, color: c, lineHeight: 1 }}>{score.toFixed(1)}</span>
+        <span style={{ fontFamily: DMONO, fontSize: 12, color: '#64748b', marginBottom: 3 }}>/10</span>
+        <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: c, border: `1px solid ${c}55`, borderRadius: 6, padding: '2px 7px' }}>{level}</span>
+      </div>
+      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: '#16202e', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.max(0, Math.min(100, score * 10))}%`, background: c, boxShadow: `0 0 8px ${c}88` }} />
+      </div>
+      <span style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.35, minHeight: 30 }}>{trigger}</span>
+      {veto && <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.03em', color: '#ef4444' }}>⚠ VIX BACKWARDATION{vixRatio != null ? ` (${vixRatio})` : ''} — TACTICAL CAPPED</span>}
+    </div>
+  );
+}
+
+function AnchorDial({ anchor }) {
+  const c = zoneColorH(anchor.zone);
+  const sizePct = Math.round((anchor.sizingFactor ?? 1) * 100);
+  return (
+    <div style={{ background: '#0a1119', border: '1px solid #1e2d3d', borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5' }}>Macro Anchor</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', letterSpacing: '.04em' }}>{anchor.horizon || '2–3 years'}</span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7 }}>
+        <span style={{ fontFamily: DMONO, fontSize: 30, fontWeight: 700, color: c, lineHeight: 1 }}>{anchor.score.toFixed(1)}</span>
+        <span style={{ fontFamily: DMONO, fontSize: 12, color: '#64748b', marginBottom: 3 }}>/10</span>
+        <span style={{ marginLeft: 'auto', fontFamily: DMONO, fontSize: 12, fontWeight: 700, color: c, border: `1px solid ${c}55`, borderRadius: 6, padding: '3px 8px' }}>SIZE {sizePct}%</span>
+      </div>
+      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: 'linear-gradient(90deg,#ef4444 0%,#f59e0b 45%,#22c55e 100%)', opacity: .25 }}>
+        <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${Math.max(0, Math.min(100, anchor.score * 10))}% - 1px)`, width: 2, background: c, boxShadow: `0 0 6px ${c}` }} />
+      </div>
+      <span style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.35, minHeight: 30 }}>{anchor.note}</span>
+    </div>
+  );
+}
+
+function InteractionMatrix({ matrix }) {
+  const QMETA = {
+    'add-risk':   { label: 'Add Risk',   color: '#22c55e' },
+    'bear-rally': { label: 'Bear Rally', color: '#f59e0b' },
+    'accumulate': { label: 'Accumulate', color: '#60a5fa' },
+    'risk-off':   { label: 'Risk-Off',   color: '#ef4444' },
+  };
+  // rows: Speed HIGH (top), Speed LOW (bottom); cols: Compass HIGH (left), Compass LOW (right)
+  const rows = [['add-risk', 'bear-rally'], ['accumulate', 'risk-off']];
+  const cell = (q) => {
+    const active = q === matrix.quadrant;
+    const m = QMETA[q];
+    return (
+      <div key={q} style={{
+        background: active ? `${m.color}1a` : '#0a1119',
+        border: `1px solid ${active ? m.color : '#1e2d3d'}`,
+        borderRadius: 10, padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 3,
+        boxShadow: active ? `0 0 16px ${m.color}33` : 'none', minHeight: 52, justifyContent: 'center',
+      }}>
+        <span style={{ fontFamily: DSANS, fontSize: 12.5, fontWeight: 700, color: active ? m.color : '#64748b' }}>{m.label}</span>
+        {active && <span style={{ fontFamily: DSANS, fontSize: 9.5, fontWeight: 700, letterSpacing: '.08em', color: m.color }}>◄ CURRENT</span>}
+      </div>
+    );
+  };
+  const colHead = (t) => <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: '#475569', textAlign: 'center' }}>{t}</span>;
+  const rowHead = (t) => <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: '#475569', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', alignSelf: 'center' }}>{t}</span>;
+  return (
+    <div style={{ background: '#0a1119', border: '1px solid #1e2d3d', borderRadius: 14, padding: '14px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <span style={{ fontFamily: DSANS, fontSize: 12, fontWeight: 700, letterSpacing: '.05em', textTransform: 'uppercase', color: '#94a3b8' }}>Speedometer × Compass</span>
+        <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>— the primary read</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '18px 1fr 1fr', gridTemplateRows: 'auto auto auto', gap: 6, alignItems: 'stretch' }}>
+        <div />
+        {colHead('Compass High')}
+        {colHead('Compass Low')}
+        {rowHead('Speed High')}
+        {cell(rows[0][0])}
+        {cell(rows[0][1])}
+        {rowHead('Speed Low')}
+        {cell(rows[1][0])}
+        {cell(rows[1][1])}
+      </div>
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #16202e', fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.45 }}>
+        <span style={{ color: QMETA[matrix.quadrant].color, fontWeight: 700 }}>{matrix.label}: </span>
+        {matrix.guidance}
+        <span style={{ color: '#64748b' }}>{` Size positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% (Anchor overlay).`}</span>
+      </div>
+    </div>
+  );
+}
+
+function HorizonHero({ horizons, exec }) {
+  if (!horizons) return null;
+  const { speedometer, compass, anchor, matrix } = horizons;
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 18, padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: '#94a3b8' }}>Market Regime — Three Horizons</span>
+        <div style={{ flex: 1, height: 1, background: '#1e2d3d' }} />
+        <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>tactical · trend · structural</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        <HorizonDial title="Tactical Speedometer" horizon={speedometer.horizon || '2–3 weeks'} score={speedometer.score} level={speedometer.level} trigger={speedometer.trigger} veto={speedometer.veto} vixRatio={speedometer.vixRatio} />
+        <HorizonDial title="Trend Compass" horizon={compass.horizon || '2–3 months'} score={compass.score} level={compass.level} trigger={compass.trigger} />
+        <AnchorDial anchor={anchor} />
+      </div>
+      <InteractionMatrix matrix={matrix} />
+      {exec && exec.regimeBearish && (
+        <div style={{ borderTop: '1px solid #2d1a00', paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b', boxShadow: '0 0 6px #f59e0b', flexShrink: 0 }} />
+          <span style={{ fontFamily: DSANS, fontSize: 11.5, fontWeight: 700, color: '#f59e0b', letterSpacing: '.04em', flexShrink: 0 }}>REGIME WARNING</span>
+          <span style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>SPY is below its 200-day SMA — the primary trend is bearish. Size positions accordingly.</span>
+        </div>
+      )}
+      {exec && exec.divergence && (
+        <div style={{ borderTop: '1px solid #0d1e35', paddingTop: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#60a5fa', boxShadow: '0 0 6px #60a5fa', flexShrink: 0 }} />
+          <span style={{ fontFamily: DSANS, fontSize: 11.5, fontWeight: 700, color: '#60a5fa', letterSpacing: '.04em', flexShrink: 0 }}>DIVERGENCE</span>
+          <span style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>
+            <span style={{ color: '#22c55e', fontWeight: 600 }}>{exec.divergence.high}</span>
+            {' is positive while '}
+            <span style={{ color: '#ef4444', fontWeight: 600 }}>{exec.divergence.low}</span>
+            {' is restrictive — '}
+            {exec.divergence.message}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Compact horizon strip for the 340px workspace rail.
+function HorizonRailMini({ horizons }) {
+  if (!horizons) return null;
+  const { speedometer, compass, anchor, matrix } = horizons;
+  const QC = { 'add-risk': '#22c55e', 'bear-rally': '#f59e0b', 'accumulate': '#60a5fa', 'risk-off': '#ef4444' };
+  const row = (label, score, color) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#94a3b8', width: 34, flexShrink: 0 }}>{label}</span>
+      <div style={{ position: 'relative', flex: 1, height: 5, borderRadius: 3, background: '#16202e', overflow: 'hidden' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.max(0, Math.min(100, score * 10))}%`, background: color }} />
+      </div>
+      <span style={{ fontFamily: DMONO, fontSize: 12, fontWeight: 700, color, width: 26, textAlign: 'right', flexShrink: 0 }}>{score.toFixed(1)}</span>
+    </div>
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 7, marginBottom: 14 }}>
+      {row('SPD', speedometer.score, horizonColorH(speedometer.score))}
+      {row('CMP', compass.score, horizonColorH(compass.score))}
+      {row('ANC', anchor.score, zoneColorH(anchor.zone))}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+        <span style={{ width: 7, height: 7, borderRadius: '50%', background: QC[matrix.quadrant], boxShadow: `0 0 6px ${QC[matrix.quadrant]}`, flexShrink: 0 }} />
+        <span style={{ fontFamily: DSANS, fontSize: 11.5, fontWeight: 700, color: QC[matrix.quadrant] }}>{matrix.label}</span>
+        <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>{`· size ${Math.round((matrix.sizingFactor ?? 1) * 100)}%`}</span>
+      </div>
+    </div>
+  );
+}
+
 // ── Relative Rotation Graph (Idea 03A) ───────────────────────────────────────
 // 4-quadrant scatter: RS-Ratio (x) vs RS-Momentum (y), 12-week trails per sector.
 function SectorRRG() {
@@ -6049,4 +6224,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, COTPositioning, PositioningDeepDive, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, HorizonHero, HorizonRailMini, HorizonDial, AnchorDial, InteractionMatrix, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, COTPositioning, PositioningDeepDive, DeepDiveContent });

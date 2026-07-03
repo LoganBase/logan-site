@@ -1407,7 +1407,7 @@ function OptionDashboard({ D }) {
   const card = open ? D.cards[open] : null;
   return (
     <div style={{ maxWidth: 1320, margin: '0 auto', padding: '26px 32px 60px', display: 'flex', flexDirection: 'column', gap: 26 }}>
-      <BreadthBar exec={D.exec} cats={D.categories} groups={D.groups} cards={D.cards} />
+      {D.horizons ? <HorizonHero horizons={D.horizons} exec={D.exec} /> : <BreadthBar exec={D.exec} cats={D.categories} groups={D.groups} cards={D.cards} />}
       {D.groups.map((g) => (
         <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -1458,8 +1458,9 @@ function OptionWorkspace({ D }) {
       {/* left rail */}
       <div style={{ width: 340, flexShrink: 0, borderRight: '1px solid #16202e', background: '#0a0f17', overflowY: 'auto', padding: '20px 16px' }}>
         <div style={{ padding: '4px 8px 18px', borderBottom: '1px solid #16202e', marginBottom: 16 }}>
-          {/* Row 1: donut circle + label + posture */}
-          {(() => {
+          {/* Row 1: three-horizon strip (falls back to composite donut when horizons absent) */}
+          {D.horizons && <HorizonRailMini horizons={D.horizons} />}
+          {!D.horizons && (() => {
             const wsTotal = D.exec.bull + D.exec.neutral + D.exec.bear;
             const wsPct = wsTotal > 0 ? Math.round((D.exec.bull + D.exec.neutral * 0.5) / wsTotal * 100) : 0;
             const wsColor = postureColorD(D.exec.label);
@@ -1815,7 +1816,7 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
   }
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: mob ? '16px 10px 40px' : '30px 28px 60px', display: 'flex', flexDirection: 'column', gap: mob ? 14 : 22 }}>
-      <BreadthBar exec={D.exec} cats={D.categories} groups={D.groups} cards={D.cards} />
+      {D.horizons ? <HorizonHero horizons={D.horizons} exec={D.exec} /> : <BreadthBar exec={D.exec} cats={D.categories} groups={D.groups} cards={D.cards} />}
       {D.groups.map((g) => (
         <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', paddingLeft: 2 }}>{g.label}</span>

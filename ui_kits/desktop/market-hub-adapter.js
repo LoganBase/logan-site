@@ -8,11 +8,15 @@
 // still renders. Drop this file into the app and point CONFIG.baseUrl at "" .
 //
 // Real contract (from the live app's own code):
-//   GET /api/scores  ->  { aggregate, cards }
+//   GET /api/scores  ->  { aggregate, horizons, cards }
 //     aggregate: { glow:'green'|'yellow'|'red', label, posture, score,
 //                  bullish, neutral, bearish, regimeBearish,
 //                  categories:[ { label, weight:0..1, score, glow,
 //                                 cards:[ { status } ] } ] }
+//     horizons: { speedometer:{ score:0..10, level:'high'|'low', components[], veto, vixRatio, trigger, horizon },
+//                 compass:    { score:0..10, level, components[], trigger, horizon },
+//                 anchor:     { score:0..10, zone:'green'|'amber'|'red', sizingFactor, percentiles[], note, trigger, horizon },
+//                 matrix:     { quadrant, label, guidance, sizingFactor, speedLevel, compassLevel } }
 //     cards: [ { id, title, subtitle, status, delta,
 //                rows:[ { label, indicator, value, condition, status } ],
 //                hideIndicator?, allRows?, sectorTable?, details? } ]
@@ -330,6 +334,7 @@
         scoreDirection: agg.scoreDirection || 'same',
         divergence: agg.divergence || null,
       },
+      horizons: data.horizons || null,
       categories,
       groups: GROUPS,
       cards: byId,
