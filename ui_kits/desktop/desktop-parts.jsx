@@ -4963,7 +4963,7 @@ function PositioningDeepDive() {
         <COTPositioning />
       </div>
       <div>
-        {secLabel('Market Diagnostics')}
+        {secLabel('Positioning Diagnostics')}
         <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
           {items && (
             <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
@@ -4976,7 +4976,7 @@ function PositioningDeepDive() {
               ))}
             </div>
           )}
-          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 7 }}>Market Narrative</div>
+          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 7 }}>Positioning Narrative</div>
           <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>
             {narrative || 'Loading…'}
           </p>
