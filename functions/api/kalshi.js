@@ -11,8 +11,7 @@
  *   KXCPI — CPI MoM threshold markets
  */
 
-const BASE         = 'https://trading-api.kalshi.com/trade-api/v2';
-const BASE_ELEC    = 'https://api.elections.kalshi.com/trade-api/v2';
+const BASE    = 'https://api.elections.kalshi.com/trade-api/v2';
 const HEADERS = { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (compatible; MarketHub/1.0)' };
 
 // Current Fed funds rate upper bound target — update after each FOMC decision
@@ -79,33 +78,36 @@ function fmtDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
 }
 
-// Fetch the next open event's markets for a series (soonest close_time).
-// Tries trading-api first, falls back to elections API.
-// Returns { markets, debug } so callers can surface API errors.
+// Fetch the next open event's markets for a series.
+// Uses Cloudflare Cache API: cache successful (non-empty) results for 5 min,
+// never cache empty results so "no markets" can't get stuck.
 async function fetchNext(seriesTicker) {
-  const bust = Date.now();
-  const debug = {};
-  for (const base of [BASE, BASE_ELEC]) {
-    try {
-      const url = `${base}/markets?series_ticker=${seriesTicker}&status=open&limit=100&_t=${bust}`;
-      const res = await fetch(url, { headers: HEADERS });
-      debug[base] = { status: res.status };
-      if (!res.ok) {
-        try { debug[base].body = await res.text(); } catch {}
-        continue;
-      }
-      const body = await res.json();
-      const markets = body.markets || body.data || [];
-      debug[base].count = markets.length;
-      if (!markets.length) continue;
-      markets.sort((a, b) => new Date(a.close_time) - new Date(b.close_time));
-      const evt = markets[0].event_ticker;
-      return { markets: markets.filter(m => m.event_ticker === evt), debug };
-    } catch (e) {
-      debug[base] = { error: e.message };
-    }
+  const cacheKey = `https://cache.internal/kalshi/${seriesTicker}`;
+  const cache = caches.default;
+
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    return { markets: await cached.json(), cached: true };
   }
-  return { markets: [], debug };
+
+  try {
+    const url = `${BASE}/markets?series_ticker=${seriesTicker}&status=open&limit=100`;
+    const res = await fetch(url, { headers: HEADERS });
+    if (!res.ok) return { markets: [], httpStatus: res.status };
+    const body = await res.json();
+    const markets = body.markets || body.data || [];
+    if (!markets.length) return { markets: [] };
+    markets.sort((a, b) => new Date(a.close_time) - new Date(b.close_time));
+    const evt = markets[0].event_ticker;
+    const result = markets.filter(m => m.event_ticker === evt);
+    // Cache successful result for 5 minutes
+    await cache.put(cacheKey, new Response(JSON.stringify(result), {
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
+    }));
+    return { markets: result };
+  } catch (e) {
+    return { markets: [], error: e.message };
+  }
 }
 
 // Fed: find highest strike where P(at or above) ≥ 0.50 — that strike IS the implied rate
@@ -190,15 +192,16 @@ export async function onRequest(context) {
   try {
     const fredKey = context.env.FRED_API_KEY;
 
-    const [fedResult_raw, cpiResult_raw, fredRate, fredCpi] = await Promise.all([
+    const [fedRaw, cpiRaw, fredRate, fredCpi] = await Promise.all([
       fetchNext('KXFED'),
       fetchNext('KXCPI'),
       fredKey ? fetchFred('DFEDTARU', fredKey) : Promise.resolve(null),
       fredKey ? fetchFred('CPIAUCSL',  fredKey, { units: 'pch' }) : Promise.resolve(null),
     ]);
-    const fedMarkets = fedResult_raw.markets;
-    const cpiMarkets = cpiResult_raw.markets;
-    const _debug = { fed: fedResult_raw.debug, cpi: cpiResult_raw.debug };
+    const fedMarkets = fedRaw.markets;
+    const cpiMarkets = cpiRaw.markets;
+    const _debug = { fed: { cached: fedRaw.cached, httpStatus: fedRaw.httpStatus, count: fedMarkets.length, error: fedRaw.error },
+                     cpi: { cached: cpiRaw.cached, httpStatus: cpiRaw.httpStatus, count: cpiMarkets.length, error: cpiRaw.error } };
 
     const currentRate = fredRate ? fredRate.value : CURRENT_FFTR;
     const lastActual  = fredCpi
