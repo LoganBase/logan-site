@@ -2,6 +2,16 @@
 // A: Full dashboard grid · B: Two-pane workspace · C: Glance → deep-dive page.
 const { useState: useStateA, useEffect: useEffectA } = React;
 
+function useIsMobile() {
+  const [m, setM] = useStateA(window.innerWidth < 480);
+  useEffectA(() => {
+    const h = () => setM(window.innerWidth < 480);
+    window.addEventListener('resize', h);
+    return () => window.removeEventListener('resize', h);
+  }, []);
+  return m;
+}
+
 // Live data hook: paints the bundled mock instantly, then swaps in /api/scores
 // data if the adapter can reach it (production). In the preview it stays on mock.
 function useGlance() {
@@ -117,50 +127,56 @@ function DailyBriefCard({ brief }) {
 
 // ── Daily Brief glance row — compact list tile (Glance view) ──
 function DailyBriefGlanceRow({ brief, onOpen }) {
+  const mob = useIsMobile();
+  const pad = mob ? '11px 12px' : '15px 18px';
+  const titleW = mob ? 82 : 150;
+  const chevron = <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+
   if (!brief) {
     return (
-      <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
+      <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: mob ? 10 : 16, padding: pad, width: '100%',
         background: '#111827', border: '1px solid #1e2d3d', borderLeft: '3px solid #1e2d3d', borderRadius: 13 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 150, flexShrink: 0 }}>
-          <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5' }}>Daily Brief</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: titleW, flexShrink: 0 }}>
+          <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5' }}>Daily Brief</span>
           <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>—</span>
         </div>
         <span style={{ fontFamily: DSANS, fontSize: 13, color: '#475569', flex: 1 }}>No brief available yet</span>
-        <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        {chevron}
       </button>
     );
   }
 
-  const chevron = <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>;
-
   // ── Weekly glance row ──────────────────────────────────────────────────────
   if (brief.isWeekly) {
     const sc = sentimentColor(Math.round(brief.avgSentiment));
-    const topBullets = brief.briefs[0]?.bullets.slice(0, 3) ?? [];
+    const topBullets = brief.briefs[0]?.bullets.slice(0, mob ? 2 : 3) ?? [];
     const totalBullets = brief.briefs.reduce((n, b) => n + b.bullets.length, 0);
     return (
-      <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 18px', width: '100%',
+      <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: mob ? 10 : 16, padding: pad, width: '100%',
         background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sc}`, borderRadius: 13 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 150, flexShrink: 0 }}>
-          <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5' }}>Weekly Brief</span>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: titleW, flexShrink: 0 }}>
+          <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5' }}>Weekly Brief</span>
           <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>{brief.weekLabel}</span>
         </div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
           {topBullets.map((b, i) => (
             <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
               <span style={{ width: 4, height: 4, borderRadius: '50%', background: sc, flexShrink: 0, marginTop: 6 }} />
               <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.5 }}>{b}</span>
             </div>
           ))}
-          {totalBullets > 3 && <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', paddingLeft: 13 }}>+{totalBullets - 3} more across {brief.briefs.length} days</span>}
+          {totalBullets > (mob ? 2 : 3) && <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', paddingLeft: 13 }}>+{totalBullets - (mob ? 2 : 3)} more</span>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: sc }}>avg {brief.avgSentiment > 0 ? '+' : ''}{brief.avgSentiment}</span>
-            <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#94a3b8', padding: '2px 7px', borderRadius: 4, background: '#16202e', border: '1px solid #1e2d3d', whiteSpace: 'nowrap' }}>{brief.dominantSector}</span>
+        {!mob && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: sc }}>avg {brief.avgSentiment > 0 ? '+' : ''}{brief.avgSentiment}</span>
+              <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#94a3b8', padding: '2px 7px', borderRadius: 4, background: '#16202e', border: '1px solid #1e2d3d', whiteSpace: 'nowrap' }}>{brief.dominantSector}</span>
+            </div>
+            {chevron}
           </div>
-          {chevron}
-        </div>
+        )}
+        {mob && chevron}
       </button>
     );
   }
@@ -169,28 +185,31 @@ function DailyBriefGlanceRow({ brief, onOpen }) {
   const sc = sentimentColor(brief.sentiment);
   const dateLabel = new Date(brief.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   return (
-    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 18px', width: '100%',
+    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: mob ? 10 : 16, padding: pad, width: '100%',
       background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sc}`, borderRadius: 13 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 150, flexShrink: 0 }}>
-        <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5' }}>Daily Brief</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: titleW, flexShrink: 0 }}>
+        <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5' }}>Daily Brief</span>
         <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>{dateLabel}</span>
       </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7 }}>
-        {brief.bullets.slice(0, 4).map((b, i) => (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
+        {brief.bullets.slice(0, mob ? 2 : 4).map((b, i) => (
           <div key={i} style={{ display: 'flex', gap: 9, alignItems: 'flex-start' }}>
             <span style={{ width: 4, height: 4, borderRadius: '50%', background: sc, flexShrink: 0, marginTop: 6 }} />
             <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.5 }}>{b}</span>
           </div>
         ))}
-        {brief.bullets.length > 4 && <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', paddingLeft: 13 }}>+{brief.bullets.length - 4} more</span>}
+        {brief.bullets.length > (mob ? 2 : 4) && <span style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', paddingLeft: 13 }}>+{brief.bullets.length - (mob ? 2 : 4)} more</span>}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: sc }}>{brief.sentiment > 0 ? '+' : ''}{brief.sentiment}</span>
-          <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#94a3b8', padding: '2px 7px', borderRadius: 4, background: '#16202e', border: '1px solid #1e2d3d', whiteSpace: 'nowrap' }}>{brief.sector}</span>
+      {!mob && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <span style={{ fontFamily: DMONO, fontSize: 13, fontWeight: 700, color: sc }}>{brief.sentiment > 0 ? '+' : ''}{brief.sentiment}</span>
+            <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#94a3b8', padding: '2px 7px', borderRadius: 4, background: '#16202e', border: '1px solid #1e2d3d', whiteSpace: 'nowrap' }}>{brief.sector}</span>
+          </div>
+          {chevron}
         </div>
-        {chevron}
-      </div>
+      )}
+      {mob && chevron}
     </button>
   );
 }
@@ -249,19 +268,21 @@ function MacroBriefCard({ brief: dailyBrief }) {
 
 // ── Macro Brief glance row — compact list tile (Glance view) ──
 function MacroBriefGlanceRow({ onOpen }) {
+  const mob = useIsMobile();
   const { status, narrative, date } = useMacroBrief();
   const dateLabel = date ? new Date(date + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—';
-  const preview   = narrative ? narrative.slice(0, 160) + (narrative.length > 160 ? '…' : '') : null;
+  const maxChars = mob ? 80 : 160;
+  const preview   = narrative ? narrative.slice(0, maxChars) + (narrative.length > maxChars ? '…' : '') : null;
   const clickable = status === 'ready' && !!onOpen;
   return (
-    <div onClick={clickable ? onOpen : undefined} style={{ boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: 16, padding: '15px 18px', width: '100%',
+    <div onClick={clickable ? onOpen : undefined} style={{ boxSizing: 'border-box', display: 'flex', alignItems: 'flex-start', gap: mob ? 10 : 16, padding: mob ? '11px 12px' : '15px 18px', width: '100%',
       background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${status === 'ready' ? '#60a5fa' : '#1e2d3d'}`, borderRadius: 13,
       cursor: clickable ? 'pointer' : 'default' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 150, flexShrink: 0 }}>
-        <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5' }}>Macro Brief</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: mob ? 82 : 150, flexShrink: 0 }}>
+        <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5' }}>Macro Brief</span>
         <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>{dateLabel}</span>
       </div>
-      <div style={{ flex: 1 }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {status === 'loading' && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#475569' }}>Synthesizing…</span>}
         {status === 'unavailable' && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#475569' }}>Unavailable — scorecard or brief data not yet loaded</span>}
         {status === 'ready' && preview && <span style={{ fontFamily: DSANS, fontSize: 12.5, color: '#94a3b8', lineHeight: 1.55 }}>{preview}</span>}
@@ -1598,15 +1619,16 @@ function OptionWorkspace({ D }) {
 
 // ── Yield glance row — standalone component so hooks can track live status ──
 function YieldGlanceRow({ c, onOpen }) {
+  const mob = useIsMobile();
   const [liveStatus, setLiveStatus] = useStateA(null);
   const eff = liveStatus || c.status;
   const sg  = DSIG[eff];
   return (
-    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
+    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: mob ? 10 : 16, padding: mob ? '11px 12px' : '15px 18px', width: '100%',
       background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sg.c}`, borderRadius: 13 }}>
-      <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', width: 150 }}>{c.title}</span>
-      <YieldGlanceKpis card={c} compact={false} onStatus={setLiveStatus} />
-      <YieldMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+      <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5', width: mob ? 82 : 150, flexShrink: 0 }}>{c.title}</span>
+      <YieldGlanceKpis card={c} compact={mob} onStatus={setLiveStatus} />
+      {!mob && <YieldMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />}
       <StatusPill status={eff} size="sm" />
       <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </button>
@@ -1615,15 +1637,16 @@ function YieldGlanceRow({ c, onOpen }) {
 
 // ── Currency glance row — standalone component so hooks can track live status ──
 function CurrencyGlanceRow({ c, onOpen }) {
+  const mob = useIsMobile();
   const [liveStatus, setLiveStatus] = useStateA(null);
   const eff = liveStatus || c.status;
   const sg  = DSIG[eff];
   return (
-    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
+    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: mob ? 10 : 16, padding: mob ? '11px 12px' : '15px 18px', width: '100%',
       background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sg.c}`, borderRadius: 13 }}>
-      <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', width: 150 }}>{c.title}</span>
-      <CurrencyGlanceKpis compact={false} onStatus={setLiveStatus} />
-      <CurrencyMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+      <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5', width: mob ? 82 : 150, flexShrink: 0 }}>{c.title}</span>
+      <CurrencyGlanceKpis compact={mob} onStatus={setLiveStatus} />
+      {!mob && <CurrencyMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />}
       <StatusPill status={eff} size="sm" />
       <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </button>
@@ -1726,15 +1749,16 @@ function PositioningMiniSpark({ seed, trend, color, w = 56, h = 20 }) {
 }
 
 function PositioningGlanceRow({ c, onOpen }) {
+  const mob = useIsMobile();
   const [liveStatus, setLiveStatus] = useStateA(null);
   const eff = liveStatus || c.status;
   const sg  = DSIG[eff];
   return (
-    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
+    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: mob ? 10 : 16, padding: mob ? '11px 12px' : '15px 18px', width: '100%',
       background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sg.c}`, borderRadius: 13 }}>
-      <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', width: 150 }}>{c.title}</span>
-      <PositioningGlanceKpis compact={false} onStatus={setLiveStatus} />
-      <PositioningMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+      <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5', width: mob ? 82 : 150, flexShrink: 0 }}>{c.title}</span>
+      <PositioningGlanceKpis compact={mob} onStatus={setLiveStatus} />
+      {!mob && <PositioningMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />}
       <StatusPill status={eff} size="sm" />
       <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </button>
@@ -1743,15 +1767,16 @@ function PositioningGlanceRow({ c, onOpen }) {
 
 // ── Crowd Signals glance row — standalone component so hooks can track live status ──
 function CrowdSignalsGlanceRow({ c, onOpen }) {
+  const mob = useIsMobile();
   const [liveStatus, setLiveStatus] = useStateA(null);
   const eff = liveStatus || c.status;
   const sg  = DSIG[eff];
   return (
-    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
+    <button onClick={onOpen} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: mob ? 10 : 16, padding: mob ? '11px 12px' : '15px 18px', width: '100%',
       background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sg.c}`, borderRadius: 13 }}>
-      <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', width: 150 }}>{c.title}</span>
-      <CrowdSignalsGlanceKpis compact={false} onStatus={setLiveStatus} />
-      <CrowdSignalsMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
+      <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5', width: mob ? 82 : 150, flexShrink: 0 }}>{c.title}</span>
+      <CrowdSignalsGlanceKpis compact={mob} onStatus={setLiveStatus} />
+      {!mob && <CrowdSignalsMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />}
       <StatusPill status={eff} size="sm" />
       <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
     </button>
@@ -1760,6 +1785,7 @@ function CrowdSignalsGlanceRow({ c, onOpen }) {
 
 // ════ OPTION C — Glance → dedicated deep-dive page ════
 function OptionGlancePage({ D, open: openProp, onSetOpen }) {
+  const mob = useIsMobile();
   const [openState, setOpenState] = useStateA(null);
   const open = openProp !== undefined ? openProp : openState;
   const setOpen = onSetOpen || setOpenState;
@@ -1800,21 +1826,21 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
             if (id === 'crowdsignals') return <CrowdSignalsGlanceRow key={id} c={c} onOpen={() => setOpen(id)} />;
             if (id === 'positioning')  return <PositioningGlanceRow  key={id} c={c} onOpen={() => setOpen(id)} />;
             return (
-              <button key={id} onClick={() => setOpen(id)} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: 16, padding: '15px 18px', width: '100%',
+              <button key={id} onClick={() => setOpen(id)} style={{ all: 'unset', cursor: 'pointer', boxSizing: 'border-box', display: 'flex', alignItems: 'center', gap: mob ? 10 : 16, padding: mob ? '11px 12px' : '15px 18px', width: '100%',
                 background: '#111827', border: '1px solid #1e2d3d', borderLeft: `3px solid ${sg.c}`, borderRadius: 13 }}>
-                <span style={{ fontFamily: DSANS, fontSize: 15.5, fontWeight: 600, color: '#e8edf5', width: 150 }}>{c.title}</span>
+                <span style={{ fontFamily: DSANS, fontSize: mob ? 14 : 15.5, fontWeight: 600, color: '#e8edf5', width: mob ? 82 : 150, flexShrink: 0 }}>{c.title}</span>
                 {id === 'yield'
-                  ? <YieldGlanceKpis card={c} compact={false} />
+                  ? <YieldGlanceKpis card={c} compact={mob} />
                   : id === 'crowdsignals'
-                  ? <CrowdSignalsGlanceKpis compact={false} />
-                  : <div style={{ display: 'flex', gap: 22, flex: 1 }}>
-                      {c.rows.slice(0, 3).map((r, i) => {
+                  ? <CrowdSignalsGlanceKpis compact={mob} />
+                  : <div style={{ display: 'flex', gap: mob ? 10 : 22, flex: 1 }}>
+                      {c.rows.slice(0, mob ? 2 : 3).map((r, i) => {
                         const rs = DSIG[r[3]];
                         return (
                           <div key={i} style={{ minWidth: 0 }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                               <span style={{ width: 5, height: 5, borderRadius: '50%', background: rs.c, boxShadow: `0 0 5px ${rs.glow}` }} />
-                              <span style={{ fontFamily: DMONO, fontSize: 13.5, fontWeight: 600, color: rs.c, whiteSpace: 'nowrap' }}>{r[1].split('\n')[0]}</span>
+                              <span style={{ fontFamily: DMONO, fontSize: mob ? 11.5 : 13.5, fontWeight: 600, color: rs.c, whiteSpace: 'nowrap' }}>{r[1].split('\n')[0]}</span>
                             </div>
                             <div style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', marginTop: 3, whiteSpace: 'nowrap' }}>{r[0]}</div>
                           </div>
@@ -1822,7 +1848,7 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
                       })}
                     </div>
                 }
-                {id === 'regime'
+                {!mob && (id === 'regime'
                   ? <RegimeMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
                   : id === 'leadership'
                   ? <LeadershipMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
@@ -1846,7 +1872,7 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
                   ? <CrowdSignalsMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
                   : id === 'positioning'
                   ? <PositioningMiniSpark seed={c.seed} trend={c.trend} color={sg.c} w={64} h={22} />
-                  : <SparkD seed={c.seed} trend={c.trend} color="#a855f7" w={64} h={22} />}
+                  : <SparkD seed={c.seed} trend={c.trend} color="#a855f7" w={64} h={22} />)}
                 <StatusPill status={c.status} size="sm" />
                 <svg width="7" height="12" viewBox="0 0 7 12"><path d="M1 1l5 5-5 5" stroke="#334155" strokeWidth="1.8" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
