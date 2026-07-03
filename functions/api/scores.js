@@ -1878,9 +1878,9 @@ function buildHorizons(q, breadthData, valn, fred) {
   speedScore = round1(speedScore);
 
   const speedHigh = speedScore >= 5;
-  const speedTrigger = speedScore > 7.5 ? 'Green light — tactical long exposure / leverage'
-    : speedScore < 3.0 ? 'Buy short-term downside protection'
-    : 'Neutral — no clear tactical edge';
+  const speedTrigger = speedScore > 7.5 ? 'Short-term momentum is strong — a good window to add to positions or lean into risk.'
+    : speedScore < 3.0 ? 'Short-term momentum is weak — consider buying downside protection or trimming exposure.'
+    : 'No clear short-term edge — hold steady and wait for a cleaner signal before trading around positions.';
 
   // ── B. TREND COMPASS (2–3 mo) ─────────────────────────────────────────────
   const cComps = [];
@@ -1922,9 +1922,9 @@ function buildHorizons(q, breadthData, valn, fred) {
 
   const compassScore = round1((cComps.length ? cComps.reduce((a, c) => a + c.value, 0) / cComps.length : 0.5) * 10);
   const compassHigh = compassScore >= 5;
-  const compassTrigger = compassScore > 7.0 ? 'Overweight cyclical equities & EM'
-    : compassScore < 4.0 ? 'Defensive rotation — Healthcare, Utilities, Cash'
-    : 'Selective — hold current allocation';
+  const compassTrigger = compassScore > 7.0 ? 'The 2–3 month trend is healthy — favour economically-sensitive stocks (tech, industrials, financials) and emerging markets.'
+    : compassScore < 4.0 ? 'The 2–3 month trend is weakening — shift toward defensive sectors (healthcare, utilities, staples) and raise cash.'
+    : 'The trend is mixed — hold your current mix; no strong reason to add or cut risk right now.';
 
   // ── C. MACRO ANCHOR (2–3 yr) — Structural Risk Budget ─────────────────────
   // Each input is a historical percentile (higher = more structural risk).
@@ -1942,12 +1942,13 @@ function buildHorizons(q, breadthData, valn, fred) {
   const zone = anchorScore >= 6 ? 'green' : anchorScore >= 3.5 ? 'amber' : 'red';
   const sizingFactor = zone === 'green' ? 1.0 : zone === 'amber' ? 0.85 : 0.70;
   const capePctile = valn?.capePct != null ? Math.round(valn.capePct * 100) : null;
+  const sizePctTxt = Math.round(sizingFactor * 100);
   const anchorNote = capePctile != null
-    ? `Valuations sit in the ${capePctile}th percentile of history — structural risk is ${zone === 'red' ? 'elevated' : zone === 'amber' ? 'moderate' : 'contained'}. This overlay modifies position sizing, not market-timing direction.`
-    : 'Structural risk overlay — modifies position sizing, not market-timing direction.';
-  const anchorTrigger = anchorScore > 8.0 ? 'Underweight cash — extend equity risk globally'
-    : anchorScore < 3.0 ? 'Accumulate cash equivalents; hedge high-multiple growth'
-    : 'Neutral structural risk — maintain strategic weights';
+    ? `Stocks are more expensive than ${capePctile}% of history. That's not a signal to sell — but there's less cushion if things go wrong, so keep positions near ${sizePctTxt}% of normal size rather than changing direction.`
+    : 'Long-run valuations set how much cushion you have — use this to scale position size, not to time entries and exits.';
+  const anchorTrigger = anchorScore > 8.0 ? 'Valuations are historically cheap — you can size up and extend risk with a wide margin of safety.'
+    : anchorScore < 3.0 ? 'Valuations are historically expensive — keep positions smaller than normal and hold extra cash as a buffer.'
+    : 'Valuations are around historical averages — no sizing adjustment needed.';
 
   // ── INTERACTION MATRIX (Speedometer × Compass; Anchor sizes the position) ──
   const quadrant = speedHigh && compassHigh ? 'add-risk'
@@ -1956,10 +1957,10 @@ function buildHorizons(q, breadthData, valn, fred) {
     : 'risk-off';
   const QLABEL = { 'add-risk': 'Add Risk', 'bear-rally': 'Bear Rally', 'accumulate': 'Accumulate', 'risk-off': 'Risk-Off' };
   const GUIDANCE = {
-    'add-risk':   'Tactical and trend aligned bullish — add cyclical risk, buy dips.',
-    'bear-rally': 'Trend is broken — fade strength, don’t chase the bounce.',
-    'accumulate': 'Trend intact, tactical washout — accumulate on weakness.',
-    'risk-off':   'Both horizons bearish — defensive rotation, reduce gross exposure.',
+    'add-risk':   'Both the short-term and 2–3 month trends point up — a favourable window to add economically-sensitive positions and buy pullbacks.',
+    'bear-rally': 'The short-term is bouncing but the 2–3 month trend is broken — treat strength as a chance to sell, not to chase.',
+    'accumulate': 'The 2–3 month trend is intact while the short-term has pulled back — use the weakness to build positions gradually.',
+    'risk-off':   'Both timeframes point down — cut overall exposure and favour defensive positions and cash.',
   };
 
   return {

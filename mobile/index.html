@@ -52,8 +52,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script src="../ui_kits/mobile/glance-data.js?v=20260703l"></script>
-<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260703l"></script>
+<script src="../ui_kits/mobile/glance-data.js?v=20260703m"></script>
+<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260703m"></script>
 <script type="text/babel">
 // Market Hub mobile — Glance view.
 // Structural cards (regime…equities) + Crowd Signals rendered via CardRow.
@@ -476,7 +476,10 @@ function MobileDial({ title, horizon, score, level, trigger, veto, vixRatio, isA
               <div style={{ position: 'absolute', inset: 0, borderRadius: 3, background: 'linear-gradient(90deg,#ef4444 0%,#f59e0b 45%,#22c55e 100%)', opacity: .28 }} />
               <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${w}% - 1px)`, width: 2, background: c, boxShadow: `0 0 6px ${c}` }} />
             </React.Fragment>
-          : <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${w}%`, background: c, boxShadow: `0 0 8px ${c}88`, borderRadius: 3 }} />
+          : <React.Fragment>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${w}%`, background: c, boxShadow: `0 0 8px ${c}88`, borderRadius: 3 }} />
+              <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${w}% - 1px)`, width: 2, background: '#e8edf5', boxShadow: `0 0 6px ${c}` }} />
+            </React.Fragment>
         }
       </div>
       <span style={{ fontFamily: SANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>{isAnchor ? note : trigger}</span>

@@ -455,7 +455,10 @@ function MobileDial({ title, horizon, score, level, trigger, veto, vixRatio, isA
               <div style={{ position: 'absolute', inset: 0, borderRadius: 3, background: 'linear-gradient(90deg,#ef4444 0%,#f59e0b 45%,#22c55e 100%)', opacity: .28 }} />
               <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${w}% - 1px)`, width: 2, background: c, boxShadow: `0 0 6px ${c}` }} />
             </React.Fragment>
-          : <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${w}%`, background: c, boxShadow: `0 0 8px ${c}88`, borderRadius: 3 }} />
+          : <React.Fragment>
+              <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${w}%`, background: c, boxShadow: `0 0 8px ${c}88`, borderRadius: 3 }} />
+              <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${w}% - 1px)`, width: 2, background: '#e8edf5', boxShadow: `0 0 6px ${c}` }} />
+            </React.Fragment>
         }
       </div>
       <span style={{ fontFamily: SANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.4 }}>{isAnchor ? note : trigger}</span>

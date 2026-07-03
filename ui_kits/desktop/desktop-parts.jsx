@@ -825,21 +825,34 @@ function zoneColorH(zone) {
   return zone === 'green' ? '#22c55e' : zone === 'amber' ? '#f59e0b' : '#ef4444';
 }
 
+// Two-line title (e.g. "Tactical" / "Speedometer") so all three dial headers
+// occupy the same vertical space and align.
+function HorizonTitle({ title }) {
+  const parts = title.split(' ');
+  return (
+    <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5', lineHeight: 1.2 }}>
+      {parts[0]}<br />{parts.slice(1).join(' ')}
+    </span>
+  );
+}
+
 function HorizonDial({ title, horizon, score, level, trigger, veto, vixRatio }) {
   const c = horizonColorH(score);
+  const w = Math.max(0, Math.min(100, score * 10));
   return (
     <div style={{ background: '#0a1119', border: '1px solid #1e2d3d', borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5' }}>{title}</span>
-        <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', letterSpacing: '.04em' }}>{horizon}</span>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <HorizonTitle title={title} />
+        <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', letterSpacing: '.04em', textAlign: 'right' }}>{horizon}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7 }}>
         <span style={{ fontFamily: DMONO, fontSize: 30, fontWeight: 700, color: c, lineHeight: 1 }}>{score.toFixed(1)}</span>
         <span style={{ fontFamily: DMONO, fontSize: 12, color: '#64748b', marginBottom: 3 }}>/10</span>
         <span style={{ marginLeft: 'auto', fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.06em', textTransform: 'uppercase', color: c, border: `1px solid ${c}55`, borderRadius: 6, padding: '2px 7px' }}>{level}</span>
       </div>
-      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: '#16202e', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${Math.max(0, Math.min(100, score * 10))}%`, background: c, boxShadow: `0 0 8px ${c}88` }} />
+      <div style={{ position: 'relative', height: 6, borderRadius: 3, background: '#16202e', overflow: 'visible' }}>
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: `${w}%`, background: c, boxShadow: `0 0 8px ${c}88`, borderRadius: 3 }} />
+        <div style={{ position: 'absolute', top: -3, bottom: -3, left: `calc(${w}% - 1px)`, width: 2, background: '#e8edf5', boxShadow: `0 0 6px ${c}` }} />
       </div>
       <span style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8', lineHeight: 1.35, minHeight: 30 }}>{trigger}</span>
       {veto && <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.03em', color: '#ef4444' }}>⚠ VIX BACKWARDATION{vixRatio != null ? ` (${vixRatio})` : ''} — TACTICAL CAPPED</span>}
@@ -852,9 +865,9 @@ function AnchorDial({ anchor }) {
   const sizePct = Math.round((anchor.sizingFactor ?? 1) * 100);
   return (
     <div style={{ background: '#0a1119', border: '1px solid #1e2d3d', borderRadius: 14, padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 9 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <span style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 700, color: '#e8edf5' }}>Macro Anchor</span>
-        <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', letterSpacing: '.04em' }}>{anchor.horizon || '2–3 years'}</span>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+        <HorizonTitle title="Macro Anchor" />
+        <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b', letterSpacing: '.04em', textAlign: 'right' }}>{anchor.horizon || '2–3 years'}</span>
       </div>
       <div style={{ display: 'flex', alignItems: 'flex-end', gap: 7 }}>
         <span style={{ fontFamily: DMONO, fontSize: 30, fontWeight: 700, color: c, lineHeight: 1 }}>{anchor.score.toFixed(1)}</span>
@@ -916,7 +929,7 @@ function InteractionMatrix({ matrix }) {
       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #16202e', fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.45 }}>
         <span style={{ color: QMETA[matrix.quadrant].color, fontWeight: 700 }}>{matrix.label}: </span>
         {matrix.guidance}
-        <span style={{ color: '#64748b' }}>{` Size positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% (Anchor overlay).`}</span>
+        <span style={{ color: '#64748b' }}>{` The Macro Anchor suggests sizing any positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% of normal.`}</span>
       </div>
     </div>
   );
