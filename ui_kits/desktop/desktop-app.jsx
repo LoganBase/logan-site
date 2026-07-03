@@ -3,9 +3,9 @@
 const { useState: useStateA, useEffect: useEffectA } = React;
 
 function useIsMobile() {
-  const [m, setM] = useStateA(window.innerWidth < 480);
+  const [m, setM] = useStateA(window.innerWidth < 768);
   useEffectA(() => {
-    const h = () => setM(window.innerWidth < 480);
+    const h = () => setM(window.innerWidth < 768);
     window.addEventListener('resize', h);
     return () => window.removeEventListener('resize', h);
   }, []);
@@ -1814,7 +1814,7 @@ function OptionGlancePage({ D, open: openProp, onSetOpen }) {
     );
   }
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: '30px 28px 60px', display: 'flex', flexDirection: 'column', gap: 22 }}>
+    <div style={{ maxWidth: 760, margin: '0 auto', padding: mob ? '16px 10px 40px' : '30px 28px 60px', display: 'flex', flexDirection: 'column', gap: mob ? 14 : 22 }}>
       <BreadthBar exec={D.exec} cats={D.categories} groups={D.groups} cards={D.cards} />
       {D.groups.map((g) => (
         <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
