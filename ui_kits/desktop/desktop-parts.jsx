@@ -4833,10 +4833,10 @@ function CpiHistoryChart() {
         setLive({
           values:     yoyValues || momValues,
           dates:      j.dates,
-          label:      hasYoy ? 'Headline YoY' : 'Headline MoM',
+          label:      hasYoy ? 'CPI (Headline)' : 'CPI MoM (Headline)',
           format:     'pct',
           lineColor:  '#a855f7',
-          overlays:   [{ label: hasYoy ? 'Core YoY' : 'Core MoM', values: coreYoy, color: '#22d3ee', dash: null }],
+          overlays:   [{ label: hasYoy ? 'CPI (Core)' : 'CPI MoM (Core)', values: coreYoy, color: '#22d3ee', dash: null }],
           thresholds: hasYoy ? [
             { y: 2.0, color: '#22c55e' },
             { y: 5.0, color: '#ef4444' },
