@@ -6,6 +6,9 @@
  * Derives crowd consensus (50th-percentile threshold) for each event.
  * Unauthenticated read-only.
  *
+ * Caching: D1 api_cache table, 5-min TTL for live results, 30-sec TTL for
+ * fallback (no open markets / rate limited) so the system recovers quickly.
+ *
  * Series:
  *   KXFED — Fed funds rate upper bound after each FOMC meeting
  *   KXCPI — CPI MoM threshold markets
@@ -18,21 +21,19 @@ const HEADERS = { 'Accept': 'application/json', 'User-Agent': 'Mozilla/5.0 (comp
 const CURRENT_FFTR = 3.75;
 
 // Fallback constants — used when FRED_API_KEY is absent or FRED is unreachable
-// MAINTENANCE: update LAST_CPI_MOM and LAST_CPI_MONTH after each CPI release
-// if the FRED key is not configured (same cadence as CURRENT_FFTR above).
-const LAST_CPI_MOM   = 0.2;   // Last actual CPI MoM %
-const LAST_CPI_MONTH = 'May'; // Month of that reading
+const LAST_CPI_MOM   = 0.2;
+const LAST_CPI_MONTH = 'May';
 
 const FRED_BASE   = 'https://api.stlouisfed.org/fred/series/observations';
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const TTL_LIVE    = 5 * 60;   // 5 min — cache live market data
+const TTL_EMPTY   = 30;       // 30 sec — retry quickly when no markets found
 
-// Parse month name from a FRED date string ("2026-05-01" → "May")
 function fredMonth(dateStr) {
   if (!dateStr) return '';
   return MONTH_NAMES[parseInt(dateStr.slice(5, 7), 10) - 1] || '';
 }
 
-// Fetch the most recent observation for a FRED series; returns { value, date } or null
 async function fetchFred(seriesId, apiKey, extraParams = {}) {
   try {
     const url = new URL(FRED_BASE);
@@ -51,19 +52,16 @@ async function fetchFred(seriesId, apiKey, extraParams = {}) {
   } catch { return null; }
 }
 
-// Kalshi prices can be 0–1 (decimal) or 0–100 (cents) — normalise to 0–1
 function norm(p) {
   const n = parseFloat(p);
   return isNaN(n) ? null : n > 1 ? n / 100 : n;
 }
 
-// Extract numeric strike from ticker, e.g. KXFED-26JUN-T3.75 → 3.75
 function strike(ticker) {
   const m = ticker.match(/T(-?\d+\.?\d*)$/);
   return m ? parseFloat(m[1]) : null;
 }
 
-// Derive short month label from event ticker, e.g. KXCPI-26MAY → "May"
 function eventMonth(ticker) {
   const m = ticker.match(/-(\d{2})([A-Z]{3})$/);
   if (!m) return '';
@@ -78,40 +76,53 @@ function fmtDate(iso) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }).toUpperCase();
 }
 
-// Fetch the next open event's markets for a series.
-// Uses Cloudflare Cache API with a same-zone key (required by CF).
-// Caches successful non-empty results for 5 min; never caches empty results.
-async function fetchNext(seriesTicker) {
-  const cacheKey = `https://www.loganbase.com/__kalshi/${seriesTicker}`;
-  const cache = caches.default;
+// D1-backed fetch: checks cache first, calls Kalshi only when stale.
+async function fetchNext(seriesTicker, db) {
+  const cacheKey = `kalshi:${seriesTicker}`;
+  const now = Math.floor(Date.now() / 1000);
 
-  const cached = await cache.match(cacheKey);
-  if (cached) {
-    return { markets: await cached.json(), cached: true };
+  // Check D1 cache
+  if (db) {
+    try {
+      const row = await db.prepare(
+        'SELECT value, updated_at FROM api_cache WHERE key = ?'
+      ).bind(cacheKey).first();
+      if (row) {
+        const age = now - row.updated_at;
+        const data = JSON.parse(row.value);
+        const ttl  = data.length > 0 ? TTL_LIVE : TTL_EMPTY;
+        if (age < ttl) return { markets: data, cached: true, age };
+      }
+    } catch {}
   }
 
+  // Cache miss or stale — fetch from Kalshi
   try {
     const url = `${BASE}/markets?series_ticker=${seriesTicker}&status=open&limit=100`;
     const res = await fetch(url, { headers: HEADERS });
     if (!res.ok) return { markets: [], httpStatus: res.status };
     const body = await res.json();
     const markets = body.markets || body.data || [];
-    if (!markets.length) return { markets: [] };
-    markets.sort((a, b) => new Date(a.close_time) - new Date(b.close_time));
-    const evt = markets[0].event_ticker;
-    const result = markets.filter(m => m.event_ticker === evt);
-    await cache.put(cacheKey, new Response(JSON.stringify(result), {
-      headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
-    }));
+    let result = [];
+    if (markets.length) {
+      markets.sort((a, b) => new Date(a.close_time) - new Date(b.close_time));
+      const evt = markets[0].event_ticker;
+      result = markets.filter(m => m.event_ticker === evt);
+    }
+    // Write to D1 (live result OR empty — empty has short TTL so it retries soon)
+    if (db) {
+      try {
+        await db.prepare(
+          'INSERT INTO api_cache (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+        ).bind(cacheKey, JSON.stringify(result), now).run();
+      } catch {}
+    }
     return { markets: result };
   } catch (e) {
     return { markets: [], error: e.message };
   }
 }
 
-// Fed: find highest strike where P(at or above) ≥ 0.50 — that strike IS the implied rate
-// Kalshi KXFED asks "at or above X%", so P(≥X) ≥ 0.50 means X is the median outcome.
-// Confidence = P(exactly X) ≈ P(≥X) − P(≥X+0.25)
 function parseFed(markets, currentRate = CURRENT_FFTR) {
   const rows = markets
     .map(m => {
@@ -127,14 +138,13 @@ function parseFed(markets, currentRate = CURRENT_FFTR) {
   const floor = [...rows].reverse().find(r => r.p >= 0.50);
   if (!floor) return null;
 
-  const implied  = floor.s;
-  const upperRow = rows.find(r => r.s === implied + 0.25);
-  const pUpper   = upperRow ? upperRow.p : 0;
+  const implied    = floor.s;
+  const upperRow   = rows.find(r => r.s === implied + 0.25);
+  const pUpper     = upperRow ? upperRow.p : 0;
   const confidence = Math.round((floor.p - pUpper) * 100);
-
-  const action = implied > currentRate + 0.01 ? 'Hike'
-               : implied < currentRate - 0.01 ? 'Cut'
-               : 'Hold';
+  const action     = implied > currentRate + 0.01 ? 'Hike'
+                   : implied < currentRate - 0.01 ? 'Cut'
+                   : 'Hold';
 
   return {
     label:        'FOMC Rate',
@@ -146,13 +156,10 @@ function parseFed(markets, currentRate = CURRENT_FFTR) {
     confidence:   Math.min(confidence, 99),
     type:         'fomc',
     currentRate,
-    distribution: rows
-      .filter(r => r.p > 0.01)
-      .map(r => ({ rate: r.s, prob: Math.round(r.p * 100) })),
+    distribution: rows.filter(r => r.p > 0.01).map(r => ({ rate: r.s, prob: Math.round(r.p * 100) })),
   };
 }
 
-// CPI: highest strike where P(above) ≥ 0.50 = crowd's median estimate
 function parseCPI(markets, lastActual = { value: LAST_CPI_MOM, month: LAST_CPI_MONTH }) {
   const month = markets.length ? eventMonth(markets[0].event_ticker) : '';
   const rows = markets
@@ -171,14 +178,14 @@ function parseCPI(markets, lastActual = { value: LAST_CPI_MOM, month: LAST_CPI_M
 
   const sign = median.s > 0 ? '+' : '';
   return {
-    label:       `${month} CPI`,
-    date:        fmtDate(rows[0].t),
-    closeTime:   rows[0].t,
-    consensus:   `~${sign}${median.s.toFixed(1)}%`,
-    action:      '',
-    unit:        'MoM',
-    confidence:  Math.round(median.p * 100),
-    type:        'cpi',
+    label:      `${month} CPI`,
+    date:       fmtDate(rows[0].t),
+    closeTime:  rows[0].t,
+    consensus:  `~${sign}${median.s.toFixed(1)}%`,
+    action:     '',
+    unit:       'MoM',
+    confidence: Math.round(median.p * 100),
+    type:       'cpi',
     lastActual,
   };
 }
@@ -189,50 +196,39 @@ export async function onRequest(context) {
   }
 
   try {
+    const db      = context.env.DB || null;
     const fredKey = context.env.FRED_API_KEY;
 
     const [fedRaw, cpiRaw, fredRate, fredCpi] = await Promise.all([
-      fetchNext('KXFED'),
-      fetchNext('KXCPI'),
+      fetchNext('KXFED', db),
+      fetchNext('KXCPI', db),
       fredKey ? fetchFred('DFEDTARU', fredKey) : Promise.resolve(null),
       fredKey ? fetchFred('CPIAUCSL',  fredKey, { units: 'pch' }) : Promise.resolve(null),
     ]);
+
     const fedMarkets = fedRaw.markets;
     const cpiMarkets = cpiRaw.markets;
-    const _debug = { fed: { cached: fedRaw.cached, httpStatus: fedRaw.httpStatus, count: fedMarkets.length, error: fedRaw.error },
-                     cpi: { cached: cpiRaw.cached, httpStatus: cpiRaw.httpStatus, count: cpiMarkets.length, error: cpiRaw.error } };
+    const _debug = {
+      fed: { cached: fedRaw.cached, age: fedRaw.age, httpStatus: fedRaw.httpStatus, count: fedMarkets.length, error: fedRaw.error },
+      cpi: { cached: cpiRaw.cached, age: cpiRaw.age, httpStatus: cpiRaw.httpStatus, count: cpiMarkets.length, error: cpiRaw.error },
+    };
 
     const currentRate = fredRate ? fredRate.value : CURRENT_FFTR;
     const lastActual  = fredCpi
       ? { value: fredCpi.value, month: fredMonth(fredCpi.date) }
       : { value: LAST_CPI_MOM, month: LAST_CPI_MONTH };
 
-    // Fallback for between-meeting gap: no open KXFED markets → synthesise a Hold event
     const fedResult = parseFed(fedMarkets, currentRate) || {
-      label:        'FOMC Rate',
-      date:         'Between Meetings',
-      closeTime:    null,
-      consensus:    `${currentRate.toFixed(2)}%`,
-      action:       'Hold',
-      unit:         '',
-      confidence:   0,
-      type:         'fomc',
-      currentRate,
-      distribution: [],
+      label: 'FOMC Rate', date: 'Between Meetings', closeTime: null,
+      consensus: `${currentRate.toFixed(2)}%`, action: 'Hold', unit: '',
+      confidence: 0, type: 'fomc', currentRate, distribution: [],
     };
 
-    // Fallback for between-release gap: no open KXCPI markets → show last actual reading
     const sign = lastActual.value >= 0 ? '+' : '';
     const cpiResult = parseCPI(cpiMarkets, lastActual) || {
-      label:      `${lastActual.month} CPI`,
-      date:       'Markets Pending',
-      closeTime:  null,
-      consensus:  `${sign}${lastActual.value.toFixed(1)}%`,
-      action:     '',
-      unit:       'MoM actual',
-      confidence: 0,
-      type:       'cpi',
-      lastActual,
+      label: `${lastActual.month} CPI`, date: 'Markets Pending', closeTime: null,
+      consensus: `${sign}${lastActual.value.toFixed(1)}%`, action: '', unit: 'MoM actual',
+      confidence: 0, type: 'cpi', lastActual,
     };
 
     const events = [cpiResult, fedResult]
@@ -243,7 +239,7 @@ export async function onRequest(context) {
     });
   } catch (err) {
     return new Response(JSON.stringify({ events: [], error: err.message, source: 'kalshi' }), {
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=60' },
+      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' },
     });
   }
 }
