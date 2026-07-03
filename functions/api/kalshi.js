@@ -97,7 +97,11 @@ async function fetchNext(seriesTicker) {
 // Confidence = P(exactly X) ≈ P(≥X) − P(≥X+0.25)
 function parseFed(markets, currentRate = CURRENT_FFTR) {
   const rows = markets
-    .map(m => ({ s: strike(m.ticker), p: norm(m.last_price_dollars ?? (parseFloat(m.yes_bid_dollars) + parseFloat(m.yes_ask_dollars)) / 2), t: m.close_time, evt: m.event_ticker }))
+    .map(m => {
+      const mid = (parseFloat(m.yes_bid ?? m.yes_bid_dollars) + parseFloat(m.yes_ask ?? m.yes_ask_dollars)) / 2;
+      const raw = m.last_price ?? m.last_price_dollars ?? (isNaN(mid) ? null : mid);
+      return { s: strike(m.ticker), p: norm(raw), t: m.close_time, evt: m.event_ticker };
+    })
     .filter(r => r.s !== null && r.p !== null)
     .sort((a, b) => a.s - b.s);
 
@@ -135,7 +139,11 @@ function parseFed(markets, currentRate = CURRENT_FFTR) {
 function parseCPI(markets, lastActual = { value: LAST_CPI_MOM, month: LAST_CPI_MONTH }) {
   const month = markets.length ? eventMonth(markets[0].event_ticker) : '';
   const rows = markets
-    .map(m => ({ s: strike(m.ticker), p: norm(m.last_price_dollars ?? (parseFloat(m.yes_bid_dollars) + parseFloat(m.yes_ask_dollars)) / 2), t: m.close_time }))
+    .map(m => {
+      const mid = (parseFloat(m.yes_bid ?? m.yes_bid_dollars) + parseFloat(m.yes_ask ?? m.yes_ask_dollars)) / 2;
+      const raw = m.last_price ?? m.last_price_dollars ?? (isNaN(mid) ? null : mid);
+      return { s: strike(m.ticker), p: norm(raw), t: m.close_time };
+    })
     .filter(r => r.s !== null && r.p !== null)
     .sort((a, b) => b.s - a.s);
 
