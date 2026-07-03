@@ -6,7 +6,11 @@
  *   1. Cloudflare D1 (historical + today's indicators if seeded)
  *   2. Yahoo Finance v8 chart API (live fallback)
  *
- * Response shape: { timestamp, aggregate, cards[] }
+ * Response shape: { timestamp, source, aggregate, horizons, cards[] }
+ *
+ * `horizons` isolates three execution timeframes so incompatible signals are
+ * never blended: speedometer (2–3 wk), compass (2–3 mo), anchor (2–3 yr risk
+ * budget), plus a speedometer×compass interaction matrix.
  */
 
 const YF = 'https://query1.finance.yahoo.com/v8/finance/chart';
@@ -60,6 +64,11 @@ function rsi(closes, period = 14) {
 function vsMA(price, ma) {
   if (!price || !ma) return null;
   return ((price - ma) / ma) * 100;
+}
+
+function clamp01(x) {
+  if (x == null || Number.isNaN(x)) return null;
+  return x < 0 ? 0 : x > 1 ? 1 : x;
 }
 
 function pct(n, dec = 2) {
@@ -791,6 +800,36 @@ async function loadBuffettLatest(db) {
     ).all();
     return results?.[0] ?? null;
   } catch { return null; }
+}
+
+// ── HORIZON: HISTORICAL PERCENTILE ────────────────────────────────────────────
+// Returns { value, pct } where pct (0–1) is the fraction of history <= current.
+// table/col are internal constants (never user input) — safe to interpolate.
+async function loadPercentile(db, table, col) {
+  try {
+    const sql =
+      `SELECT
+         (SELECT ${col} FROM ${table} WHERE ${col} IS NOT NULL ORDER BY date DESC LIMIT 1) AS current,
+         CAST((SELECT COUNT(*) FROM ${table} WHERE ${col} IS NOT NULL AND ${col} <=
+             (SELECT ${col} FROM ${table} WHERE ${col} IS NOT NULL ORDER BY date DESC LIMIT 1)) AS REAL)
+           / (SELECT COUNT(*) FROM ${table} WHERE ${col} IS NOT NULL) AS pct`;
+    const { results } = await db.prepare(sql).all();
+    const r = results?.[0];
+    if (!r || r.current == null) return null;
+    return { value: r.current, pct: r.pct };
+  } catch { return null; }
+}
+
+// ── HORIZON: FRED SERIES ──────────────────────────────────────────────────────
+// Most-recent-first observations for a FRED series stored in D1 (Phase 2 table).
+// Returns [] if the table does not yet exist so Phase 1 degrades gracefully.
+async function loadFredSeries(db, seriesId, limit = 250) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, value FROM fred_series WHERE series_id = ? ORDER BY date DESC LIMIT ?`
+    ).bind(seriesId, limit).all();
+    return results ?? [];
+  } catch { return []; }
 }
 
 
@@ -1782,6 +1821,155 @@ function computeDeltas(current, previous) {
   return out;
 }
 
+// ── HORIZON SCORES (timeframe-isolated) ───────────────────────────────────────
+// Three independent scores, each aligned to a real execution horizon, so that a
+// 2-week momentum reading is never blended with a 10-year valuation reading.
+//   A. Tactical Speedometer (2–3 wk)  — directional 0–10
+//   B. Trend Compass       (2–3 mo)  — directional 0–10
+//   C. Macro Anchor        (2–3 yr)  — Structural Risk Budget (sizing, not direction)
+const CYCLICALS  = ['XLK', 'XLF', 'XLI', 'XLY', 'XLB', 'XLE'];
+const DEFENSIVES = ['XLP', 'XLV', 'XLU', 'XLRE'];
+const SECTORS_11 = ['XLK', 'XLF', 'XLV', 'XLC', 'XLY', 'XLI', 'XLP', 'XLE', 'XLB', 'XLRE', 'XLU'];
+
+// 20-day return for a symbol (falls back to daily changePct)
+function horizonRet20(s) {
+  if (!s) return null;
+  return s.price20d ? (s.price / s.price20d - 1) * 100 : (s.changePct ?? null);
+}
+function horizonAvgRet20(q, syms) {
+  const vals = syms.map(s => horizonRet20(q[s])).filter(v => v != null);
+  return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+}
+const round1 = (x) => Math.round(x * 10) / 10;
+
+function buildHorizons(q, breadthData, valn, fred) {
+  const spy = q['SPY'];
+
+  // ── A. TACTICAL SPEEDOMETER (2–3 wk) ──────────────────────────────────────
+  const sComps = [];
+  const sPush = (key, label, v01, detail) => { if (v01 != null) sComps.push({ key, label, value: v01, detail }); };
+
+  const rsp20 = horizonRet20(q['RSP']), spy20 = horizonRet20(q['SPY']);
+  const rspSpread = (rsp20 != null && spy20 != null) ? rsp20 - spy20 : null;
+  sPush('rsp', 'RSP vs SPY 20d', rspSpread != null ? clamp01(0.5 + rspSpread / 4) : null, rspSpread != null ? pct(rspSpread, 1) : null);
+
+  const qqew20 = horizonRet20(q['QQEW']), qqq20 = horizonRet20(q['QQQ']);
+  const techSpread = (qqew20 != null && qqq20 != null) ? qqew20 - qqq20 : null;
+  sPush('tech', 'QQEW vs QQQ 20d', techSpread != null ? clamp01(0.5 + techSpread / 4) : null, techSpread != null ? pct(techSpread, 1) : null);
+
+  const cyc = horizonAvgRet20(q, CYCLICALS), def = horizonAvgRet20(q, DEFENSIVES);
+  const cycSpread = (cyc != null && def != null) ? cyc - def : null;
+  sPush('cyc', 'Cyclicals vs Defensives 20d', cycSpread != null ? clamp01(0.5 + cycSpread / 4) : null, cycSpread != null ? pct(cycSpread, 1) : null);
+
+  const mmfi = breadthData?.pct_above_50d;
+  sPush('mmfi', 'Stocks > 50d SMA', mmfi != null ? clamp01(mmfi / 100) : null, mmfi != null ? `${mmfi.toFixed(0)}%` : null);
+
+  const rsi14 = spy?.rsi14;
+  sPush('rsi', 'SPY RSI-14', rsi14 != null ? clamp01((rsi14 - 30) / 40) : null, rsi14 != null ? rsi14.toFixed(0) : null);
+
+  let speedScore = sComps.length ? (sComps.reduce((a, c) => a + c.value, 0) / sComps.length) * 10 : 5;
+
+  // VIX/VIX3M term-structure veto: backwardation (ratio > 1) = acute stress,
+  // suppress the tactical score regardless of the underlying momentum reading.
+  const vix = q['^VIX']?.price, vix3m = q['^VIX3M']?.price;
+  const vixRatio = (vix != null && vix3m != null && vix3m > 0) ? vix / vix3m : null;
+  const veto = vixRatio != null && vixRatio > 1.0;
+  if (veto) speedScore = Math.min(speedScore, 3.5);
+  speedScore = round1(speedScore);
+
+  const speedHigh = speedScore >= 5;
+  const speedTrigger = speedScore > 7.5 ? 'Green light — tactical long exposure / leverage'
+    : speedScore < 3.0 ? 'Buy short-term downside protection'
+    : 'Neutral — no clear tactical edge';
+
+  // ── B. TREND COMPASS (2–3 mo) ─────────────────────────────────────────────
+  const cComps = [];
+  const cPush = (key, label, v01, detail) => { if (v01 != null) cComps.push({ key, label, value: v01, detail }); };
+
+  cPush('regime', 'SPY vs 200d', spy?.vs200 != null ? clamp01(0.5 + spy.vs200 / 10) : null, spy?.vs200 != null ? pct(spy.vs200, 1) : null);
+
+  const gc = (spy?.sma50 && spy?.sma200) ? (spy.sma50 - spy.sma200) / spy.sma200 * 100 : null;
+  cPush('golden', 'Golden Cross spread', gc != null ? clamp01(0.5 + gc / 5) : null, gc != null ? pct(gc, 1) : null);
+
+  const mmth = breadthData?.pct_above_200d;
+  cPush('mmth', 'Stocks > 200d SMA', mmth != null ? clamp01(mmth / 100) : null, mmth != null ? `${mmth.toFixed(0)}%` : null);
+
+  const partCount = SECTORS_11.filter(s => q[s]?.price && q[s]?.sma200 && q[s].price > q[s].sma200).length;
+  const partTotal = SECTORS_11.filter(s => q[s]?.price && q[s]?.sma200).length;
+  cPush('sectors', 'Sectors > 200d', partTotal ? partCount / partTotal : null, partTotal ? `${partCount}/${partTotal}` : null);
+
+  // Credit: prefer real HY OAS vs its own 50d/200d SMA (Phase 2); fall back to
+  // HYG & EMB vs their 200d SMA when the FRED OAS series is not yet seeded.
+  let creditVal = null, creditDetail = null;
+  if (fred?.oas && fred.oas.length >= 200) {
+    const oas = fred.oas.map(o => o.value);
+    const cur = oas[0];
+    const oasSma50  = oas.slice(0, 50).reduce((a, b) => a + b, 0) / 50;
+    const oasSma200 = oas.slice(0, 200).reduce((a, b) => a + b, 0) / 200;
+    creditVal = ((cur < oasSma50 ? 1 : 0) + (cur < oasSma200 ? 1 : 0)) / 2; // tightening = bullish
+    creditDetail = `OAS ${cur.toFixed(2)} vs 50/200d`;
+  } else {
+    const hyg = q['HYG'], emb = q['EMB'];
+    const flags = [hyg?.vs200, emb?.vs200].filter(v => v != null);
+    creditVal = flags.length ? flags.filter(v => v > 0).length / flags.length : null;
+    creditDetail = 'HYG/EMB vs 200d';
+  }
+  cPush('credit', 'Credit', creditVal, creditDetail);
+
+  const globFlags = [q['ACWI']?.vs200, q['EEM']?.vs200].filter(v => v != null);
+  const globAbove = globFlags.filter(v => v > 0).length;
+  cPush('global', 'ACWI & EEM vs 200d', globFlags.length ? globAbove / globFlags.length : null, globFlags.length ? `${globAbove}/${globFlags.length} above` : null);
+
+  const compassScore = round1((cComps.length ? cComps.reduce((a, c) => a + c.value, 0) / cComps.length : 0.5) * 10);
+  const compassHigh = compassScore >= 5;
+  const compassTrigger = compassScore > 7.0 ? 'Overweight cyclical equities & EM'
+    : compassScore < 4.0 ? 'Defensive rotation — Healthcare, Utilities, Cash'
+    : 'Selective — hold current allocation';
+
+  // ── C. MACRO ANCHOR (2–3 yr) — Structural Risk Budget ─────────────────────
+  // Each input is a historical percentile (higher = more structural risk).
+  // Score = 10 × (1 − avgRisk): high score = low structural risk = room to extend.
+  const riskPcts = [];
+  const rPush = (key, label, risk01, detail) => { if (risk01 != null) riskPcts.push({ key, label, value: risk01, detail }); };
+  rPush('cape', 'Shiller CAPE', valn?.capePct, valn?.cape != null ? valn.cape.toFixed(1) : null);
+  rPush('buffett', 'Buffett Indicator', valn?.buffettPct, valn?.buffett != null ? `${valn.buffett.toFixed(0)}%` : null);
+  rPush('fwdpe', 'Forward P/E', valn?.fwdPePct, valn?.fwdPe != null ? valn.fwdPe.toFixed(1) : null);
+  if (fred?.realYield != null) rPush('realyield', '10Y Real Yield', clamp01(fred.realYield / 3), `${fred.realYield.toFixed(2)}%`);
+  if (fred?.fedFundsRisk != null) rPush('fedfunds', 'Fed Funds Direction', fred.fedFundsRisk, fred.fedFundsDir ?? null);
+
+  const avgRisk = riskPcts.length ? riskPcts.reduce((a, c) => a + c.value, 0) / riskPcts.length : 0.5;
+  const anchorScore = round1(10 * (1 - avgRisk));
+  const zone = anchorScore >= 6 ? 'green' : anchorScore >= 3.5 ? 'amber' : 'red';
+  const sizingFactor = zone === 'green' ? 1.0 : zone === 'amber' ? 0.85 : 0.70;
+  const capePctile = valn?.capePct != null ? Math.round(valn.capePct * 100) : null;
+  const anchorNote = capePctile != null
+    ? `Valuations sit in the ${capePctile}th percentile of history — structural risk is ${zone === 'red' ? 'elevated' : zone === 'amber' ? 'moderate' : 'contained'}. This overlay modifies position sizing, not market-timing direction.`
+    : 'Structural risk overlay — modifies position sizing, not market-timing direction.';
+  const anchorTrigger = anchorScore > 8.0 ? 'Underweight cash — extend equity risk globally'
+    : anchorScore < 3.0 ? 'Accumulate cash equivalents; hedge high-multiple growth'
+    : 'Neutral structural risk — maintain strategic weights';
+
+  // ── INTERACTION MATRIX (Speedometer × Compass; Anchor sizes the position) ──
+  const quadrant = speedHigh && compassHigh ? 'add-risk'
+    : speedHigh && !compassHigh ? 'bear-rally'
+    : !speedHigh && compassHigh ? 'accumulate'
+    : 'risk-off';
+  const QLABEL = { 'add-risk': 'Add Risk', 'bear-rally': 'Bear Rally', 'accumulate': 'Accumulate', 'risk-off': 'Risk-Off' };
+  const GUIDANCE = {
+    'add-risk':   'Tactical and trend aligned bullish — add cyclical risk, buy dips.',
+    'bear-rally': 'Trend is broken — fade strength, don’t chase the bounce.',
+    'accumulate': 'Trend intact, tactical washout — accumulate on weakness.',
+    'risk-off':   'Both horizons bearish — defensive rotation, reduce gross exposure.',
+  };
+
+  return {
+    speedometer: { score: speedScore, level: speedHigh ? 'high' : 'low', components: sComps, veto, vixRatio: vixRatio != null ? Math.round(vixRatio * 100) / 100 : null, trigger: speedTrigger, horizon: '2–3 weeks' },
+    compass:     { score: compassScore, level: compassHigh ? 'high' : 'low', components: cComps, trigger: compassTrigger, horizon: '2–3 months' },
+    anchor:      { score: anchorScore, zone, sizingFactor, percentiles: riskPcts, note: anchorNote, trigger: anchorTrigger, horizon: '2–3 years' },
+    matrix:      { quadrant, label: QLABEL[quadrant], guidance: GUIDANCE[quadrant], sizingFactor, speedLevel: speedHigh ? 'high' : 'low', compassLevel: compassHigh ? 'high' : 'low' },
+  };
+}
+
 // ── AGGREGATE SCORE ───────────────────────────────────────────────────────────
 const SIGNAL_CATEGORIES = [
   { key: 'trend',         label: 'Trend / Momentum',  ids: ['regime', 'leadership', 'sectors', 'equities'], weight: 0.4 },
@@ -1867,7 +2055,8 @@ export async function onRequest(context) {
   // Try D1 first; fall back to Yahoo Finance for any symbol not found in D1 or stale
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
-  const [d1, shiller, buffett, forwardPe, japanPe, breadthData, leaderCtx, breadthCtx, kvWeights] = await Promise.all([
+  const [d1, shiller, buffett, forwardPe, japanPe, breadthData, leaderCtx, breadthCtx, kvWeights,
+         capeP, buffettP, fwdPeP, oasSeries, realYieldSeries, fedFundsSeries] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
     db ? loadBuffettLatest(db) : Promise.resolve(null),
@@ -1877,6 +2066,12 @@ export async function onRequest(context) {
     db ? loadLeadershipContext(db) : Promise.resolve(null),
     db ? loadBreadthContext(db) : Promise.resolve(null),
     loadSectorWeights(kv),
+    db ? loadPercentile(db, 'shiller_data', 'cape') : Promise.resolve(null),
+    db ? loadPercentile(db, 'buffett_data', 'ratio') : Promise.resolve(null),
+    db ? loadPercentile(db, 'forward_pe_data', 'pe') : Promise.resolve(null),
+    db ? loadFredSeries(db, 'BAMLH0A0HYM2OAS', 250) : Promise.resolve([]),
+    db ? loadFredSeries(db, 'DFII10', 5) : Promise.resolve([]),
+    db ? loadFredSeries(db, 'DFEDTARU', 60) : Promise.resolve([]),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   // Treat D1 data as stale only if >3 calendar days old \u2014 handles weekends + pre-seeder Monday
@@ -1974,10 +2169,33 @@ export async function onRequest(context) {
   const agg = buildAggregate(cards);
   agg.scoreDirection = scoreDirection;
 
+  // ── HORIZON SCORES ─────────────────────────────────────────────────────────
+  const valn = {
+    cape:    capeP?.value,    capePct:    capeP?.pct,
+    buffett: buffettP?.value, buffettPct: buffettP?.pct,
+    fwdPe:   fwdPeP?.value,   fwdPePct:   fwdPeP?.pct,
+  };
+  // Fed funds direction from DFEDTARU: hiking = tightening = more structural risk.
+  let fedFundsRisk = null, fedFundsDir = null;
+  if (fedFundsSeries && fedFundsSeries.length >= 2) {
+    const cur = fedFundsSeries[0].value;
+    const prev = fedFundsSeries[fedFundsSeries.length - 1].value;
+    if (cur > prev)      { fedFundsRisk = 0.75; fedFundsDir = 'Hiking'; }
+    else if (cur < prev) { fedFundsRisk = 0.25; fedFundsDir = 'Cutting'; }
+    else                 { fedFundsRisk = 0.5;  fedFundsDir = 'On Hold'; }
+  }
+  const fred = {
+    oas:          oasSeries,
+    realYield:    realYieldSeries?.[0]?.value ?? null,
+    fedFundsRisk, fedFundsDir,
+  };
+  const horizons = buildHorizons(q, breadthData, valn, fred);
+
   const body = JSON.stringify({
     timestamp: new Date().toISOString(),
     source,
     aggregate: agg,
+    horizons,
     cards,
   });
 
