@@ -4868,7 +4868,7 @@ function CpiHistoryChart() {
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
           {latest != null && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-              <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Latest YoY</span>
+              <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Latest</span>
               <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 700, color: hColorYoy }}>
                 {(latest >= 0 ? '+' : '') + latest.toFixed(1)}%
               </span>
