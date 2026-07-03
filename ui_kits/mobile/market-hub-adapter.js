@@ -80,7 +80,7 @@
 
     // Inject currency + crowdsignals from seed when API doesn't return them yet.
     const seed = (window.GLANCE || {}).cards || {};
-    ['currency', 'crowdsignals'].forEach((id) => { if (!byId[id] && seed[id]) byId[id] = seed[id]; });
+    ['currency', 'crowdsignals', 'positioning'].forEach((id) => { if (!byId[id] && seed[id]) byId[id] = seed[id]; });
 
     // Currency shows in Macro Conditions dots but is excluded from the scored denominator (10 cards only).
     const categories = (agg.categories || []).map((cat) => ({
@@ -100,7 +100,7 @@
       { label: 'Macro Pricing',      ids: ['valuations', 'yield', 'credit', 'currency'] },
       { label: 'Flow & Rotation',    ids: ['globalflows', 'sectors'] },
       { label: 'Real Assets',        ids: ['commodities', 'equities'] },
-      { label: 'Crowd Intelligence', ids: ['crowdsignals'] },
+      { label: 'Crowd Intelligence', ids: ['crowdsignals', 'positioning'] },
     ].map((g) => ({ label: g.label, ids: g.ids.filter((id) => byId[id]) })).filter((g) => g.ids.length);
 
     return {

@@ -733,9 +733,10 @@ class DiagBoundary extends React.Component {
   }
 }
 
-// ── Structural card deep-dive ─────────────────────────────────────────────────
+// ── Structural card deep-dive — shared content from desktop-parts.jsx ─────────
 function DeepDive({ card, cardId, onBack }) {
   const sig = SIG[card.status] || SIG.neutral;
+  const SharedContent = window.DeepDiveContent;
   return (
     <div style={{ position: 'absolute', inset: 0, background: '#080c14', display: 'flex', flexDirection: 'column' }}>
       <div style={{ paddingTop: 54, background: 'linear-gradient(#080c14 80%, rgba(8,12,20,0))' }}>
@@ -750,55 +751,8 @@ function DeepDive({ card, cardId, onBack }) {
           </div>
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '2px 16px calc(34px + 22px)', display: 'flex', flexDirection: 'column', gap: 18 }}>
-        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 14px 12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-            <div>
-              <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500 }}>{card.metric}</div>
-              <div style={{ fontFamily: SANS, fontSize: 10, color: '#8295a9', marginTop: 1 }}>{card.metricUnit}</div>
-            </div>
-            <div style={{ fontFamily: MONO, fontSize: 22, fontWeight: 700, color: sig.c }}>{card.metricVal}</div>
-          </div>
-          <DeepChart card={card} cardId={cardId} color={sig.c} />
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {card.stats.map((st, i) => {
-            const tone = st[3] === 'pos' ? '#22c55e' : st[3] === 'neg' ? '#ef4444' : '#e8edf5';
-            return (
-              <div key={i} style={{ flex: 1, minWidth: 0, background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 12, padding: '11px 10px' }}>
-                <div style={{ fontFamily: MONO, fontSize: 15, fontWeight: 700, color: tone }}>{st[1]}</div>
-                <div style={{ fontFamily: SANS, fontSize: 10, color: '#94a3b8', marginTop: 3, lineHeight: 1.2 }}>{st[0]}</div>
-                <div style={{ fontFamily: SANS, fontSize: 9, color: '#8295a9', marginTop: 2, lineHeight: 1.2 }}>{st[2]}</div>
-              </div>
-            );
-          })}
-        </div>
-        {card.flags && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
-            {card.flags.map((f) => (<img key={f} src={`/market-hub/assets/flags/${f}.svg`} alt={f} style={{ width: 26, height: 17, borderRadius: 3, objectFit: 'cover', border: '1px solid #1e2d3d' }} />))}
-          </div>
-        )}
-        <DiagBoundary>
-          <DiagnosticsSection cardId={cardId} card={card} />
-        </DiagBoundary>
-        <div>
-          <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>Indicators ▼</div>
-          <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '2px 14px' }}>
-            {card.rows.map((r, i) => {
-              const rs = SIG[r[3]] || SIG.neutral;
-              return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '12px 0', borderBottom: i < card.rows.length - 1 ? '1px solid #16202e' : 'none' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: rs.c, boxShadow: `0 0 6px ${rs.glow}`, flexShrink: 0 }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontFamily: SANS, fontSize: 13, color: '#e8edf5' }}>{r[0]}</div>
-                    <div style={{ fontFamily: SANS, fontSize: 11, color: '#64748b' }}>{r[2]}</div>
-                  </div>
-                  <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 600, color: rs.c }}>{r[1]}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '2px 16px calc(34px + 22px)' }}>
+        {SharedContent && <SharedContent card={card} cardId={cardId} />}
       </div>
     </div>
   );
