@@ -294,22 +294,22 @@ const COT_CONTRACTS = [
     key:     'ES',
     dataset: 'yw9f-hn96',  // TFF — Traders in Financial Futures
     filter:  'E-MINI S&P 500',
-    longFld: 'lev_money_positions_long_all',
-    shrtFld: 'lev_money_positions_short_all',
+    longFld: 'lev_money_positions_long',
+    shrtFld: 'lev_money_positions_short',
   },
   {
     key:     'GC',
-    dataset: 'jun7-fc8e',  // Disaggregated Futures-Only
-    filter:  'GOLD - COMMODITY EXCHANGE INC.',
-    longFld: 'managed_money_positions_long_all',
-    shrtFld: 'managed_money_positions_short_all',
+    dataset: 'jun7-fc8e',  // Legacy Futures-Only
+    filter:  'GOLD',
+    longFld: 'noncomm_positions_long_all',
+    shrtFld: 'noncomm_positions_short_all',
   },
   {
     key:     'CL',
     dataset: 'jun7-fc8e',
-    filter:  'CRUDE OIL, LIGHT SWEET - NEW YORK MERCANTILE EXCHANGE',
-    longFld: 'managed_money_positions_long_all',
-    shrtFld: 'managed_money_positions_short_all',
+    filter:  'CRUDE OIL, LIGHT SWEET',
+    longFld: 'noncomm_positions_long_all',
+    shrtFld: 'noncomm_positions_short_all',
   },
 ];
 
