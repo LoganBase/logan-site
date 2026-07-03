@@ -4844,14 +4844,143 @@ function CpiHistoryChart() {
 }
 
 function PositioningDeepDive() {
+  const [cotData, setCotData] = useStateD(null);
+  useEffectD(() => {
+    let alive = true;
+    fetch('/api/cot').then(r => r.json())
+      .then(d => { if (alive && d.contracts) setCotData(d.contracts); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   const secLabel = (txt) => (
     <div style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 10 }}>{txt}</div>
   );
+
+  // Contrarian trading color: crowded_short = bullish (green), crowded_long = bearish (red)
+  const sigColor = (crowding) =>
+    crowding === 'crowded_short' ? '#22c55e'
+    : crowding === 'crowded_long' ? '#ef4444'
+    : '#f59e0b';
+
+  function buildDiagnostics(contracts) {
+    if (!contracts) return null;
+    const es = contracts.find(c => c.key === 'ES');
+    const gc = contracts.find(c => c.key === 'GC');
+    const cl = contracts.find(c => c.key === 'CL');
+    const na = { a: '—', c: '#94a3b8' };
+
+    const esD = es && !es.empty ? {
+      a: es.crowding === 'crowded_short'
+        ? `Crowded Short (${es.pctile}th pctile) — Contrarian Bullish; short-squeeze fuel if any positive catalyst hits`
+        : es.crowding === 'crowded_long'
+        ? `Crowded Long (${es.pctile}th pctile) — Contrarian Bearish; stretched longs are the next wave of sellers`
+        : `Neutral (${es.pctile}th pctile) — No Positioning Extreme; price driven by fundamentals, not forced flows`,
+      c: sigColor(es.crowding),
+    } : na;
+
+    const gcD = gc && !gc.empty ? {
+      a: gc.crowding === 'crowded_short'
+        ? `Crowded Short (${gc.pctile}th pctile) — Specs underweight gold; safe-haven trade not stretched, room to move`
+        : gc.crowding === 'crowded_long'
+        ? `Crowded Long (${gc.pctile}th pctile) — Specs heavily long gold; safe-haven trade is crowded, limited upside`
+        : `Neutral (${gc.pctile}th pctile) — Balanced gold positioning; no crowding signal either way`,
+      c: sigColor(gc.crowding),
+    } : na;
+
+    const clD = cl && !cl.empty ? {
+      a: cl.crowding === 'crowded_short'
+        ? `Crowded Short (${cl.pctile}th pctile) — Specs net-short crude; any supply cut or demand beat triggers squeeze`
+        : cl.crowding === 'crowded_long'
+        ? `Crowded Long (${cl.pctile}th pctile) — Energy specs are stretched; demand miss or supply build carries outsized downside`
+        : `Neutral (${cl.pctile}th pctile) — Balanced crude positioning; oil will follow macro growth signals`,
+      c: sigColor(cl.crowding),
+    } : na;
+
+    const extremes = [es, gc, cl].filter(c => c && !c.empty && c.crowding !== 'neutral');
+    const aggA = extremes.length === 0
+      ? 'Balanced — No Positioning Extremes; markets pricing on fundamentals, not forced flows'
+      : extremes.length === 1
+      ? `One Extreme — ${extremes[0].label} positioning is stretched; watch for catalyst-driven covering`
+      : `Multiple Extremes — ${extremes.length} contracts at positioning extremes; high-conviction contrarian setup`;
+    const aggC = extremes.length >= 2 ? '#ef4444' : extremes.length === 1 ? '#f59e0b' : '#22c55e';
+
+    return [
+      { label: 'S&P 500 Futures (ES)', q: 'Are large speculators crowded long or short — is there positioning fuel or a unwind risk?', ...esD },
+      { label: 'Gold Futures (GC)',    q: 'Is safe-haven demand from specs crowded — does gold have room to run or is it stretched?',   ...gcD },
+      { label: 'WTI Crude (CL)',       q: 'Are energy speculators confirming or contradicting the commodity cycle?',                    ...clD },
+      { label: 'Aggregate Signal',     q: 'Across all three contracts, how broadly stretched is speculative positioning?',              a: aggA, c: aggC },
+    ];
+  }
+
+  function buildNarrative(contracts) {
+    if (!contracts) return null;
+    const es = contracts.find(c => c.key === 'ES');
+    const gc = contracts.find(c => c.key === 'GC');
+    const cl = contracts.find(c => c.key === 'CL');
+    const parts = [];
+
+    if (es && !es.empty) {
+      const netK = es.noncommNet != null ? `${(es.noncommNet / 1000).toFixed(0)}K` : '—';
+      parts.push(
+        es.crowding === 'crowded_short'
+          ? `S&P 500 futures: specs are heavily net-short (${netK} contracts, ${es.pctile}th pctile over 3 years). Extreme short positioning is a contrarian bullish signal — historically, short squeezes at these levels produce sharp but swift rallies.`
+          : es.crowding === 'crowded_long'
+          ? `S&P 500 futures: specs are crowded net-long (${netK} contracts, ${es.pctile}th pctile over 3 years). Stretched longs become sellers on any disappointment — the positioning itself is a latent source of downside volatility.`
+          : `S&P 500 futures: speculative positioning is neutral at the ${es.pctile}th pctile (${netK} contracts). No positioning distortion — equity direction will be set by earnings, macro data, and Fed signals rather than forced covering.`
+      );
+    }
+
+    if (gc && !gc.empty && gc.crowding !== 'neutral') {
+      const netK = gc.noncommNet != null ? `${(gc.noncommNet / 1000).toFixed(0)}K` : '—';
+      parts.push(
+        gc.crowding === 'crowded_long'
+          ? `Gold: speculative longs at the ${gc.pctile}th pctile (${netK} contracts) — the safe-haven trade is crowded. Upside is constrained unless a new macro shock drives a fresh wave of demand beyond current positioning.`
+          : `Gold: specs are net-short at the ${gc.pctile}th pctile (${netK} contracts) — the safe-haven trade is under-owned. Any flight to quality has a clean runway with minimal crowded-long resistance.`
+      );
+    }
+
+    if (cl && !cl.empty && cl.crowding !== 'neutral') {
+      const netK = cl.noncommNet != null ? `${(cl.noncommNet / 1000).toFixed(0)}K` : '—';
+      parts.push(
+        cl.crowding === 'crowded_long'
+          ? `WTI crude: energy specs are stretched long at the ${cl.pctile}th pctile (${netK} contracts). Supply-side or demand misses carry outsized impact when longs are this crowded.`
+          : `WTI crude: specs are net-short at the ${cl.pctile}th pctile (${netK} contracts). Energy is under-owned — OPEC cuts or a demand surprise could trigger aggressive short-covering in crude.`
+      );
+    }
+
+    if (!parts.length) return 'Speculative positioning across ES, GC, and CL is within normal historical ranges — no extreme crowding detected in any contract. Markets are pricing on fundamentals rather than positioning distortion.';
+    return parts.join(' ');
+  }
+
+  const items = buildDiagnostics(cotData);
+  const narrative = buildNarrative(cotData);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
       <div>
         {secLabel('COT — Commitment of Traders')}
         <COTPositioning />
+      </div>
+      <div>
+        {secLabel('Market Diagnostics')}
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '16px 20px' }}>
+          {items && (
+            <div style={{ marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #1e2d3d' }}>
+              {items.map(({ label, q, a, c }, idx, arr) => (
+                <div key={label} style={{ paddingTop: idx===0?0:11, paddingBottom: idx<arr.length-1?11:0, borderBottom: idx<arr.length-1?'1px solid #0d1e2e':'none' }}>
+                  <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 3 }}>{label}</div>
+                  <div style={{ fontFamily: DSANS, fontSize: 13, fontWeight: 600, color: c, lineHeight: 1.4, marginBottom: 4 }}>{a}</div>
+                  <div style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.4 }}>{q}</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.09em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: 7 }}>Market Narrative</div>
+          <p style={{ fontFamily: DSANS, fontSize: 13.5, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>
+            {narrative || 'Loading…'}
+          </p>
+        </div>
       </div>
     </div>
   );
