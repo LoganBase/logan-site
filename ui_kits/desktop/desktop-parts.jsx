@@ -5195,20 +5195,6 @@ function CrowdSignalsDeepDive() {
           </div>
         )}
       </div>
-      {(summaryStatus === 'loading' || summaryStatus === 'ready') && (
-        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: '3px solid #60a5fa', borderRadius: 14, padding: '16px 20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: summaryStatus === 'ready' ? 12 : 0 }}>
-            <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#60a5fa', flex: 1 }}>Crowd Signal Summary</span>
-            <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '2px 7px', borderRadius: 4, background: '#0d1e35', border: '1px solid #1a3a5c', letterSpacing: '.04em' }}>✦ CLAUDE</span>
-          </div>
-          {summaryStatus === 'loading' && (
-            <span style={{ fontFamily: DSANS, fontSize: 13, color: '#64748b' }}>Synthesizing crowd signals…</span>
-          )}
-          {summaryStatus === 'ready' && summary && (
-            <p style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{summary}</p>
-          )}
-        </div>
-      )}
       {kalshi && poly && (() => {
         const top5      = polySignals.slice(0, 5);
         const bulls     = top5.filter(s => s.sentiment === 'bullish').length;
@@ -5277,6 +5263,20 @@ function CrowdSignalsDeepDive() {
           </div>
         );
       })()}
+      {(summaryStatus === 'loading' || summaryStatus === 'ready') && (
+        <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderLeft: '3px solid #60a5fa', borderRadius: 14, padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: summaryStatus === 'ready' ? 12 : 0 }}>
+            <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#60a5fa', flex: 1 }}>Crowd Signal Summary</span>
+            <span style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 600, color: '#60a5fa', padding: '2px 7px', borderRadius: 4, background: '#0d1e35', border: '1px solid #1a3a5c', letterSpacing: '.04em' }}>✦ CLAUDE</span>
+          </div>
+          {summaryStatus === 'loading' && (
+            <span style={{ fontFamily: DSANS, fontSize: 13, color: '#64748b' }}>Synthesizing crowd signals…</span>
+          )}
+          {summaryStatus === 'ready' && summary && (
+            <p style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8', lineHeight: 1.65, margin: 0 }}>{summary}</p>
+          )}
+        </div>
+      )}
       <div style={{ fontFamily: DSANS, fontSize: 11, color: '#94a3b8', lineHeight: 1.6 }}>
         Kalshi: KXFED (Fed funds rate) and KXCPI (CPI MoM) series — FOMC confidence reflects implied probability at the market-implied rate. Polymarket: top macro signals by volume from Macro Single and Macro Indicators tags, filtered for yield-relevant keywords.
       </div>
