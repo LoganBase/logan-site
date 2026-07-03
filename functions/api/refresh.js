@@ -287,6 +287,81 @@ async function refreshSectorWeights(kv) {
   return { status: 'ok', fetched, weights };
 }
 
+// ── COT — CFTC Commitment of Traders (weekly, via Socrata public API) ─────────
+// TFF dataset (financial futures) for ES; Disaggregated for GC + CL.
+const COT_CONTRACTS = [
+  {
+    key:     'ES',
+    dataset: 'yw9f-hn96',  // TFF — Traders in Financial Futures
+    filter:  'E-MINI S&P 500',
+    longFld: 'lev_money_positions_long_all',
+    shrtFld: 'lev_money_positions_short_all',
+  },
+  {
+    key:     'GC',
+    dataset: 'jun7-fc8e',  // Disaggregated Futures-Only
+    filter:  'GOLD - COMMODITY EXCHANGE INC.',
+    longFld: 'managed_money_positions_long_all',
+    shrtFld: 'managed_money_positions_short_all',
+  },
+  {
+    key:     'CL',
+    dataset: 'jun7-fc8e',
+    filter:  'CRUDE OIL, LIGHT SWEET - NEW YORK MERCANTILE EXCHANGE',
+    longFld: 'managed_money_positions_long_all',
+    shrtFld: 'managed_money_positions_short_all',
+  },
+];
+
+async function refreshCOT(db) {
+  const CFTC = 'https://publicreporting.cftc.gov/resource';
+  const results = {};
+
+  for (const c of COT_CONTRACTS) {
+    try {
+      // Find the latest date we already have so we only backfill what's missing
+      const { results: latest } = await db.prepare(
+        `SELECT MAX(report_date) AS last FROM cot_data WHERE contract = ?`
+      ).bind(c.key).all();
+      const since = latest[0]?.last ?? '2022-01-01';
+
+      const qs = new URLSearchParams({
+        '$where':  `market_and_exchange_names like '%${c.filter.split(' - ')[0]}%' AND report_date_as_yyyy_mm_dd > '${since}'`,
+        '$order':  'report_date_as_yyyy_mm_dd ASC',
+        '$limit':  '200',
+        '$select': `report_date_as_yyyy_mm_dd,open_interest_all,${c.longFld},${c.shrtFld}`,
+      });
+      const res = await fetch(`${CFTC}/${c.dataset}.json?${qs}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!res.ok) { results[c.key] = { status: 'http_error', code: res.status }; continue; }
+
+      const rows = await res.json();
+      if (!rows.length) { results[c.key] = { status: 'up_to_date' }; continue; }
+
+      let inserted = 0;
+      for (const row of rows) {
+        const date = row.report_date_as_yyyy_mm_dd?.slice(0, 10);
+        const oi   = parseInt(row.open_interest_all, 10) || null;
+        const lng  = parseInt(row[c.longFld], 10) || null;
+        const sht  = parseInt(row[c.shrtFld], 10) || null;
+        if (!date || lng == null || sht == null) continue;
+        const net    = lng - sht;
+        const netPct = oi ? +(net / oi).toFixed(4) : null;
+        await db.prepare(
+          `INSERT OR REPLACE INTO cot_data (report_date, contract, noncomm_long, noncomm_short, noncomm_net, open_interest, net_pct_oi)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        ).bind(date, c.key, lng, sht, net, oi, netPct).run();
+        inserted++;
+      }
+      results[c.key] = { status: 'ok', inserted };
+    } catch (err) {
+      results[c.key] = { status: 'error', error: err.message };
+    }
+  }
+  return results;
+}
+
 // ── HANDLER ───────────────────────────────────────────────────────────────────
 export async function onRequest(context) {
   if (context.request.method === 'OPTIONS') {
@@ -343,11 +418,21 @@ export async function onRequest(context) {
     }
   }
 
+  let cot = { status: 'skipped' };
+  if (startIdx === 0) {
+    try {
+      cot = await refreshCOT(db);
+    } catch (err) {
+      cot = { status: 'error', error: err.message };
+    }
+  }
+
   return new Response(JSON.stringify({
     timestamp:     new Date().toISOString(),
     totalAdded,
     symbols:       results,
     sectorWeights,
+    cot,
   }), {
     headers: {
       'Content-Type':                'application/json',

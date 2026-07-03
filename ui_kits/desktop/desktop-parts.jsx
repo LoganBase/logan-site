@@ -4669,6 +4669,119 @@ function buildLeadershipMetrics(card, computedStats, qcRange) {
   return { row1, row2 };
 }
 
+// ── COT Positioning panel — CFTC Commitment of Traders ───────────────────────
+function COTPositioning() {
+  const [data, setData] = useStateD(null);
+  useEffectD(() => {
+    let alive = true;
+    fetch('/api/cot').then(r => r.json())
+      .then(d => { if (alive && d.contracts) setData(d); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const LABELS = { ES: 'S&P 500 Futures', GC: 'Gold', CL: 'WTI Crude' };
+  const ICONS  = { ES: '📈', GC: '🟡', CL: '🛢' };
+
+  const crowdColor = (c) => c === 'crowded_long' ? '#22c55e' : c === 'crowded_short' ? '#ef4444' : '#f59e0b';
+  const crowdLabel = (c) => c === 'crowded_long' ? 'Crowded Long' : c === 'crowded_short' ? 'Crowded Short' : 'Neutral';
+
+  const interp = (key, crowding, pctile) => {
+    if (key === 'ES') {
+      if (crowding === 'crowded_long')  return `Hedge funds are heavily net-long S&P futures (${pctile}th percentile). Positioning is stretched — a catalyst for rapid unwinding. Historically precedes sharp but brief corrections as crowded longs exit.`;
+      if (crowding === 'crowded_short') return `Hedge funds are historically net-short S&P futures (${pctile}th percentile). Extreme short positioning often fuels sharp short-covering rallies on any positive surprise.`;
+      return `Speculative S&P positioning is within normal range (${pctile}th percentile). No positioning extreme — price direction driven by fundamentals and flows rather than forced covering.`;
+    }
+    if (key === 'GC') {
+      if (crowding === 'crowded_long')  return `Gold speculative longs are historically crowded (${pctile}th percentile). Safe-haven demand is priced in — upside may be limited from here without a new catalyst.`;
+      if (crowding === 'crowded_short') return `Gold speculative shorts are at an extreme (${pctile}th percentile). Crowded shorts are fuel for a snap rally on any risk-off event.`;
+      return `Gold positioning is neutral (${pctile}th percentile). No significant sentiment extreme — price will follow macro cues.`;
+    }
+    if (key === 'CL') {
+      if (crowding === 'crowded_long')  return `WTI crude speculative longs are stretched (${pctile}th percentile). Energy positioning is crowded — supply-side surprises carry outsized downside risk.`;
+      if (crowding === 'crowded_short') return `Crude short positioning is at an extreme (${pctile}th percentile). Any demand surprise or supply cut could trigger aggressive short covering.`;
+      return `Crude oil positioning is neutral (${pctile}th percentile). Balanced positioning — oil price will track macro growth signals rather than sentiment.`;
+    }
+    return '';
+  };
+
+  if (!data) {
+    return (
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '18px 20px' }}>
+        <div style={{ fontFamily: DSANS, fontSize: 13, color: '#475569' }}>Loading COT data…</div>
+      </div>
+    );
+  }
+
+  const hasData = data.contracts.some(c => !c.empty);
+  if (!hasData) {
+    return (
+      <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '18px 20px' }}>
+        <div style={{ fontFamily: DSANS, fontSize: 13, color: '#475569' }}>No COT data yet — run /api/refresh to seed.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {data.contracts.filter(c => !c.empty).map(c => {
+        const cc = crowdColor(c.crowding);
+        const cl = crowdLabel(c.crowding);
+        const netK = c.noncommNet != null ? (Math.abs(c.noncommNet) >= 1000
+          ? `${c.noncommNet > 0 ? '+' : '−'}${(Math.abs(c.noncommNet) / 1000).toFixed(0)}K`
+          : `${c.noncommNet > 0 ? '+' : ''}${c.noncommNet}`) : '—';
+        const pctStr = `${(c.netPctOi * 100).toFixed(1)}% of OI`;
+
+        return (
+          <div key={c.key} style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 14, padding: '18px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div>
+                <div style={{ fontFamily: DSANS, fontSize: 14, fontWeight: 600, color: '#cbd5e1' }}>{c.label}</div>
+                <div style={{ fontFamily: DSANS, fontSize: 11, color: '#8295a9', marginTop: 2 }}>
+                  Speculative net · {c.reportDate ? `Week of ${c.reportDate}` : 'CFTC COT'}
+                </div>
+              </div>
+              <div style={{ padding: '3px 10px', borderRadius: 7, background: cc + '22', border: `1px solid ${cc}44`, flexShrink: 0 }}>
+                <span style={{ fontFamily: DSANS, fontSize: 11, fontWeight: 700, color: cc }}>{cl}</span>
+              </div>
+            </div>
+
+            {/* Net position + percentile */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
+              <span style={{ fontFamily: DMONO, fontSize: 22, fontWeight: 700, color: cc, lineHeight: 1 }}>{netK}</span>
+              <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>contracts net · {pctStr}</span>
+            </div>
+
+            {/* Percentile bar */}
+            <div style={{ marginBottom: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569' }}>3Y percentile</span>
+                <span style={{ fontFamily: DMONO, fontSize: 12, fontWeight: 600, color: cc }}>{c.pctile}th</span>
+              </div>
+              <div style={{ height: 6, borderRadius: 3, background: '#1e2d3d', overflow: 'hidden', position: 'relative' }}>
+                {/* Zone tints */}
+                <div style={{ position: 'absolute', left: 0, top: 0, width: '20%', height: '100%', background: 'rgba(239,68,68,0.15)' }} />
+                <div style={{ position: 'absolute', right: 0, top: 0, width: '20%', height: '100%', background: 'rgba(34,197,94,0.15)' }} />
+                <div style={{ height: '100%', width: `${c.pctile}%`, background: cc, borderRadius: 3, transition: 'width 0.5s ease' }} />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                <span style={{ fontFamily: DSANS, fontSize: 9, color: '#ef4444' }}>Crowded Short</span>
+                <span style={{ fontFamily: DSANS, fontSize: 9, color: '#22c55e' }}>Crowded Long</span>
+              </div>
+            </div>
+
+            {/* Interpretation */}
+            <div style={{ background: '#060e19', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${cc}55`, marginTop: 4 }}>
+              <div style={{ fontFamily: DSANS, fontSize: 10, fontWeight: 700, letterSpacing: '.08em', textTransform: 'uppercase', color: '#475569', marginBottom: 5 }}>What this means</div>
+              <div style={{ fontFamily: DSANS, fontSize: 12, color: '#94a3b8', lineHeight: 1.6 }}>{interp(c.key, c.crowding, c.pctile)}</div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Crowd Signals deep dive — Kalshi events + Polymarket macro signals ──
 // ── CPI Inflation — Headline & Core historical chart (CrowdSignals deep dive) ──
 const CPI_RANGES = ['1Y', '2Y', '5Y', '10Y', '20Y'];
@@ -4914,6 +5027,10 @@ function CrowdSignalsDeepDive() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+      <div>
+        {secLabel('COT — Institutional Positioning')}
+        <COTPositioning />
+      </div>
       <div>
         {secLabel('CPI Inflation History')}
         <CpiHistoryChart />
@@ -5743,4 +5860,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, COTPositioning, DeepDiveContent });
