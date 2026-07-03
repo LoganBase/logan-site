@@ -79,10 +79,10 @@ function fmtDate(iso) {
 }
 
 // Fetch the next open event's markets for a series.
-// Uses Cloudflare Cache API: cache successful (non-empty) results for 5 min,
-// never cache empty results so "no markets" can't get stuck.
+// Uses Cloudflare Cache API with a same-zone key (required by CF).
+// Caches successful non-empty results for 5 min; never caches empty results.
 async function fetchNext(seriesTicker) {
-  const cacheKey = `https://cache.internal/kalshi/${seriesTicker}`;
+  const cacheKey = `https://www.loganbase.com/__kalshi/${seriesTicker}`;
   const cache = caches.default;
 
   const cached = await cache.match(cacheKey);
@@ -100,7 +100,6 @@ async function fetchNext(seriesTicker) {
     markets.sort((a, b) => new Date(a.close_time) - new Date(b.close_time));
     const evt = markets[0].event_ticker;
     const result = markets.filter(m => m.event_ticker === evt);
-    // Cache successful result for 5 minutes
     await cache.put(cacheKey, new Response(JSON.stringify(result), {
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' },
     }));
