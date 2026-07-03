@@ -496,7 +496,7 @@ function MobileMatrix({ matrix }) {
       </div>
       <div style={{ marginTop: 11, paddingTop: 11, borderTop: '1px solid #16202e', fontFamily: SANS, fontSize: 12, color: '#cbd5e1', lineHeight: 1.45 }}>
         <span style={{ color: QMETA[matrix.quadrant].color, fontWeight: 700 }}>{matrix.label}: </span>{matrix.guidance}
-        <span style={{ color: '#64748b' }}>{` Size ${Math.round((matrix.sizingFactor ?? 1) * 100)}%.`}</span>
+        {` Size any positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% of normal.`}
       </div>
     </div>
   );

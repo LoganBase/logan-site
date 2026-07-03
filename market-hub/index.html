@@ -765,8 +765,7 @@ function matrixHTML(matrix) {
         ${rowHead('Speed Low')}${cell(rows[1][0])}${cell(rows[1][1])}
       </div>
       <div style="margin-top:12px;padding-top:12px;border-top:1px solid #16202e;font-size:12.5px;color:#cbd5e1;line-height:1.45">
-        <span style="color:${QMETA[matrix.quadrant].color};font-weight:700">${matrix.label}: </span>${matrix.guidance}
-        <span style="color:#64748b"> The Macro Anchor suggests sizing any positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% of normal.</span>
+        <span style="color:${QMETA[matrix.quadrant].color};font-weight:700">${matrix.label}: </span>${matrix.guidance} The Macro Anchor suggests sizing any positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% of normal.
       </div>
     </div>`;
 }

@@ -929,7 +929,7 @@ function InteractionMatrix({ matrix }) {
       <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #16202e', fontFamily: DSANS, fontSize: 12.5, color: '#cbd5e1', lineHeight: 1.45 }}>
         <span style={{ color: QMETA[matrix.quadrant].color, fontWeight: 700 }}>{matrix.label}: </span>
         {matrix.guidance}
-        <span style={{ color: '#64748b' }}>{` The Macro Anchor suggests sizing any positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% of normal.`}</span>
+        {` The Macro Anchor suggests sizing any positions at ${Math.round((matrix.sizingFactor ?? 1) * 100)}% of normal.`}
       </div>
     </div>
   );
