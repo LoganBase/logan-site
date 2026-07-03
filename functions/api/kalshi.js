@@ -81,7 +81,8 @@ function fmtDate(iso) {
 // Fetch the next open event's markets for a series (soonest close_time)
 async function fetchNext(seriesTicker) {
   try {
-    const res = await fetch(`${BASE}/markets?series_ticker=${seriesTicker}&status=open&limit=100`, { headers: HEADERS });
+    const bust = Date.now();
+    const res = await fetch(`${BASE}/markets?series_ticker=${seriesTicker}&status=open&limit=100&_t=${bust}`, { headers: HEADERS });
     if (!res.ok) return [];
     const { markets = [] } = await res.json();
     if (!markets.length) return [];

@@ -5039,11 +5039,10 @@ function CrowdSignalsDeepDive() {
   const [summaryStatus, setSummaryStatus] = useStateD('idle');
   useEffectD(() => {
     let alive = true;
-    const hKey = new Date().toISOString().slice(0, 13); // bust cache hourly
-    fetch(`/api/kalshi?h=${hKey}`).then(r => r.json())
+    fetch('/api/kalshi', { cache: 'no-store' }).then(r => r.json())
       .then(d => { if (alive) setKalshi(d); })
       .catch(() => { if (alive) setKalshi({ events: [] }); });
-    fetch(`/api/polymarket?h=${hKey}`).then(r => r.json())
+    fetch('/api/polymarket', { cache: 'no-store' }).then(r => r.json())
       .then(d => { if (alive) setPoly(d); })
       .catch(() => { if (alive) setPoly({ signals: [] }); });
     return () => { alive = false; };
