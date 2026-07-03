@@ -4994,8 +4994,9 @@ function CpiHistoryChart() {
   const [range, setRange]     = useStateD('10Y');
   const [live, setLive]       = useStateD(null);
   const [momData, setMomData] = useStateD(null);
-  const [latest, setLatest]   = useStateD(null);    // latest YoY
-  const [latestMom, setLatestMom] = useStateD(null); // latest MoM
+  const [latest, setLatest]       = useStateD(null);
+  const [latestMom, setLatestMom] = useStateD(null);
+  const [latestMonth, setLatestMonth] = useStateD(null);
 
   useEffectD(() => {
     let alive = true;
@@ -5003,6 +5004,7 @@ function CpiHistoryChart() {
     setMomData(null);
     setLatest(null);
     setLatestMom(null);
+    setLatestMonth(null);
     const mo = new Date().toISOString().slice(0, 7);
     fetch(`/api/cpi-history?range=${RMAP[range]}&d=${mo}&v=2`)
       .then(r => r.json())
@@ -5018,6 +5020,11 @@ function CpiHistoryChart() {
         const lastMom    = [...momValues].reverse().find(v => v != null);
         if (lastYoy != null) setLatest(lastYoy);
         if (lastMom != null) setLatestMom(lastMom);
+        if (Array.isArray(j.dates) && j.dates.length) {
+          const lastDate = j.dates[j.dates.length - 1];
+          const mon = new Date(lastDate + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short' });
+          setLatestMonth(mon);
+        }
         setMomData({ headline: momValues, core: coreMom });
         setLive({
           values:     yoyValues || momValues,
@@ -5052,12 +5059,12 @@ function CpiHistoryChart() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>CPI Inflation — Headline &amp; Core</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Hover for monthly change</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>CPI monthly print actuals, hover for monthly change</div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
           {latest != null && (
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-              <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Latest</span>
+              <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>{latestMonth || 'Latest'}</span>
               <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 700, color: hColorYoy }}>
                 {(latest >= 0 ? '+' : '') + latest.toFixed(1)}%
               </span>
