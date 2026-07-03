@@ -27,7 +27,7 @@ const LAST_CPI_MONTH = 'May';
 const FRED_BASE   = 'https://api.stlouisfed.org/fred/series/observations';
 const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const TTL_LIVE    = 5 * 60;   // 5 min — cache live market data
-const TTL_EMPTY   = 30;       // 30 sec — retry quickly when no markets found
+const TTL_EMPTY   = 2 * 60;   // 2 min — back off when no markets / rate limited
 
 function fredMonth(dateStr) {
   if (!dateStr) return '';
@@ -100,7 +100,17 @@ async function fetchNext(seriesTicker, db) {
   try {
     const url = `${BASE}/markets?series_ticker=${seriesTicker}&status=open&limit=100`;
     const res = await fetch(url, { headers: HEADERS });
-    if (!res.ok) return { markets: [], httpStatus: res.status };
+    if (!res.ok) {
+      // Cache the failure briefly so we don't keep hammering Kalshi
+      if (db) {
+        try {
+          await db.prepare(
+            'INSERT INTO api_cache (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+          ).bind(cacheKey, '[]', now).run();
+        } catch {}
+      }
+      return { markets: [], httpStatus: res.status };
+    }
     const body = await res.json();
     const markets = body.markets || body.data || [];
     let result = [];
