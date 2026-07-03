@@ -64,35 +64,45 @@ export async function onRequest(context) {
   const FRED_KEY = context.env.FRED_API_KEY || '';
   // units=pch: percent change from previous period — FRED computes the diff
   // internally so we get data even when individual level values are revised/missing.
-  const fredUrl  = (series) =>
+  const fredUrl  = (series, units) =>
     `https://api.stlouisfed.org/fred/series/observations?series_id=${series}` +
-    `&observation_start=${startStr}&frequency=m&units=pch&file_type=json` +
+    `&observation_start=${startStr}&frequency=m&units=${units}&file_type=json` +
     (FRED_KEY ? `&api_key=${FRED_KEY}` : '');
 
   try {
-    const [hRes, cRes] = await Promise.all([
-      fetch(fredUrl('CPIAUCSL')),
-      fetch(fredUrl('CPILFESL')),
+    const [hMomRes, cMomRes, hYoyRes, cYoyRes] = await Promise.all([
+      fetch(fredUrl('CPIAUCSL', 'pch')),
+      fetch(fredUrl('CPILFESL', 'pch')),
+      fetch(fredUrl('CPIAUCSL', 'pc1')),
+      fetch(fredUrl('CPILFESL', 'pc1')),
     ]);
 
-    if (!hRes.ok || !cRes.ok) {
-      const status = !hRes.ok ? hRes.status : cRes.status;
-      return new Response(JSON.stringify({ error: `FRED fetch failed: ${status}` }), { status: 502, headers: CORS });
+    if (!hMomRes.ok || !cMomRes.ok || !hYoyRes.ok || !cYoyRes.ok) {
+      const failed = [hMomRes, cMomRes, hYoyRes, cYoyRes].find(r => !r.ok);
+      return new Response(JSON.stringify({ error: `FRED fetch failed: ${failed.status}` }), { status: 502, headers: CORS });
     }
 
-    const [hData, cData] = await Promise.all([hRes.json(), cRes.json()]);
+    const [hMomData, cMomData, hYoyData, cYoyData] = await Promise.all([
+      hMomRes.json(), cMomRes.json(), hYoyRes.json(), cYoyRes.json(),
+    ]);
 
-    const headline = parseObs(hData.observations || []);
-    const core     = parseObs(cData.observations || []);
+    const headline     = parseObs(hMomData.observations || []);
+    const core         = parseObs(cMomData.observations || []);
+    const headlineYoy  = parseObs(hYoyData.observations || []);
+    const coreYoy      = parseObs(cYoyData.observations || []);
 
-    // Align core values onto headline dates
-    const coreDateMap = new Map(core.dates.map((d, i) => [d, core.values[i]]));
-    const coreAligned = headline.dates.map(d => coreDateMap.has(d) ? coreDateMap.get(d) : null);
+    // Align all series onto headline (MoM) dates
+    const align = (src) => {
+      const map = new Map(src.dates.map((d, i) => [d, src.values[i]]));
+      return headline.dates.map(d => map.has(d) ? map.get(d) : null);
+    };
 
     return new Response(JSON.stringify({
-      dates:    headline.dates,
-      headline: fillInteriorGaps(headline.values),
-      core:     fillInteriorGaps(coreAligned),
+      dates:        headline.dates,
+      headline:     fillInteriorGaps(headline.values),      // MoM %
+      core:         fillInteriorGaps(align(core)),           // MoM %
+      headline_yoy: fillInteriorGaps(align(headlineYoy)),   // YoY %
+      core_yoy:     fillInteriorGaps(align(coreYoy)),       // YoY %
     }), {
       headers: { ...CORS, 'Cache-Control': 'public, max-age=86400' },
     });

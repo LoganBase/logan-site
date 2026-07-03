@@ -42,7 +42,7 @@ function monthLabels(endLabel, n) {
 }
 
 // ── Line/area chart (desktop) — plots real history when the adapter has it, else synthetic ──
-function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live, ranges: rangesProp, logScale = false, showDelta = false }) {
+function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setRange, live, ranges: rangesProp, logScale = false, showDelta = false, hoverExtras = null }) {
   const color = live?.lineColor || colorProp;
   const ranges = rangesProp || ['1W', '1M', '3M', '6M', '1Y', '5Y', '10Y'];
   const [hidden, setHidden] = useStateD({});
@@ -286,6 +286,21 @@ function DeepChartLg({ card, cardId, color: colorProp, height = 230, range, setR
                 <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d3d', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20 }}>
                   <span style={{ fontFamily: DSANS, fontSize: 12, color: '#64748b' }}>Spread</span>
                   <span style={{ fontFamily: DMONO, fontSize: 12.5, fontWeight: 700, color: dc }}>{(delta >= 0 ? '+' : '') + delta.toFixed(2) + '%'}</span>
+                </div>
+              );
+            })()}
+            {hoverExtras && (() => {
+              const rows = hoverExtras.map(ex => ({ ...ex, value: (ex.values || [])[hover] })).filter(ex => ex.value != null && !isNaN(ex.value));
+              if (!rows.length) return null;
+              const fmtEx = (v, fmt) => fmt === 'pct_abs' ? v.toFixed(1) + '%' : (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+              return (
+                <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #1e2d3d' }}>
+                  {rows.map(ex => (
+                    <div key={ex.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginBottom: 4 }}>
+                      <span style={{ fontFamily: DSANS, fontSize: 11, color: '#64748b' }}>{ex.label}</span>
+                      <span style={{ fontFamily: DMONO, fontSize: 12, color: ex.color || '#94a3b8', fontWeight: 600 }}>{fmtEx(ex.value, ex.format)}</span>
+                    </div>
+                  ))}
                 </div>
               );
             })()}
@@ -4787,31 +4802,38 @@ function COTPositioning() {
 const CPI_RANGES = ['1Y', '2Y', '5Y', '10Y', '20Y'];
 function CpiHistoryChart() {
   const RMAP = { '1Y': '1y', '2Y': '2y', '5Y': '5y', '10Y': '10y', '20Y': '20y' };
-  const [range, setRange] = useStateD('10Y');
-  const [live, setLive]   = useStateD(null);
-  const [latest, setLatest] = useStateD(null);
+  const [range, setRange]     = useStateD('10Y');
+  const [live, setLive]       = useStateD(null);
+  const [momData, setMomData] = useStateD(null);
+  const [latest, setLatest]   = useStateD(null);    // latest YoY
+  const [latestMom, setLatestMom] = useStateD(null); // latest MoM
 
   useEffectD(() => {
     let alive = true;
     setLive(null);
+    setMomData(null);
     setLatest(null);
-    const mo = new Date().toISOString().slice(0, 7); // YYYY-MM — busts cache monthly
+    setLatestMom(null);
+    const mo = new Date().toISOString().slice(0, 7);
     fetch(`/api/cpi-history?range=${RMAP[range]}&d=${mo}`)
       .then(r => r.json())
       .then(j => {
-        if (!alive || !Array.isArray(j.headline) || !j.headline.length) return;
-        const last = [...j.headline].reverse().find(v => v != null);
-        if (last != null) setLatest(last);
+        if (!alive || !Array.isArray(j.headline_yoy) || !j.headline_yoy.length) return;
+        const lastYoy = [...j.headline_yoy].reverse().find(v => v != null);
+        const lastMom = [...(j.headline || [])].reverse().find(v => v != null);
+        if (lastYoy != null) setLatest(lastYoy);
+        if (lastMom != null) setLatestMom(lastMom);
+        setMomData({ headline: j.headline || [], core: j.core || [] });
         setLive({
-          values:     j.headline,
+          values:     j.headline_yoy,
           dates:      j.dates,
-          label:      'Headline CPI',
+          label:      'Headline YoY',
           format:     'pct',
           lineColor:  '#a855f7',
-          overlays:   [{ label: 'Core CPI', values: j.core || [], color: '#22d3ee', dash: null }],
+          overlays:   [{ label: 'Core YoY', values: j.core_yoy || [], color: '#22d3ee', dash: null }],
           thresholds: [
-            { y: 0.167, color: '#22c55e' },   // ≈ 2% annualized — Fed target
-            { y: 0.4,   color: '#ef4444' },   // ≈ 5% annualized — elevated
+            { y: 2.0, color: '#22c55e' },  // Fed target
+            { y: 5.0, color: '#ef4444' },  // Elevated
           ],
         });
       })
@@ -4819,26 +4841,41 @@ function CpiHistoryChart() {
     return () => { alive = false; };
   }, [range]);
 
-  const fakeCard = { seed: 7, trend: 0.02, metric: 'CPI MoM', metricUnit: '', metricVal: '' };
-  const hColor   = latest == null ? '#f59e0b' : latest > 0.4 ? '#ef4444' : latest > 0.167 ? '#f59e0b' : '#22c55e';
+  const fakeCard     = { seed: 7, trend: 0.02, metric: 'CPI YoY', metricUnit: '', metricVal: '' };
+  const hColorYoy    = latest == null ? '#f59e0b' : latest > 5 ? '#ef4444' : latest > 2 ? '#f59e0b' : '#22c55e';
+  const hColorMom    = latestMom == null ? '#64748b' : latestMom > 0.4 ? '#ef4444' : latestMom > 0.167 ? '#f59e0b' : '#22c55e';
+  const hoverExtras  = momData ? [
+    { label: 'MoM Headline', values: momData.headline, format: 'pct', color: '#a855f7' },
+    { label: 'MoM Core',     values: momData.core,     format: 'pct', color: '#22d3ee' },
+  ] : null;
 
   return (
     <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
           <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>CPI Inflation — Headline &amp; Core</div>
-          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Month-over-month % change (seasonally adjusted)</div>
+          <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Year-over-year % change · hover for monthly MoM</div>
         </div>
-        {latest != null && (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
-            <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Latest MoM</span>
-            <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 700, color: hColor }}>
-              {(latest >= 0 ? '+' : '') + latest.toFixed(2)}%
-            </span>
-          </div>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+          {latest != null && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+              <span style={{ fontFamily: DSANS, fontSize: 10.5, color: '#64748b' }}>Latest YoY</span>
+              <span style={{ fontFamily: DMONO, fontSize: 14, fontWeight: 700, color: hColorYoy }}>
+                {(latest >= 0 ? '+' : '') + latest.toFixed(1)}%
+              </span>
+            </div>
+          )}
+          {latestMom != null && (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+              <span style={{ fontFamily: DSANS, fontSize: 10, color: '#475569' }}>MoM</span>
+              <span style={{ fontFamily: DMONO, fontSize: 11.5, fontWeight: 600, color: hColorMom }}>
+                {(latestMom >= 0 ? '+' : '') + latestMom.toFixed(2)}%
+              </span>
+            </div>
+          )}
+        </div>
       </div>
-      <DeepChartLg card={fakeCard} cardId="cpi" color="#a855f7" height={220} range={range} setRange={setRange} live={live} ranges={CPI_RANGES} />
+      <DeepChartLg card={fakeCard} cardId="cpi" color="#a855f7" height={220} range={range} setRange={setRange} live={live} ranges={CPI_RANGES} hoverExtras={hoverExtras} />
     </div>
   );
 }
