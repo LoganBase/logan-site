@@ -61,10 +61,11 @@ export async function onRequest(context) {
 
     const [chartRes, zoneRes] = await Promise.all([
       db.prepare(
-        `SELECT date, pct_above_200d, pct_above_50d
+        `SELECT date, pct_above_200d, pct_above_50d, adid_nyse, adid_nasdaq
          FROM market_breadth
          WHERE date >= ?
-           AND (pct_above_200d IS NOT NULL OR pct_above_50d IS NOT NULL)
+           AND (pct_above_200d IS NOT NULL OR pct_above_50d IS NOT NULL
+                OR adid_nyse IS NOT NULL OR adid_nasdaq IS NOT NULL)
          ORDER BY date ASC`
       ).bind(startDate).all(),
       db.prepare(
@@ -85,6 +86,8 @@ export async function onRequest(context) {
       dates: rows.map(r => r.date),
       mmth:  rows.map(r => r.pct_above_200d ?? null),
       mmfi:  rows.map(r => r.pct_above_50d  ?? null),
+      adid_nyse:   rows.map(r => r.adid_nyse   ?? null),
+      adid_nasdaq: rows.map(r => r.adid_nasdaq ?? null),
       summary: {
         currentMmth:   current.pct_above_200d ?? null,
         currentMmfi:   current.pct_above_50d  ?? null,

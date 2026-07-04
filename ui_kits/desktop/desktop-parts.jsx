@@ -1512,6 +1512,62 @@ function NyseBreadthChart() {
   );
 }
 
+// ── Advance-Decline Line (ADID) — NYSE & Nasdaq cumulative breadth ────────────
+// Plots the cumulative A/D line (running sum of daily net advancers − decliners,
+// rebased to 0 at the range start). The classic breadth chart: rising = broad
+// participation; a fall/flattening while the index rises is the divergence warning.
+const ADID_RANGES = ['1M', '3M', '6M', '1Y', '5Y'];
+function NyseAdidChart() {
+  const RMAP = { '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y' };
+  const [range, setRange] = useStateD('6M');
+  const [live, setLive]   = useStateD(null);
+  const [noData, setNoData] = useStateD(false);
+
+  useEffectD(() => {
+    let alive = true;
+    setLive(null); setNoData(false);
+    fetch(`/api/breadth-history?range=${RMAP[range]}`)
+      .then(r => r.json())
+      .then(j => {
+        if (!alive) return;
+        const nyseRaw = j.adid_nyse || [], nasdaqRaw = j.adid_nasdaq || [];
+        if (!nyseRaw.some(v => v != null) && !nasdaqRaw.some(v => v != null)) { setNoData(true); return; }
+        // Cumulative sum, rebased to 0 at range start; nulls carry the prior level.
+        const cum = (arr) => { let s = 0; return arr.map(v => { if (v != null) s += v; return s; }); };
+        setLive({
+          values:    cum(nyseRaw),
+          dates:     j.dates || [],
+          label:     'NYSE A/D Line',
+          format:    'count',
+          lineColor: '#22d3ee',
+          overlays:  [{ label: 'Nasdaq A/D Line', values: cum(nasdaqRaw), color: '#f59e0b', dash: null }],
+          thresholds: [{ y: 0, color: '#475569' }],
+        });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+
+  const fakeCard = { seed: 3, trend: 0, metric: 'Advance-Decline Line (ADID)', metricUnit: 'cumulative net advancers − decliners', metricVal: '' };
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 16px' }}>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontFamily: DSANS, fontSize: 14, color: '#cbd5e1', fontWeight: 600 }}>Advance-Decline Line — NYSE &amp; Nasdaq</div>
+        <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#8295a9', marginTop: 2 }}>Cumulative net advancers − decliners (ADID); rising = broad participation, a fall while the index climbs warns of a narrowing market</div>
+      </div>
+      {noData
+        ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 230, gap: 8 }}>
+            <div style={{ fontFamily: DSANS, fontSize: 13, color: '#8295a9' }}>No ADID data for {range} range</div>
+            <div style={{ fontFamily: DSANS, fontSize: 11.5, color: '#94a3b8' }}>ADID needs a TradingView alert (INDEX:ADDN / INDEX:ADDQ)</div>
+          </div>
+        )
+        : <DeepChartLg card={fakeCard} cardId="breadth-adid" color="#22d3ee" height={230} range={range} setRange={setRange} live={live} ranges={ADID_RANGES} />
+      }
+    </div>
+  );
+}
+
 // ── Sector ETF Breadth historical chart — V2 style via DeepChartLg (breadth card only) ──
 // liveSectorCount: passed from DeepDiveContent via card.sectorTable (live scores); injected as
 // today's final data point so the chart end matches the Sector Breakdown table (D1 history can lag).
@@ -5984,6 +6040,7 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         <NyseBreadthChart />
+        <NyseAdidChart />
         <div>
           {sectionLabel('Breadth History')}
           <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '18px 20px 20px' }}>
@@ -6245,4 +6302,4 @@ function DeepDiveContent({ card, cardId, asOf, chartHeight = 230 }) {
   );
 }
 
-Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, HorizonHero, HorizonRailMini, HorizonDial, AnchorDial, InteractionMatrix, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, COTPositioning, PositioningDeepDive, DeepDiveContent });
+Object.assign(window, { DSIG, DMONO, DSANS, postureColorD, HorizonHero, HorizonRailMini, HorizonDial, AnchorDial, InteractionMatrix, DeepChartLg, RegimeTimeline, StatusPill, SparkD, StatBoxes, IndicatorTable, SectorBreakdown, CountryTable, BreadthStatBoxes, NyseBreadthChart, NyseAdidChart, SectorBreadthChart, LeadershipPriceChart, EquitiesMASummary, EquitiesFocusChart, EquitiesChart, CommoditiesWatchlistChart, ValuationsChart, YieldChart, YieldSpreadChart, CurrencyChart, CurrencyRegimeChart, CpiHistoryChart, SectorRatioCharts, SectorRRG, VIXTermStructure, VIXHistoryChart, COTPositioning, PositioningDeepDive, DeepDiveContent });
