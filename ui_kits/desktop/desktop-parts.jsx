@@ -3409,7 +3409,8 @@ function YieldChart() {
             height:     150,
             label:      '10Y−2Y spread',
             thresholds: [
-              { y:  0, color: '#475569', label: 'Zero (inversion level)' },
+              { y:  1.0, color: '#22c55e', label: '>1% Steep Curve' },
+              { y:  0,   color: '#f59e0b', label: 'Inverted ▼' },
             ],
           },
         });
