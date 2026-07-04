@@ -1,0 +1,7 @@
+# Retire the V1 vanilla dashboard. Send its entry points to the adaptive
+# subdomain, which device-detects and loads /v2 (desktop) or /mobile.
+# Exact paths only (no /* wildcard) so assets under /market-hub/assets/ —
+# e.g. the country-flag SVGs the mobile app loads — are NOT redirected.
+/market-hub/            https://market.loganbase.com/   302
+/market-hub             https://market.loganbase.com/   302
+/market-hub/index.html  https://market.loganbase.com/   302

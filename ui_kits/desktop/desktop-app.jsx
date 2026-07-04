@@ -1494,39 +1494,8 @@ function OptionWorkspace({ D }) {
               </div>
             );
           })()}
-          {/* By Section */}
-          <div style={{ marginBottom: 12 }}>
-            <span style={{ fontFamily: DSANS, fontSize: 9, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', display: 'block', marginBottom: 6 }}>By Section</span>
-            {D.groups.filter((g) => !g.ids.includes('crowdsignals')).map((g) => {
-              const statuses = g.ids.map((id) => D.cards[id]?.status || 'neutral');
-              const bull = statuses.filter((s) => s === 'bullish').length;
-              return (
-                <div key={g.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                  <span style={{ fontFamily: DSANS, fontSize: 11, color: '#cbd5e1', flex: 1 }}>{g.label}</span>
-                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    {statuses.map((s, i) => <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[s]?.c || '#475569', boxShadow: `0 0 4px ${DSIG[s]?.glow || 'transparent'}` }} />)}
-                  </div>
-                  <span style={{ fontFamily: DMONO, fontSize: 10, color: '#94a3b8', width: 28, textAlign: 'right', flexShrink: 0 }}>{bull}/{statuses.length}</span>
-                </div>
-              );
-            })}
-          </div>
-          {/* By Factor */}
-          <div>
-            <span style={{ fontFamily: DSANS, fontSize: 9, fontWeight: 700, letterSpacing: '.1em', textTransform: 'uppercase', color: '#475569', display: 'block', marginBottom: 6 }}>By Factor</span>
-            {D.categories.map((c) => {
-              const bull = c.cards.filter((s) => s === 'bullish').length;
-              return (
-                <div key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
-                  <span style={{ fontFamily: DSANS, fontSize: 11, color: '#cbd5e1', flex: 1 }}>{c.label}</span>
-                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
-                    {c.cards.map((s, i) => <span key={i} style={{ width: 7, height: 7, borderRadius: '50%', background: DSIG[s]?.c || '#475569', boxShadow: `0 0 4px ${DSIG[s]?.glow || 'transparent'}` }} />)}
-                  </div>
-                  <span style={{ fontFamily: DMONO, fontSize: 10, color: '#94a3b8', width: 28, textAlign: 'right', flexShrink: 0 }}>{bull}/{c.cards.length}</span>
-                </div>
-              );
-            })}
-          </div>
+          {/* Old aggregate By-Section / By-Factor breakdowns removed — the
+              three-horizon rail above is the scoring system now. */}
         </div>
         {D.groups.map((g) => (
           <div key={g.label} style={{ marginBottom: 16 }}>
