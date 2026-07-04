@@ -561,10 +561,24 @@ function buildLeadership(q, ctx) {
   return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, stats, hideIndicator: true, note: leaderNote, deltas };
 }
 
-function buildBreadth(q, breadthData, breadthCtx) {
+function buildBreadth(q, breadthData, breadthCtx, adidCtx) {
   // Primary signals: $MMTH (200d) and $MMFI (50d) from D1 market_breadth table
   const mmth = breadthData?.pct_above_200d;
   const mmfi = breadthData?.pct_above_50d;
+
+  // ADID divergence — same-day flow breadth vs the index move. A "hollow" day
+  // (index up but net decliners) warns that the average stock is lagging the
+  // headline; the reverse (index down but net advancers) is a positive
+  // divergence. Deep-dive context only — does not change the card's status.
+  const spyChg = q['SPY']?.changePct ?? null;
+  let adidState = null, adidLabel = null;
+  if (adidCtx?.latest != null && spyChg != null) {
+    const a = adidCtx.latest;
+    if (spyChg > 0.1 && a < 0)       { adidState = 'hollow';    adidLabel = 'Hollow advance — index up but net decliners; breadth is not confirming the gain'; }
+    else if (spyChg < -0.1 && a > 0) { adidState = 'positive';  adidLabel = 'Positive divergence — index down but net advancers; breadth is firmer than price'; }
+    else if (Math.sign(spyChg) === Math.sign(a)) { adidState = 'confirm'; adidLabel = 'Breadth confirms the move — advancers/decliners agree with the index'; }
+    else                             { adidState = 'flat';      adidLabel = 'Neutral — small move, no meaningful breadth divergence'; }
+  }
 
   // Validation: coarser sector ETF breadth
   const SECTORS = ['XLK','XLV','XLF','XLI','XLC','XLY','XLP','XLE','XLU','XLRE','XLB'];
@@ -657,7 +671,10 @@ function buildBreadth(q, breadthData, breadthCtx) {
       const consStr = rspdBull != null
         ? ` Consumer Discretionary equal-weight (RSPD) is ${rspdBull ? 'above' : 'below'} its 200d SMA \u2014 ${rspdBull ? 'consumer health supports the bull case' : 'consumer stress is a late-cycle warning sign'}.`
         : '';
-      return longStr + shortStr + alignStr + sectStr + consStr;
+      const adidStr = adidLabel
+        ? ` Daily flow: NYSE advance-decline ${adidCtx.latest >= 0 ? '+' : ''}${adidCtx.latest} (5d net ${adidCtx.cum5 >= 0 ? '+' : ''}${adidCtx.cum5}) \u2014 ${adidLabel}.`
+        : '';
+      return longStr + shortStr + alignStr + sectStr + consStr + adidStr;
     }
     if (n200 < 7) return 'Breadth data loading \u2014 check back shortly.';
     const signal = bull200 >= 8 ? 'broad support across sectors \u2014 rally is healthy.'
@@ -674,10 +691,14 @@ function buildBreadth(q, breadthData, breadthCtx) {
     return { ticker: s, name: SECTOR_NAMES[s], vs200: +vs200.toFixed(2), vs50: vs50 != null ? +vs50.toFixed(2) : null, bull: d.price > d.sma200 };
   }).filter(Boolean);
 
+  const adidTone = adidState === 'hollow' ? 'neg' : adidState === 'positive' ? 'pos'
+    : adidState === 'confirm' ? (adidCtx?.latest > 0 ? 'pos' : 'neg') : null;
   const stats = [
     ['NYSE 200d',    mmth   != null ? mmth.toFixed(1)   + '%' : '\u2014', '% stocks above 200d SMA',   mmth   != null ? (mmth   >= 70 ? 'pos' : mmth   < 40 ? 'neg' : null) : null],
     ['NYSE 50d',     mmfi   != null ? mmfi.toFixed(1)   + '%' : '\u2014', '% stocks above 50d SMA',    mmfi   != null ? (mmfi   >= 70 ? 'pos' : mmfi   < 40 ? 'neg' : null) : null],
     ['Sector Count', n200   >  0    ? `${bull200} / ${n200}` : '\u2014',  'SPDR sectors above 200d',   n200   >  0    ? (bull200 >= 8  ? 'pos' : bull200 <  5  ? 'neg' : null) : null],
+    ['NYSE A/D (ADID)', adidCtx?.latest != null ? (adidCtx.latest >= 0 ? '+' : '') + adidCtx.latest : '\u2014',
+      adidCtx?.cum5 != null ? `${adidCtx.cum5 >= 0 ? '+' : ''}${adidCtx.cum5} over 5d` : 'net advancers \u2212 decliners', adidTone],
   ];
   const deltas = breadthCtx ? { mmth: breadthCtx.mmthDir, mmfi: breadthCtx.mmfiDir } : null;
   return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, stats, hideIndicator: true, note: breadthNote, sectorTable, deltas };
@@ -747,6 +768,24 @@ async function loadBreadthContext(db) {
     const mmfiDelta = today.pct_above_50d  - ago5.pct_above_50d;
     const dirOf = (d) => d > 1 ? 'up' : d < -1 ? 'down' : 'flat';
     return { mmthDir: dirOf(mmthDelta), mmfiDir: dirOf(mmfiDelta) };
+  } catch { return null; }
+}
+
+// ── ADID (advance-decline difference) — daily flow breadth ────────────────────
+// Same-day net advancers − decliners (NYSE, INDEX:ADDN). Complements the
+// position-based MMTH/MMFI: it catches "hollow" days (index up, breadth down)
+// immediately. Returns the latest reading plus short cumulative sums (A/D line
+// slope). Deep-dive context only — not a scored card row.
+async function loadBreadthAdid(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, adid_nyse FROM market_breadth WHERE adid_nyse IS NOT NULL ORDER BY date DESC LIMIT 10`
+    ).all();
+    if (!results || !results.length) return null;
+    const latest = results[0].adid_nyse;
+    const cum5   = results.slice(0, 5).reduce((s, r) => s + r.adid_nyse, 0);
+    const cum10  = results.slice(0, 10).reduce((s, r) => s + r.adid_nyse, 0);
+    return { latest, latestDate: results[0].date, cum5, cum10 };
   } catch { return null; }
 }
 
@@ -2123,7 +2162,7 @@ export async function onRequest(context) {
   const db  = context.env.DB;
   const kv = context.env.SUMMARIES;
   const [d1, shiller, buffett, forwardPe, japanPe, breadthData, leaderCtx, breadthCtx, kvWeights,
-         capeP, buffettP, fwdPeP, oasSeries, realYieldSeries, fedFundsSeries] = await Promise.all([
+         capeP, buffettP, fwdPeP, oasSeries, realYieldSeries, fedFundsSeries, adidCtx] = await Promise.all([
     db ? loadFromD1(db) : Promise.resolve({}),
     db ? loadShillerLatest(db) : Promise.resolve(null),
     db ? loadBuffettLatest(db) : Promise.resolve(null),
@@ -2139,6 +2178,7 @@ export async function onRequest(context) {
     db ? loadFredSeries(db, 'BAMLH0A0HYM2', 250) : Promise.resolve([]),
     db ? loadFredSeries(db, 'DFII10', 5) : Promise.resolve([]),
     db ? loadFredSeries(db, 'DFEDTARU', 60) : Promise.resolve([]),
+    db ? loadBreadthAdid(db) : Promise.resolve(null),
   ]);
   const today = new Date().toISOString().slice(0, 10);
   // Treat D1 data as stale only if >3 calendar days old \u2014 handles weekends + pre-seeder Monday
@@ -2185,7 +2225,7 @@ export async function onRequest(context) {
   const cards = [
     buildRegime(q, regimeCtx),
     buildLeadership(q, leaderCtx),
-    buildBreadth(q, breadthData, breadthCtx),
+    buildBreadth(q, breadthData, breadthCtx, adidCtx),
     buildValuations(shiller, buffett, forwardPe, japanPe, epsMom),
     buildYield(q, realYield),
     buildCurrency(q),
