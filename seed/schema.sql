@@ -60,6 +60,20 @@ CREATE TABLE IF NOT EXISTS japan_pe_data (
 
 CREATE INDEX IF NOT EXISTS idx_japan_pe_date ON japan_pe_data (date DESC);
 
+-- Market breadth (NYSE), populated by the TradingView webhook. Created ad hoc
+-- (kept here for reference). Daily, keyed by date:
+--   pct_above_200d — $MMTH (% NYSE stocks above 200d SMA)
+--   pct_above_50d  — $MMFI (% NYSE stocks above 50d SMA)
+--   adid_nyse      — INDEX:ADDN (NYSE advance-decline difference, signed)
+--   adid_nasdaq    — INDEX:ADDQ (Nasdaq advance-decline difference, signed)
+CREATE TABLE IF NOT EXISTS market_breadth (
+  date           TEXT PRIMARY KEY,   -- YYYY-MM-DD
+  pct_above_200d REAL,
+  pct_above_50d  REAL,
+  adid_nyse      REAL,
+  adid_nasdaq    REAL
+);
+
 -- S&P 500 trailing-12m earnings per share (Multpl SP500_EARNINGS_MONTH via
 -- TradingView webhook + CSV backfill). Monthly. Feeds the earnings-direction
 -- signal (6-month rate of change) on the Valuations card and Trend Compass.

@@ -10,6 +10,9 @@
  *   BUFFETT — Total Mkt Cap / GDP ratio (qtrly) → buffett_data.ratio
  *   EPS     — S&P 500 trailing 12m EPS (monthly)→ sp500_eps.eps
  *             (Multpl SP500_EARNINGS_MONTH)
+ *   ADDN    — NYSE advance-decline difference   → market_breadth.adid_nyse
+ *   ADDQ    — Nasdaq advance-decline difference  → market_breadth.adid_nasdaq
+ *             (INDEX:ADDN / INDEX:ADDQ, daily, signed — can be negative)
  *
  * TradingView alert message body (JSON):
  *   {"ticker": "MMTH", "value": {{close}}, "time": "{{time}}", "secret": "<TV_SECRET>"}
@@ -88,7 +91,10 @@ export default {
     const value  = parseFloat(body.value);
     const date   = body.time != null ? parseDate(body.time) : null;
 
-    if (!date || isNaN(value) || value < 0) {
+    // ADID (advance-decline difference) is signed — it goes negative on down
+    // days — so it is exempt from the value >= 0 requirement.
+    const isAdid = (ticker === 'ADDN' || ticker === 'ADDQ');
+    if (!date || isNaN(value) || (!isAdid && value < 0)) {
       console.error('[tv-webhook] Invalid payload:', JSON.stringify(body));
       return new Response('Bad Request — invalid ticker, value, or time', { status: 400 });
     }
@@ -96,6 +102,9 @@ export default {
     // Ticker-specific validation
     if ((ticker === 'MMTH' || ticker === 'MMFI') && value > 100) {
       return new Response('Bad Request — breadth value must be 0-100', { status: 400 });
+    }
+    if (isAdid && Math.abs(value) > 20000) {
+      return new Response('Bad Request — ADID out of sane range', { status: 400 });
     }
 
     console.log(`[tv-webhook] ${date} ${ticker}=${value}`);
@@ -138,6 +147,22 @@ export default {
           VALUES (?, ?)
           ON CONFLICT(date) DO UPDATE SET eps = excluded.eps
         `).bind(monthDate, Math.round(value * 100) / 100).run();
+
+      } else if (ticker === 'ADDN') {
+        // NYSE advance-decline difference (net advancers − decliners), daily, signed
+        await env.DB.prepare(`
+          INSERT INTO market_breadth (date, adid_nyse)
+          VALUES (?, ?)
+          ON CONFLICT(date) DO UPDATE SET adid_nyse = excluded.adid_nyse
+        `).bind(date, Math.round(value)).run();
+
+      } else if (ticker === 'ADDQ') {
+        // Nasdaq advance-decline difference, daily, signed
+        await env.DB.prepare(`
+          INSERT INTO market_breadth (date, adid_nasdaq)
+          VALUES (?, ?)
+          ON CONFLICT(date) DO UPDATE SET adid_nasdaq = excluded.adid_nasdaq
+        `).bind(date, Math.round(value)).run();
 
       } else {
         return new Response(`Unknown ticker: ${ticker}`, { status: 400 });
