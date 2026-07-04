@@ -505,8 +505,11 @@ function buildLeadership(q, ctx) {
       value: styleSpread != null
         ? `${pct(styleSpread, 1)}\nIVW\u00a0${pct(ivw20, 1)}\u2003IVE\u00a0${pct(ive20, 1)}`
         : (ivw20 != null ? `IVW\u00a0${pct(ivw20, 1)}` : '\u2014'),
-      condition: growthLead == null ? '\u2014' : (growthLead ? 'Growth Leading \u2014 Risk-On' : 'Value Rotating \u2014 Reduce Growth'),
-      status: growthLead == null ? 'neutral' : (growthLead ? 'bullish' : 'neutral'),
+      condition: growthLead == null ? '\u2014' : (growthLead ? 'Growth Leading \u2014 Risk-On Tilt (context only)' : 'Value Leading \u2014 Defensive Tilt (context only)'),
+      // Style tilt is descriptive context, not a directional vote: growth-leading
+      // in a mega-cap regime is often the same concentration the breadth rows
+      // penalize, and value-leading is regime-ambiguous. Always neutral.
+      status: 'neutral',
     },
   ];
   const leaderNote = (() => {
@@ -524,8 +527,8 @@ function buildLeadership(q, ctx) {
     // Sentence 3: Style Bias \u2014 direction only
     const styleStr = growthLead == null ? ''
       : growthLead
-      ? ` Style rotation supports risk appetite: growth (IVW) leading value (IVE).`
-      : ` Style is rotating defensively: value (IVE) leading growth (IVW) \u2014 a caution signal for high-multiple names.`;
+      ? ` On style, growth (IVW) is leading value (IVE) \u2014 a risk-on tilt, shown for context only (not scored).`
+      : ` On style, value (IVE) is leading growth (IVW) \u2014 a defensive/rotational tilt, shown for context only (not scored).`;
 
     // Sentence 4: Daily streak persistence (ctx only)
     let streakStr = '';
@@ -556,7 +559,7 @@ function buildLeadership(q, ctx) {
   ] : [
     ['RSP vs SPY',      rspSpread   != null ? (rspSpread   >= 0 ? '+' : '') + rspSpread.toFixed(1)   + '%' : '\u2014', '20d breadth spread', rspSpread   != null ? (rspSpread   > 0 ? 'pos' : 'neg') : null],
     ['QQEW vs QQQ',    qqewSpread  != null ? (qqewSpread  >= 0 ? '+' : '') + qqewSpread.toFixed(1)  + '%' : '\u2014', '20d tech breadth',   qqewSpread  != null ? (qqewSpread  > 0 ? 'pos' : 'neg') : null],
-    ['Growth vs Value', styleSpread != null ? (styleSpread >= 0 ? '+' : '') + styleSpread.toFixed(1) + '%' : '\u2014', '20d style spread',  styleSpread != null ? (styleSpread > 0 ? 'pos' : 'neg') : null],
+    ['Growth vs Value', styleSpread != null ? (styleSpread >= 0 ? '+' : '') + styleSpread.toFixed(1) + '%' : '\u2014', '20d style spread (context)',  null],
   ];
   return { id: 'leadership', number: 2, title: 'Leadership', subtitle: 'The Quality Check', status: cardStatus(rows), rows, stats, hideIndicator: true, note: leaderNote, deltas };
 }
