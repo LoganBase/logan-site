@@ -1932,6 +1932,7 @@ function DesktopApp() {
         <span style={{ fontFamily: DSANS, fontSize: 13, color: '#94a3b8' }}>{current.label.replace(/^.·\s/, '')} — {current.sub}</span>
       </div>
       {current.render(D)}
+      <DisclaimerFooter />
     </div>
   );
 }
@@ -1967,6 +1968,16 @@ function SoloShell({ optId }) {
 window.SoloShell = SoloShell;
 
 // ── Toggle shell — flip between just B (workspace) and C (glance) ──
+function DisclaimerFooter() {
+  return (
+    <div style={{ borderTop: '1px solid #16202e', padding: '18px 28px', marginTop: 8 }}>
+      <p style={{ fontFamily: DSANS, fontSize: 11, color: '#475569', lineHeight: 1.6, margin: 0, maxWidth: 900 }}>
+        <strong style={{ color: '#64748b', fontWeight: 600 }}>Disclaimer:</strong> Market Hub is for informational and educational purposes only. Nothing on this site constitutes investment advice, a solicitation, or a recommendation to buy or sell any security, commodity, or financial instrument. Market Hub is not a registered investment adviser, broker-dealer, or commodity trading adviser. Data may be delayed, incomplete, or inaccurate — verify independently before acting. Past performance does not guarantee future results. Prediction market probabilities reflect crowd sentiment and are not guaranteed outcomes. Always consult a qualified financial professional before making investment decisions.
+      </p>
+    </div>
+  );
+}
+
 function ToggleShell() {
   const D = useGlance();
   const [mode, setMode] = useStateA(() => { try { return localStorage.getItem('mh-bc') || 'workspace'; } catch (e) { return 'workspace'; } });
@@ -1998,6 +2009,7 @@ function ToggleShell() {
         </div>
       </div>
       {mode === 'workspace' ? <OptionWorkspace D={D} /> : <OptionGlancePage D={D} open={glanceOpen} onSetOpen={setGlanceOpen} />}
+      <DisclaimerFooter />
     </div>
   );
 }
