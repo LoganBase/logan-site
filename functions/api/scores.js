@@ -347,7 +347,7 @@ function buildRegime(q, ctx) {
     label: 'SPY Regime',
     indicator: 'SPY vs 200d SMA',
     value: usd(spy.price),
-    condition: isBull ? 'Secular Bull \u2014 Stay Long' : 'Secular Bear \u2014 Reduce Exposure',
+    condition: isBull ? 'Secular Bull \u2014 Long Bias' : 'Secular Bear \u2014 Defensive Bias',
     status: isBull ? 'bullish' : 'bearish',
   };
 
@@ -355,11 +355,11 @@ function buildRegime(q, ctx) {
   const v200 = spy.vs200;
   let stretchStatus, stretchCondition;
   if (v200 == null)     { stretchStatus = 'neutral'; stretchCondition = '\u2014'; }
-  else if (v200 > 14)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended \u2014 Protect Gains'; }
-  else if (v200 > 10)   { stretchStatus = 'neutral'; stretchCondition = 'Extended \u2014 Reduce New Adds'; }
-  else if (v200 >= 0)   { stretchStatus = 'bullish'; stretchCondition = 'Normal Bull \u2014 Full Risk-On'; }
-  else if (v200 >= -10) { stretchStatus = 'neutral'; stretchCondition = 'Bearish Retest \u2014 Hold'; }
-  else                  { stretchStatus = 'bearish'; stretchCondition = 'Deeply Oversold \u2014 Raise Cash'; }
+  else if (v200 > 14)   { stretchStatus = 'bearish'; stretchCondition = 'Overextended \u2014 Pullback Risk'; }
+  else if (v200 > 10)   { stretchStatus = 'neutral'; stretchCondition = 'Extended \u2014 Late to Add'; }
+  else if (v200 >= 0)   { stretchStatus = 'bullish'; stretchCondition = 'Normal Bull \u2014 Risk-On'; }
+  else if (v200 >= -10) { stretchStatus = 'neutral'; stretchCondition = 'Bearish Retest \u2014 Neutral'; }
+  else                  { stretchStatus = 'bearish'; stretchCondition = 'Deeply Oversold \u2014 Washed Out'; }
   const r2 = {
     label: 'Stretch Risk',
     indicator: 'Distance from 200d SMA',
@@ -377,7 +377,7 @@ function buildRegime(q, ctx) {
   if (crossSpread == null)    { crossStatus = 'neutral'; crossCondition = '\u2014'; }
   else if (crossSpread > 8)   { crossStatus = 'bullish'; crossCondition = 'Golden Cross \u2014 Confirmed'; }
   else if (crossSpread >= -8) { crossStatus = 'neutral'; crossCondition = 'Cross Forming \u2014 Awaiting Confirmation'; }
-  else                        { crossStatus = 'bearish'; crossCondition = 'Death Cross \u2014 De-Risk'; }
+  else                        { crossStatus = 'bearish'; crossCondition = 'Death Cross \u2014 Bearish Trend'; }
   const r3 = {
     label: 'Trend Cross',
     indicator: '50d SMA vs 200d SMA',
@@ -487,7 +487,7 @@ function buildLeadership(q, ctx) {
       value: rspSpread != null
         ? `${pct(rspSpread, 1)}\nRSP\u00a0${pct(rsp20, 1)}\u2003SPY\u00a0${pct(spy20, 1)}`
         : (rsp20 != null ? `RSP\u00a0${pct(rsp20, 1)}` : '\u2014'),
-      condition: rspLead ? 'Breadth Expanding \u2014 Add Broadly' : 'Rally Narrowing \u2014 Stay with Leaders',
+      condition: rspLead ? 'Breadth Expanding \u2014 Broad Bias' : 'Rally Narrowing \u2014 Concentration Risk',
       status: rspLead ? 'bullish' : 'bearish',
     },
     {
@@ -590,16 +590,16 @@ function buildBreadth(q, breadthData, breadthCtx) {
   // Row 2: NYSE 50d ($MMFI)
   const mmfiStatus = mmfi == null ? 'neutral' : mmfi >= 70 ? 'bullish' : mmfi >= 40 ? 'neutral' : 'bearish';
   const mmfiCond   = mmfi == null ? 'Awaiting Data'
-    : mmfi >= 70 ? 'Momentum Expanding \u2014 Add Risk'
+    : mmfi >= 70 ? 'Momentum Expanding \u2014 Risk-On Bias'
     : mmfi >= 40 ? 'Mixed Momentum \u2014 Watch Leaders'
-    :               'Momentum Fading \u2014 Tighten Stops';
+    :               'Momentum Fading \u2014 Reduce-Risk Bias';
 
   // Row 3: Sector Check (coarser validation)
   const sectStatus = n200 < 7 ? 'neutral' : bull200 >= 8 ? 'bullish' : bull200 >= 5 ? 'neutral' : 'bearish';
   const sectCond   = n200 < 7 ? 'Insufficient Data'
-    : bull200 >= 8 ? 'Broad Participation \u2014 Stay Long'
+    : bull200 >= 8 ? 'Broad Participation \u2014 Long Bias'
     : bull200 >= 5 ? 'Mixed Breadth \u2014 Be Selective'
-    :                'Sector Breakdown \u2014 Reduce Risk';
+    :                'Sector Breakdown \u2014 Defensive Bias';
 
   const rows = [
     {
@@ -924,12 +924,27 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
   };
 }
 
-function buildYield(q) {
+function buildYield(q, realYield) {
   const tyx = q['^TYX'], tnx = q['^TNX'], irx = q['^IRX'], shy = q['SHY'];
 
   const yieldVal   = tyx?.price;
   const yieldRnd   = yieldVal != null ? Math.round(yieldVal * 100) / 100 : null;
   const yieldStat  = yieldRnd == null ? 'neutral' : yieldRnd >= 5 ? 'bearish' : yieldRnd > 4.5 ? 'neutral' : 'bullish';
+
+  // Real yield (10Y TIPS, DFII10) is the cleaner restrictiveness gauge than the
+  // nominal level: it strips out inflation and neutral-rate drift, so a fixed
+  // threshold actually means the same thing across regimes. Falls back to the
+  // nominal 10Y when the FRED series is unavailable.
+  const hasReal  = realYield != null && !Number.isNaN(realYield);
+  const realStat = !hasReal ? null
+    : realYield >= 2.5 ? 'bearish'
+    : realYield >= 1.0 ? 'neutral'
+    : 'bullish';
+  const realCond = !hasReal ? null
+    : realYield >= 2.5 ? 'Highly Restrictive — Multiple Compression'
+    : realYield >= 1.0 ? 'Restrictive — Valuation Headwind'
+    : realYield >= 0.0 ? 'Low Real Rates — Multiples Supported'
+    :                    'Negative Real Rates — Strong Tailwind';
 
   const curveSpread  = tnx?.price != null && irx?.price != null ? tnx.price - irx.price : null;
   const curveStatus  = curveSpread == null ? 'neutral' : curveSpread < 0 ? 'bearish' : curveSpread < 1 ? 'neutral' : 'bullish';
@@ -947,14 +962,20 @@ function buildYield(q) {
       condition: yieldRnd == null ? '\u2014' : yieldRnd >= 5 ? 'At/Above 5% \u2014 Equity Multiple Compression' : yieldRnd > 4.5 ? 'Approaching 5% \u2014 Reduce Duration Risk' : 'Below 5% \u2014 Multiples Supported',
       status: yieldStat,
     },
-    {
+    hasReal ? {
+      label: '10Y Real Yield',
+      indicator: '10Y TIPS Real Yield (DFII10)',
+      value: `${realYield.toFixed(2)}%`,
+      condition: realCond,
+      status: realStat,
+    } : {
       label: '10Y Yield',
       indicator: 'US 10-Year Yield (^TNX)',
       value: tnx?.price ? tnx.price.toFixed(2) + '%' : '\u2014',
       condition: tnx?.price == null ? '\u2014'
         : tnx.price >= 4.5 ? 'Restrictive \u2014 Compressing Equity Multiples'
         : tnx.price >= 3.5 ? 'Elevated \u2014 Headwind for Growth'
-        : tnx.price >= 2.5 ? 'Neutral \u2014 Hold Duration'
+        : tnx.price >= 2.5 ? 'Neutral'
         :                    'Accommodative \u2014 Tailwind for Equities',
       status: tnx?.price == null ? 'neutral'
         : tnx.price >= 4.5 ? 'bearish'
@@ -984,9 +1005,11 @@ function buildYield(q) {
       : yieldRnd >= 5 ? `The 30-year yield is at ${yieldRnd}% — above the critical 5% threshold where equity multiple compression historically accelerates.`
       : yieldRnd > 4.5 ? `The 30-year yield is at ${yieldRnd}% — approaching the 5% danger zone; rate-sensitive sectors are under pressure.`
       : `The 30-year yield is at ${yieldRnd}% — below the 5% threshold; long-duration assets and growth equities are supported.`;
-    const s10 = tnx?.price != null
-      ? ` The 10-year yield at ${tnx.price.toFixed(2)}% is ${tnx.price >= 4.5 ? 'in restrictive territory — real borrowing costs are elevated and consumer credit is tightening' : tnx.price >= 3.5 ? 'elevated but not restrictive — a headwind for rate-sensitive stocks' : 'accommodative — supporting housing and consumer spending'}.`
-      : '';
+    const s10 = hasReal
+      ? ` The 10-year real yield (TIPS) is ${realYield.toFixed(2)}%${tnx?.price != null ? ` (nominal ${tnx.price.toFixed(2)}%)` : ''} — ${realYield >= 2.5 ? 'firmly restrictive; positive real rates this high compress equity multiples and make cash competitive' : realYield >= 1.0 ? 'moderately restrictive; a valuation headwind for long-duration and growth equities' : realYield >= 0 ? 'low and supportive of equity multiples' : 'negative in real terms — a strong tailwind for risk assets and long-duration growth'}.`
+      : (tnx?.price != null
+        ? ` The 10-year yield at ${tnx.price.toFixed(2)}% is ${tnx.price >= 4.5 ? 'in restrictive territory — real borrowing costs are elevated and consumer credit is tightening' : tnx.price >= 3.5 ? 'elevated but not restrictive — a headwind for rate-sensitive stocks' : 'accommodative — supporting housing and consumer spending'}.`
+        : '');
     const sCurve = curveSpread == null ? ''
       : curveSpread < 0 ? ` The yield curve is inverted (${pct(curveSpread, 2)}) — historically, inversions precede recessions by 12–18 months; a hard landing remains a risk.`
       : curveSpread < 1 ? ` The yield curve is flat (${pct(curveSpread, 2)}) — transitioning from inversion; steepening would signal a recovery outlook.`
@@ -1001,7 +1024,9 @@ function buildYield(q) {
   })();
   const stats = [
     ['30Y Yield',    yieldVal   != null ? yieldVal.toFixed(2)          + '%' : '\u2014', '5% = equity headwind',    yieldStat    === 'bearish' ? 'neg' : yieldStat   === 'bullish' ? 'pos' : null],
-    ['10Y Yield',    tnx?.price != null ? tnx.price.toFixed(2)         + '%' : '\u2014', '4.5%+ = restrictive',     tnx?.price   != null ? (tnx.price >= 4.5 ? 'neg' : tnx.price < 3.5 ? 'pos' : null) : null],
+    hasReal
+      ? ['10Y Real',  realYield.toFixed(2) + '%', '2.5%+ = restrictive', realStat === 'bearish' ? 'neg' : realStat === 'bullish' ? 'pos' : null]
+      : ['10Y Yield', tnx?.price != null ? tnx.price.toFixed(2) + '%' : '\u2014', '4.5%+ = restrictive', tnx?.price != null ? (tnx.price >= 4.5 ? 'neg' : tnx.price < 3.5 ? 'pos' : null) : null],
     ['Curve 3m–10Y', curveSpread != null ? (curveSpread >= 0 ? '+' : '') + curveSpread.toFixed(2) + '%' : '\u2014', 'inversion = recession risk', curveStatus === 'bearish' ? 'neg' : curveStatus === 'bullish' ? 'pos' : null],
   ];
   return { id: 'yield', number: 5, title: 'Yield', subtitle: 'The Cost of Capital', status, rows, stats, hideIndicator: true, note: yieldNote };
@@ -1061,9 +1086,9 @@ function buildGlobalFlows(q) {
     if (!cd) return null;
     const { above, vs200Str, value } = cd;
     const condition = sym === 'ACWI'
-      ? (above ? `Bull Market Intact (${vs200Str}) \u2014 Stay Invested`  : `Bear Market Signal (${vs200Str}) \u2014 Raise Cash`)
+      ? (above ? `Bull Market Intact (${vs200Str}) \u2014 Long Bias`      : `Bear Market Signal (${vs200Str}) \u2014 Defensive Bias`)
       : sym === 'EEM'
-      ? (above ? `EM Risk-On (${vs200Str}) \u2014 Add EM Exposure`        : `EM Risk-Off (${vs200Str}) \u2014 Reduce EM`)
+      ? (above ? `EM Risk-On (${vs200Str}) \u2014 EM Overweight Bias`     : `EM Risk-Off (${vs200Str}) \u2014 EM Underweight`)
       : (above ? `Uptrend (${vs200Str}) \u2014 Overweight`                : `Downtrend (${vs200Str}) \u2014 Underweight`);
     const displayValue = (sym === 'ACWI' || sym === 'EEM') && vs200Str !== '\u2014'
       ? `${vs200Str}<br>${value}`
@@ -1077,9 +1102,9 @@ function buildGlobalFlows(q) {
       label: 'Regional Bull',
       indicator: `${bull}/${total} indexes above 200d SMA`,
       value: `${bull} / ${total}`,
-      condition: bull >= 6 ? 'Synchronized Expansion \u2014 Full Allocation'
+      condition: bull >= 6 ? 'Synchronized Expansion \u2014 Risk-On'
         : bull >= 4 ? 'Partial Expansion \u2014 Favour Leaders'
-        : 'Global Weakness \u2014 Raise Cash',
+        : 'Global Weakness \u2014 Defensive Bias',
       status: gStatus,
     },
     makeRow('ACWI',    'MSCI ACWI',      'Global'),
@@ -1462,14 +1487,14 @@ function buildEquities(q) {
     if (!d || v200s == null) {
       condition = '\u2014'; status = 'neutral';
     } else if (abvBoth) {
-      condition = `Trend Intact (${v200s} vs 200d) \u2014 Execute Long`;
+      condition = `Trend Intact (${v200s} vs 200d) \u2014 Long Bias`;
       status = 'bullish';
       bull++;
     } else if (abv200) {
-      condition = `Pulling Back (${v200s} vs 200d) \u2014 Wait for 50d Recapture`;
+      condition = `Pulling Back (${v200s} vs 200d) \u2014 Await 50d Recapture`;
       status = 'neutral';
     } else {
-      condition = `Below 200d (${v200s} vs 200d) \u2014 Step Aside`;
+      condition = `Below 200d (${v200s} vs 200d) \u2014 Trend Broken`;
       status = 'bearish';
     }
 
@@ -2011,8 +2036,8 @@ function buildAggregate(cards) {
                     + (byKey.macro?.pct          ?? 0) * 0.3;
 
   const glow    = weightedPct >= 0.70 ? 'green' : weightedPct >= 0.40 ? 'yellow' : 'red';
-  const label   = weightedPct >= 0.70 ? 'Risk-On \u2014 Broad Participation' : weightedPct >= 0.40 ? 'Mixed Signals \u2014 Selective' : 'Risk-Off \u2014 Reduce Exposure';
-  const posture = weightedPct >= 0.70 ? 'Risk-On, Not Complacent' : weightedPct >= 0.40 ? 'Selective, Not Aggressive' : 'Defensive, Raise Cash';
+  const label   = weightedPct >= 0.70 ? 'Risk-On \u2014 Broad Participation' : weightedPct >= 0.40 ? 'Mixed Signals \u2014 Selective' : 'Risk-Off \u2014 Defensive';
+  const posture = weightedPct >= 0.70 ? 'Risk-On, Not Complacent' : weightedPct >= 0.40 ? 'Selective, Not Aggressive' : 'Defensive, Reduce Risk';
 
   const regimeBearish = byId['regime']?.status === 'bearish';
 
@@ -2113,12 +2138,14 @@ export async function onRequest(context) {
     db ? loadCreditContext(db) : Promise.resolve(null),
   ]);
 
+  const realYield = realYieldSeries?.[0]?.value ?? null;
+
   const cards = [
     buildRegime(q, regimeCtx),
     buildLeadership(q, leaderCtx),
     buildBreadth(q, breadthData, breadthCtx),
     buildValuations(shiller, buffett, forwardPe, japanPe),
-    buildYield(q),
+    buildYield(q, realYield),
     buildCurrency(q),
     buildGlobalFlows(q),
     buildSectors(q, kvWeights),
