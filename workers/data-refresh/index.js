@@ -147,11 +147,13 @@ async function runRefresh(env) {
   const sig = await callHub(`${siteUrl}/api/signals`, hubToken);
   console.log(`[data-refresh] signals done — wrote: ${sig.signalsWritten ?? '?'}, scored: ${sig.outcomesScored ?? '?'}`);
 
-  // Health check — alert by email if anything is stale or missing.
+  // Health check — email an alert only on a real failure (status 'error':
+  // D1 unreachable or mass staleness). 'warning' covers benign, expected gaps
+  // (market holidays, a stray missing ticker) and must not spam the inbox.
   console.log(`[data-refresh] running health check`);
   const health = await fetch(`${siteUrl}/api/health`).then(r => r.json()).catch(err => ({ status: 'error', error: err.message }));
   console.log(`[data-refresh] health: ${health.status} — stale: ${health.summary?.stale_count ?? '?'}, gaps: ${health.summary?.gap_date_count ?? '?'}`);
-  if (health.status && health.status !== 'ok') {
+  if (health.status === 'error') {
     await sendAlert(env, health);
   }
 
