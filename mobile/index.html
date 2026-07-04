@@ -52,8 +52,8 @@
 <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
-<script src="../ui_kits/mobile/glance-data.js?v=20260703n"></script>
-<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260703n"></script>
+<script src="../ui_kits/mobile/glance-data.js?v=20260704a"></script>
+<script src="../ui_kits/mobile/market-hub-adapter.js?v=20260704a"></script>
 <script type="text/babel">
 // Market Hub mobile — Glance view.
 // Structural cards (regime…equities) + Crowd Signals rendered via CardRow.
@@ -848,6 +848,62 @@ function DeepChart({ card, cardId, color }) {
   );
 }
 
+// ── ADID Advance-Decline Line (mobile) — cumulative NYSE + Nasdaq ─────────────
+function MobileAdidChart() {
+  const ranges = ['1M', '3M', '6M', '1Y', '5Y'];
+  const RMAP = { '1M': '1mo', '3M': '3mo', '6M': '6mo', '1Y': '1y', '5Y': '5y' };
+  const [range, setRange] = useState('6M');
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    let alive = true; setData(null);
+    fetch(`/api/breadth-history?range=${RMAP[range]}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        const cum = (arr) => { let s = 0; return (arr || []).map((v) => { if (v != null) s += v; return s; }); };
+        const nyse = cum(j.adid_nyse), nasdaq = cum(j.adid_nasdaq);
+        if (nyse.length > 1 || nasdaq.length > 1) setData({ nyse, nasdaq });
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [range]);
+  const W = 332, H = 150, top = 10, bot = 22;
+  let paths = null;
+  if (data) {
+    const all = [...data.nyse, ...data.nasdaq, 0];
+    const lo = Math.min(...all), hi = Math.max(...all), span = hi - lo || 1;
+    const n = Math.max(data.nyse.length, data.nasdaq.length);
+    const dx = W / (n - 1), yy = (v) => top + (1 - (v - lo) / span) * (H - top - bot);
+    const mk = (vals) => vals.map((v, i) => `${i ? 'L' : 'M'}${(i * dx).toFixed(1)},${yy(v).toFixed(1)}`).join(' ');
+    paths = { nyse: mk(data.nyse), nasdaq: mk(data.nasdaq), zeroY: yy(0) };
+  }
+  return (
+    <div style={{ background: '#0d1520', border: '1px solid #1e2d3d', borderRadius: 16, padding: '14px 14px 12px' }}>
+      <div style={{ fontFamily: SANS, fontSize: 12.5, color: '#cbd5e1', fontWeight: 500 }}>Advance-Decline Line — NYSE &amp; Nasdaq</div>
+      <div style={{ fontFamily: SANS, fontSize: 10, color: '#8295a9', marginTop: 1, marginBottom: 8 }}>Cumulative net advancers − decliners (ADID); rising = broad participation</div>
+      {paths ? (
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ display: 'block' }}>
+          {[0.25, 0.5, 0.75].map((g) => (<line key={g} x1="0" x2={W} y1={top + g * (H - top - bot)} y2={top + g * (H - top - bot)} stroke="#16202e" strokeWidth="1" strokeDasharray="3 4" />))}
+          <line x1="0" x2={W} y1={paths.zeroY} y2={paths.zeroY} stroke="#475569" strokeWidth="1" strokeDasharray="4 3" />
+          <path d={paths.nasdaq} fill="none" stroke="#f59e0b" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+          <path d={paths.nyse} fill="none" stroke="#22d3ee" strokeWidth="1.75" strokeLinejoin="round" strokeLinecap="round" />
+        </svg>
+      ) : (<div style={{ height: 150, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: SANS, fontSize: 11, color: '#64748b' }}>Loading ADID…</div>)}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 2, background: '#22d3ee' }} /><span style={{ fontFamily: SANS, fontSize: 10, color: '#8295a9' }}>NYSE</span></span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 11, height: 2, background: '#f59e0b' }} /><span style={{ fontFamily: SANS, fontSize: 10, color: '#8295a9' }}>Nasdaq</span></span>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
+        {ranges.map((r) => (
+          <button key={r} onClick={() => setRange(r)} style={{ all: 'unset', cursor: 'pointer', flex: 1, textAlign: 'center', padding: '7px 0', borderRadius: 8,
+            fontFamily: MONO, fontSize: 12, fontWeight: 600, color: r === range ? '#e8edf5' : '#64748b',
+            background: r === range ? '#1b2736' : 'transparent', border: `1px solid ${r === range ? '#243446' : 'transparent'}` }}>{r}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Error boundary for diagnostics ───────────────────────────────────────────
 class DiagBoundary extends React.Component {
   constructor(p) { super(p); this.state = { err: null }; }
@@ -1087,6 +1143,7 @@ function DeepDive({ card, cardId, onBack }) {
           </div>
           <DeepChart card={card} cardId={cardId} color={sig.c} />
         </div>
+        {cardId === 'breadth' && <MobileAdidChart />}
         <HistoryCalendar card={card} />
         <div>
           <div style={{ fontFamily: SANS, fontSize: 10, fontWeight: 700, letterSpacing: '.12em', textTransform: 'uppercase', color: '#8295a9', marginBottom: 8 }}>{card.title} Metrics</div>
