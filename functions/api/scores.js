@@ -1997,10 +1997,17 @@ function buildHorizons(q, breadthData, valn, fred) {
 }
 
 // ── AGGREGATE SCORE ───────────────────────────────────────────────────────────
+// The composite is a directional (timing) read. Two cards are intentionally
+// displayed but NOT scored here:
+//   • currency    — context, not a directional equity signal
+//   • valuations  — a *level* signal, not a timing signal. CAPE/Buffett have been
+//     "expensive" for years, so scoring it directionally pins the composite
+//     permanently bearish. Valuation now governs position SIZING via the Macro
+//     Anchor horizon (sizingFactor), not market-timing direction.
 const SIGNAL_CATEGORIES = [
   { key: 'trend',         label: 'Trend / Momentum',  ids: ['regime', 'leadership', 'sectors', 'equities'], weight: 0.4 },
   { key: 'participation', label: 'Participation',      ids: ['breadth', 'globalflows', 'commodities'],       weight: 0.3 },
-  { key: 'macro',         label: 'Macro Conditions',   ids: ['valuations', 'yield', 'credit'],               weight: 0.3 },
+  { key: 'macro',         label: 'Macro Conditions',   ids: ['yield', 'credit'],                             weight: 0.3 },
 ];
 
 function buildAggregate(cards) {
