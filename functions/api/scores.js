@@ -580,6 +580,18 @@ function buildBreadth(q, breadthData, breadthCtx, adidCtx) {
     else                             { adidState = 'flat';      adidLabel = 'Neutral — small move, no meaningful breadth divergence'; }
   }
 
+  // NYSE vs Nasdaq breadth split — the two exchanges disagreeing is a
+  // risk-appetite tell: NYSE is the broad market, Nasdaq skews growth/speculative.
+  const adidNasdaq = adidCtx?.nasdaq ?? null;
+  let splitState = null, splitLabel = null;
+  if (adidCtx?.latest != null && adidNasdaq != null) {
+    const n = adidCtx.latest;
+    if (n > 0 && adidNasdaq > 0)      { splitState = 'broad-pos'; splitLabel = 'both NYSE and Nasdaq advancing — broad, healthy participation'; }
+    else if (n < 0 && adidNasdaq < 0) { splitState = 'broad-neg'; splitLabel = 'both NYSE and Nasdaq declining — broad selling, risk-off'; }
+    else if (n > 0 && adidNasdaq < 0) { splitState = 'risk-fade'; splitLabel = 'NYSE advancing but Nasdaq declining — the broad market is up while growth/speculative names lag; risk appetite is cooling'; }
+    else                              { splitState = 'narrow';    splitLabel = 'Nasdaq advancing but NYSE declining — narrow, speculative leadership carrying a weak broad market'; }
+  }
+
   // Validation: coarser sector ETF breadth
   const SECTORS = ['XLK','XLV','XLF','XLI','XLC','XLY','XLP','XLE','XLU','XLRE','XLB'];
   const SECTOR_NAMES = {
@@ -674,7 +686,10 @@ function buildBreadth(q, breadthData, breadthCtx, adidCtx) {
       const adidStr = adidLabel
         ? ` Daily flow: NYSE advance-decline ${adidCtx.latest >= 0 ? '+' : ''}${adidCtx.latest} (5d net ${adidCtx.cum5 >= 0 ? '+' : ''}${adidCtx.cum5}) \u2014 ${adidLabel}.`
         : '';
-      return longStr + shortStr + alignStr + sectStr + consStr + adidStr;
+      const splitStr = splitLabel
+        ? ` NYSE vs Nasdaq: ${splitLabel} (NYSE ${adidCtx.latest >= 0 ? '+' : ''}${adidCtx.latest} vs Nasdaq ${adidNasdaq >= 0 ? '+' : ''}${adidNasdaq}).`
+        : '';
+      return longStr + shortStr + alignStr + sectStr + consStr + adidStr + splitStr;
     }
     if (n200 < 7) return 'Breadth data loading \u2014 check back shortly.';
     const signal = bull200 >= 8 ? 'broad support across sectors \u2014 rally is healthy.'
@@ -699,6 +714,8 @@ function buildBreadth(q, breadthData, breadthCtx, adidCtx) {
     ['Sector Count', n200   >  0    ? `${bull200} / ${n200}` : '\u2014',  'SPDR sectors above 200d',   n200   >  0    ? (bull200 >= 8  ? 'pos' : bull200 <  5  ? 'neg' : null) : null],
     ['NYSE A/D (ADID)', adidCtx?.latest != null ? (adidCtx.latest >= 0 ? '+' : '') + adidCtx.latest : '\u2014',
       adidCtx?.cum5 != null ? `${adidCtx.cum5 >= 0 ? '+' : ''}${adidCtx.cum5} over 5d` : 'net advancers \u2212 decliners', adidTone],
+    ['Nasdaq A/D (ADID)', adidNasdaq != null ? (adidNasdaq >= 0 ? '+' : '') + adidNasdaq : '\u2014',
+      adidCtx?.nasdaqCum5 != null ? `${adidCtx.nasdaqCum5 >= 0 ? '+' : ''}${adidCtx.nasdaqCum5} over 5d` : 'growth/speculative flow', adidNasdaq != null ? (adidNasdaq >= 0 ? 'pos' : 'neg') : null],
   ];
   const deltas = breadthCtx ? { mmth: breadthCtx.mmthDir, mmfi: breadthCtx.mmfiDir } : null;
   return { id: 'breadth', number: 3, title: 'Breadth', subtitle: 'The Early Warning', status: cardStatus(rows), rows, stats, hideIndicator: true, note: breadthNote, sectorTable, deltas };
@@ -779,13 +796,18 @@ async function loadBreadthContext(db) {
 async function loadBreadthAdid(db) {
   try {
     const { results } = await db.prepare(
-      `SELECT date, adid_nyse FROM market_breadth WHERE adid_nyse IS NOT NULL ORDER BY date DESC LIMIT 10`
+      `SELECT date, adid_nyse, adid_nasdaq FROM market_breadth
+       WHERE adid_nyse IS NOT NULL OR adid_nasdaq IS NOT NULL
+       ORDER BY date DESC LIMIT 10`
     ).all();
     if (!results || !results.length) return null;
-    const latest = results[0].adid_nyse;
-    const cum5   = results.slice(0, 5).reduce((s, r) => s + r.adid_nyse, 0);
-    const cum10  = results.slice(0, 10).reduce((s, r) => s + r.adid_nyse, 0);
-    return { latest, latestDate: results[0].date, cum5, cum10 };
+    const firstNonNull = (key) => { const r = results.find(x => x[key] != null); return r ? r[key] : null; };
+    const sumN = (key, n) => results.slice(0, n).reduce((s, r) => s + (r[key] ?? 0), 0);
+    return {
+      latest:      firstNonNull('adid_nyse'),  latestDate: results[0].date,
+      cum5:        sumN('adid_nyse', 5),        cum10:      sumN('adid_nyse', 10),
+      nasdaq:      firstNonNull('adid_nasdaq'), nasdaqCum5: sumN('adid_nasdaq', 5),
+    };
   } catch { return null; }
 }
 
