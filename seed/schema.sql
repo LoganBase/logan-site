@@ -27,6 +27,13 @@ CREATE TABLE IF NOT EXISTS indicators (
 CREATE INDEX IF NOT EXISTS idx_prices_symbol_date ON daily_prices (symbol, date DESC);
 CREATE INDEX IF NOT EXISTS idx_indicators_symbol_date ON indicators (symbol, date DESC);
 
+-- Date-only indexes: /api/scores' loadFromD1 filters by `date >=` across ALL
+-- symbols. Without these it full-scans the whole table (~364k rows) instead of
+-- ~2k. IMPORTANT: run `ANALYZE;` after any large delete/backfill so the query
+-- planner actually chooses these over the (symbol, date) composite index.
+CREATE INDEX IF NOT EXISTS idx_prices_date ON daily_prices (date);
+CREATE INDEX IF NOT EXISTS idx_indicators_date ON indicators (date);
+
 CREATE TABLE IF NOT EXISTS shiller_data (
   date     TEXT PRIMARY KEY,
   price    REAL,
