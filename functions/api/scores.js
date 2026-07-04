@@ -802,6 +802,26 @@ async function loadBuffettLatest(db) {
   } catch { return null; }
 }
 
+// ── S&P 500 EARNINGS MOMENTUM ─────────────────────────────────────────────────
+// Trailing-12m EPS from sp500_eps (Multpl via TV webhook). Direction, not level:
+// 6-month and YoY rate of change answer "are earnings actually growing under the
+// multiple?" — a timing-relevant signal, unlike valuation level.
+async function loadEpsMomentum(db) {
+  try {
+    const { results } = await db.prepare(
+      `SELECT date, eps FROM sp500_eps WHERE eps IS NOT NULL ORDER BY date DESC LIMIT 14`
+    ).all();
+    if (!results || results.length < 7) return null;
+    const latest     = results[0].eps;
+    const latestDate = results[0].date;
+    const eps6  = results[6]?.eps  ?? null;   // ~6 months ago (monthly rows)
+    const eps12 = results[12]?.eps ?? null;   // ~12 months ago
+    const yoy = eps12 ? (latest / eps12 - 1) * 100 : null;
+    const g6  = eps6  ? (latest / eps6  - 1) * 100 : null;
+    return { latest, latestDate, yoy, g6 };
+  } catch { return null; }
+}
+
 // ── HORIZON: HISTORICAL PERCENTILE ────────────────────────────────────────────
 // Returns { value, pct } where pct (0–1) is the fraction of history <= current.
 // table/col are internal constants (never user input) — safe to interpolate.
@@ -833,7 +853,7 @@ async function loadFredSeries(db, seriesId, limit = 250) {
 }
 
 
-function buildValuations(shiller, buffett, forwardPe, japanPe) {
+function buildValuations(shiller, buffett, forwardPe, japanPe, epsMom) {
   // CAPE and trailing P/E come from D1 (shiller_data) when available.
   // Buffett Indicator comes from D1 (buffett_data) when available.
   // Forward P/E and Japan P/E come from D1 (nightly cron) when available.
@@ -903,6 +923,15 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
         : 'bearish' },
     // Row 5 \u2014 deep-dive context only; excluded from card status
     { label: 'Japan P/E',     indicator: 'EWJ (Japan ETF) vs S&P 500', value: japanPeStr, condition: japanCond, status: japanStatus },
+    // Row 6 \u2014 earnings DIRECTION (not level); the timing-relevant part of valuation.
+    // Displayed here for context; scored in the Trend Compass horizon, not this card.
+    { label: 'Earnings Trend', indicator: 'S&P 500 TTM EPS \u2014 YoY Change (Multpl)',
+      value:     epsMom?.yoy != null ? `${epsMom.yoy >= 0 ? '+' : ''}${epsMom.yoy.toFixed(1)}%` : '\u2014',
+      condition: epsMom?.yoy == null ? 'Awaiting Data'
+        : epsMom.yoy > 5    ? 'Earnings Expanding \u2014 Fundamentals Support'
+        : epsMom.yoy >= -2  ? 'Earnings Flat \u2014 Watch for a Turn'
+        :                     'Earnings Contracting \u2014 Earnings Recession',
+      status:    epsMom?.yoy == null ? 'neutral' : epsMom.yoy > 2 ? 'bullish' : epsMom.yoy < -2 ? 'bearish' : 'neutral' },
   ];
 
   const stats = [
@@ -918,6 +947,7 @@ function buildValuations(shiller, buffett, forwardPe, japanPe) {
       'Valuations set return expectations over a 5–10 year horizon, not near-term entry points — always combine with Regime and Credit before acting.',
       cape != null ? `CAPE ${cape.toFixed(1)}× (${dateLabel}) — ${cape > 35 ? 'top historical decile; 10-year real returns have historically been 0–2% per year from this level' : cape > 25 ? 'elevated vs the ~17× long-run average; expected long-run returns compress from here' : 'near long-run average; expected returns are normal'}.` : null,
       buffettRatio != null ? `Buffett Indicator (total market cap / GDP) at ${buffettRatio.toFixed(0)}% — ${buffettRatio > 160 ? 'extreme overvaluation; the ratio has only been higher at the 2000 dot-com peak' : buffettRatio > 115 ? 'overvalued vs GDP; historically signals sub-average forward returns' : 'within a fair-value range for this metric'}.` : null,
+      epsMom?.yoy != null ? `S&P 500 trailing EPS is ${epsMom.yoy >= 0 ? 'up' : 'down'} ${Math.abs(epsMom.yoy).toFixed(1)}% year-over-year — ${epsMom.yoy > 5 ? 'earnings are expanding, giving the multiple genuine fundamental support' : epsMom.yoy >= -2 ? 'earnings are broadly flat; the multiple is doing the work here, not earnings' : 'earnings are contracting (an earnings recession) — multiples expanding on falling earnings is a classic late-cycle warning'}.` : null,
       japanPeVal != null && liveUsPe != null ? `Japan (EWJ) trades at ${japanPeVal.toFixed(1)}× vs US ${liveUsPe.toFixed(0)}× — ${japanPeVal < liveUsPe ? `a ${((1 - japanPeVal / liveUsPe) * 100).toFixed(0)}% valuation discount; international equities retain a structural valuation edge` : 'the valuation gap has closed; no clear international valuation premium at this time'}.` : null,
       'At current multiples, portfolio construction should favour quality over quantity: earnings visibility, strong balance sheets, and reasonable P/E relative to growth (PEG ≤ 1).',
     ].filter(Boolean).join(' '),
@@ -1945,6 +1975,10 @@ function buildHorizons(q, breadthData, valn, fred) {
   const globAbove = globFlags.filter(v => v > 0).length;
   cPush('global', 'ACWI & EEM vs 200d', globFlags.length ? globAbove / globFlags.length : null, globFlags.length ? `${globAbove}/${globFlags.length} above` : null);
 
+  // Earnings direction (S&P 500 TTM EPS, YoY) — fundamentals confirming or
+  // diverging from the trend. ±10% YoY maps to the 0/1 bounds.
+  cPush('earnings', 'S&P 500 EPS YoY', valn?.epsYoy != null ? clamp01(0.5 + valn.epsYoy / 20) : null, valn?.epsYoy != null ? `${valn.epsYoy >= 0 ? '+' : ''}${valn.epsYoy.toFixed(1)}%` : null);
+
   const compassScore = round1((cComps.length ? cComps.reduce((a, c) => a + c.value, 0) / cComps.length : 0.5) * 10);
   const compassHigh = compassScore >= 5;
   const compassTrigger = compassScore > 7.0 ? 'The 2–3 month trend is healthy — favour economically-sensitive stocks (tech, industrials, financials) and emerging markets.'
@@ -2139,10 +2173,11 @@ export async function onRequest(context) {
     }
   }
 
-  const [regimeCtx, commCtx, creditCtx] = await Promise.all([
+  const [regimeCtx, commCtx, creditCtx, epsMom] = await Promise.all([
     db ? loadRegimeContext(db) : Promise.resolve(null),
     db ? loadCommoditiesContext(db) : Promise.resolve(null),
     db ? loadCreditContext(db) : Promise.resolve(null),
+    db ? loadEpsMomentum(db) : Promise.resolve(null),
   ]);
 
   const realYield = realYieldSeries?.[0]?.value ?? null;
@@ -2151,7 +2186,7 @@ export async function onRequest(context) {
     buildRegime(q, regimeCtx),
     buildLeadership(q, leaderCtx),
     buildBreadth(q, breadthData, breadthCtx),
-    buildValuations(shiller, buffett, forwardPe, japanPe),
+    buildValuations(shiller, buffett, forwardPe, japanPe, epsMom),
     buildYield(q, realYield),
     buildCurrency(q),
     buildGlobalFlows(q),
@@ -2209,6 +2244,7 @@ export async function onRequest(context) {
     cape:    capeP?.value,    capePct:    capeP?.pct,
     buffett: buffettP?.value, buffettPct: buffettP?.pct,
     fwdPe:   fwdPeP?.value,   fwdPePct:   fwdPeP?.pct,
+    epsYoy:  epsMom?.yoy ?? null,
   };
   // Fed funds direction from DFEDTARU: hiking = tightening = more structural risk.
   let fedFundsRisk = null, fedFundsDir = null;

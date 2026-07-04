@@ -8,6 +8,8 @@
  *   MMFI    — NYSE % stocks above 50-day SMA   → market_breadth.pct_above_50d
  *   CAPE    — Shiller CAPE ratio (monthly)      → shiller_data.cape
  *   BUFFETT — Total Mkt Cap / GDP ratio (qtrly) → buffett_data.ratio
+ *   EPS     — S&P 500 trailing 12m EPS (monthly)→ sp500_eps.eps
+ *             (Multpl SP500_EARNINGS_MONTH)
  *
  * TradingView alert message body (JSON):
  *   {"ticker": "MMTH", "value": {{close}}, "time": "{{time}}", "secret": "<TV_SECRET>"}
@@ -129,6 +131,14 @@ export default {
           ON CONFLICT(date) DO UPDATE SET ratio = excluded.ratio
         `).bind(quarterDate, Math.round(value * 100) / 100).run();
 
+      } else if (ticker === 'EPS') {
+        const monthDate = toMonthStart(date);
+        await env.DB.prepare(`
+          INSERT INTO sp500_eps (date, eps)
+          VALUES (?, ?)
+          ON CONFLICT(date) DO UPDATE SET eps = excluded.eps
+        `).bind(monthDate, Math.round(value * 100) / 100).run();
+
       } else {
         return new Response(`Unknown ticker: ${ticker}`, { status: 400 });
       }
@@ -137,7 +147,7 @@ export default {
       return new Response('Internal Error', { status: 500 });
     }
 
-    const storedDate = ticker === 'CAPE'    ? toMonthStart(date)
+    const storedDate = (ticker === 'CAPE' || ticker === 'EPS') ? toMonthStart(date)
                      : ticker === 'BUFFETT' ? toQuarterStart(date)
                      : date;
     return new Response(JSON.stringify({ ok: true, date: storedDate, ticker, value }), {

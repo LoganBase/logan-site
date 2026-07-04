@@ -60,6 +60,16 @@ CREATE TABLE IF NOT EXISTS japan_pe_data (
 
 CREATE INDEX IF NOT EXISTS idx_japan_pe_date ON japan_pe_data (date DESC);
 
+-- S&P 500 trailing-12m earnings per share (Multpl SP500_EARNINGS_MONTH via
+-- TradingView webhook + CSV backfill). Monthly. Feeds the earnings-direction
+-- signal (6-month rate of change) on the Valuations card and Trend Compass.
+CREATE TABLE IF NOT EXISTS sp500_eps (
+  date TEXT PRIMARY KEY,   -- YYYY-MM-01 (month start)
+  eps  REAL                -- S&P 500 trailing 12-month EPS (USD)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sp500_eps_date ON sp500_eps (date DESC);
+
 -- Generic FRED daily series store (Macro Anchor + Trend Compass credit).
 -- Keyed by (series_id, date) so multiple FRED series share one table:
 --   DFII10          — 10-year TIPS real yield (%)
