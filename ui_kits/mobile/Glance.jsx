@@ -1038,6 +1038,13 @@ function Home({ D, dailyBrief, macroBrief, macroBriefLoading, onOpen }) {
           <DailyBriefRow brief={dailyBrief} onTap={() => onOpen('dailybrief')} />
           <MacroBriefRow brief={macroBrief} loading={macroBriefLoading} onTap={() => onOpen('macrobrief')} />
         </div>
+
+        {/* Disclaimer */}
+        <div style={{ borderTop: '1px solid #16202e', paddingTop: 14 }}>
+          <p style={{ fontFamily: SANS, fontSize: 10, color: '#475569', lineHeight: 1.6, margin: 0 }}>
+            <strong style={{ color: '#64748b', fontWeight: 600 }}>Disclaimer:</strong> Market Hub is for informational and educational purposes only. Nothing on this site constitutes investment advice, a solicitation, or a recommendation to buy or sell any security, commodity, or financial instrument. Market Hub is not a registered investment adviser, broker-dealer, or commodity trading adviser. Data may be delayed, incomplete, or inaccurate — verify independently before acting. Past performance does not guarantee future results. Prediction market probabilities reflect crowd sentiment and are not guaranteed outcomes. Always consult a qualified financial professional before making investment decisions.
+          </p>
+        </div>
       </div>
     </div>
   );
