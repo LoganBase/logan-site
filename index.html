@@ -3,18 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- market.loganbase.com is the Market Hub app: device-detect and jump straight
-     to the desktop kit (/v2) or the mobile app (/mobile). www.loganbase.com and
-     any other host fall through to the LoganBase landing below, untouched. -->
-<script>
-  (function () {
-    if (location.hostname.indexOf('market.') === 0) {
-      var isMobile = window.matchMedia('(max-width: 767px)').matches
-        || /Mobi|Android|iPhone|iPod/i.test(navigator.userAgent);
-      location.replace(isMobile ? '/mobile/' : '/v2/');
-    }
-  })();
-</script>
 <title>LoganBase</title>
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'><rect x='0' y='14' width='7' height='12' rx='1.5' fill='%23ef4444'/><rect x='11' y='7' width='7' height='19' rx='1.5' fill='%23f59e0b'/><rect x='22' y='1' width='8' height='25' rx='1.5' fill='%2322c55e'/></svg>">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
